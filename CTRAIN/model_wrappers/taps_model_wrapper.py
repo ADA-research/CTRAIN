@@ -21,7 +21,7 @@ class TAPSModelWrapper(CTRAINWrapper):
                  pgd_alpha=0.5, pgd_restarts=1, pgd_early_stopping=False, pgd_alpha_decay_factor=.1,
                  pgd_decay_steps=(4,7), block_sizes=None, gradient_expansion_alpha=5,
                  gradient_link_thresh=.5, gradient_link_tol=0.00001,
-                 checkpoint_save_path=None,
+                 checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda'),
                  ):
         """
@@ -54,10 +54,11 @@ class TAPSModelWrapper(CTRAINWrapper):
             gradient_link_thresh (float): Threshold for gradient link.
             gradient_link_tol (float): Tolerance for gradient link.
             checkpoint_save_path (str): Path to save checkpoints.
+            checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path)
+        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
         self.cert_train_method = 'taps'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -144,6 +145,7 @@ class TAPSModelWrapper(CTRAINWrapper):
             taps_pgd_decay_factor=self.pgd_alpha_decay_factor,
             start_epoch=start_epoch,
             results_path=self.checkpoint_path,
+            checkpoint_save_interval=self.checkpoint_save_interval,
             device=self.device
         )
         

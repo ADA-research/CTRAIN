@@ -14,7 +14,8 @@ class CrownIBPModelWrapper(CTRAINWrapper):
     
     def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,
                  lr_decay_factor=.2, lr_decay_milestones=(80, 90), gradient_clip=10, l1_reg_weight=0.000001,
-                 shi_reg_weight=.5, shi_reg_decay=True, start_kappa=1, end_kappa=0, start_beta=1, end_beta=0, checkpoint_save_path=None,
+                 shi_reg_weight=.5, shi_reg_decay=True, start_kappa=1, end_kappa=0, start_beta=1, end_beta=0,
+                 checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
         Initializes the CrownIBPModelWrapper.
@@ -40,10 +41,11 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             start_beta (float): Starting value of beta that trades off IBP and CROWN-IBP loss.
             end_beta (float): Ending value of beta.
             checkpoint_save_path (str): Path to save checkpoints.
+            checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path)
+        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
         self.cert_train_method = 'crown_ibp'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -95,6 +97,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             shi_regularisation_weight=self.shi_reg_weight,
             shi_reg_decay=self.shi_reg_decay,
             results_path=self.checkpoint_path,
+            checkpoint_save_interval=self.checkpoint_save_interval,
             device=self.device
         )
         

@@ -16,7 +16,7 @@ class SABRModelWrapper(CTRAINWrapper):
                  lr_decay_factor=.2, lr_decay_milestones=(80, 90), gradient_clip=10, l1_reg_weight=0.000001,
                  shi_reg_weight=.5, shi_reg_decay=True, sabr_subselection_ratio=.2, pgd_steps=8, 
                  pgd_alpha=0.5, pgd_restarts=1, pgd_early_stopping=False, pgd_alpha_decay_factor=.1,
-                 pgd_decay_milestones=(4,7), checkpoint_save_path=None, 
+                 pgd_decay_milestones=(4,7), checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
         Initializes the SABRModelWrapper.
@@ -45,10 +45,11 @@ class SABRModelWrapper(CTRAINWrapper):
             pgd_alpha_decay_factor (float): PGD alpha decay factor.
             pgd_decay_milestones (tuple): Milestones for PGD alpha decay.
             checkpoint_save_path (str): Path to save checkpoints.
+            checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path)
+        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
         self.cert_train_method = 'sabr'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -102,6 +103,7 @@ class SABRModelWrapper(CTRAINWrapper):
             shi_regularisation_weight=self.shi_reg_weight,
             shi_reg_decay=self.shi_reg_decay,
             results_path=self.checkpoint_path,
+            checkpoint_save_interval=self.checkpoint_save_interval,
             device=self.device
         )
         

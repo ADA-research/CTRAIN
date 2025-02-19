@@ -16,15 +16,41 @@ from CTRAIN.util import save_checkpoint
 from CTRAIN.train.certified.regularisers import get_l1_reg
 
 
-def sabr_train_model(original_model, hardened_model, train_loader, val_loader=None, start_epoch=0, num_epochs=None, eps=0.3, eps_std=0.3, eps_schedule=(0, 20, 50), eps_schedule_unit='epoch', eps_scheduler_args=dict(), optimizer=None,
-                    subselection_ratio=.4, lr_decay_schedule=(15, 25), lr_decay_factor=.2, lr_decay_schedule_unit='epoch', 
-                    n_classes=10, gradient_clip=None, l1_regularisation_weight=0.00001, shi_regularisation_weight=1, shi_reg_decay=True,
-                    pgd_steps=8, pgd_step_size=.5, pgd_restarts=1, pgd_early_stopping=True, pgd_decay_factor=.1, pgd_decay_checkpoints=(4,7), 
-                    results_path="./results", device='cuda'):
-    
+def sabr_train_model(
+    original_model,
+    hardened_model,
+    train_loader,
+    val_loader=None,
+    start_epoch=0,
+    num_epochs=None,
+    eps=0.3,
+    eps_std=0.3,
+    eps_schedule=(0, 20, 50),
+    eps_schedule_unit="epoch",
+    eps_scheduler_args=dict(),
+    optimizer=None,
+    subselection_ratio=0.4,
+    lr_decay_schedule=(15, 25),
+    lr_decay_factor=0.2,
+    lr_decay_schedule_unit="epoch",
+    n_classes=10,
+    gradient_clip=None,
+    l1_regularisation_weight=0.00001,
+    shi_regularisation_weight=1,
+    shi_reg_decay=True,
+    pgd_steps=8,
+    pgd_step_size=0.5,
+    pgd_restarts=1,
+    pgd_early_stopping=True,
+    pgd_decay_factor=0.1,
+    pgd_decay_checkpoints=(4, 7),
+    results_path="./results",
+    checkpoint_save_interval=10,
+    device="cuda",
+):
     """
     Trains a model using the SABR method.
-    
+
     Args:
         original_model (torch.nn.Module): The original model to be hardened.
         hardened_model (torch.nn.Module): The model to be trained with SABR.
@@ -54,20 +80,21 @@ def sabr_train_model(original_model, hardened_model, train_loader, val_loader=No
         pgd_decay_factor (float, optional): Decay factor for PGD. Defaults to 0.1.
         pgd_decay_checkpoints (tuple, optional): Checkpoints for PGD decay. Defaults to (4, 7).
         results_path (str, optional): Path to save the training results. Defaults to "./results".
+        checkpoint_save_interval (int, optional): Interval for saving checkpoints. Defaults to 10.
         device (str, optional): Device to use for training ('cuda' or 'cpu'). Defaults to 'cuda'.
-    
+
     Returns:
         (auto_LiRPA.BoundedModule): The trained hardened model.
     """
-    
-    criterion = nn.CrossEntropyLoss(reduction='none')
+
+    criterion = nn.CrossEntropyLoss(reduction="none")
 
     if start_epoch == 0:
         # Important Change to Vanilla IBP: Initialise Weights to normal distribution with sigma_i = sqrt(2*pi)/n_i, for layer i and fan in n_i
         ibp_init_shi(original_model, hardened_model)
 
     no_batches = 0
-    cur_lr = optimizer.param_groups[-1]['lr']
+    cur_lr = optimizer.param_groups[-1]["lr"]
 
     # Important Change to Vanilla IBP: Schedule Eps smoothly
     eps_scheduler = SmoothedScheduler(
@@ -79,7 +106,7 @@ def sabr_train_model(original_model, hardened_model, train_loader, val_loader=No
         eps_schedule=eps_schedule,
         batches_per_epoch=len(train_loader),
         start_epoch=start_epoch,
-        **eps_scheduler_args
+        **eps_scheduler_args,
     )
 
     cur_eps = eps_scheduler.get_cur_eps()
@@ -89,41 +116,52 @@ def sabr_train_model(original_model, hardened_model, train_loader, val_loader=No
         epoch_adv_err = 0
         epoch_rob_err = 0
         epoch_nat_err = 0
-        
-        if lr_decay_schedule_unit == 'epoch':
+
+        if lr_decay_schedule_unit == "epoch":
             if epoch + 1 in lr_decay_schedule:
                 print("LEARNING RATE DECAYED!")
                 cur_lr = cur_lr * lr_decay_factor
                 for g in optimizer.param_groups:
-                    g['lr'] = cur_lr
+                    g["lr"] = cur_lr
 
-        
-        print(f"[{epoch + 1}/{num_epochs}]: eps {[channel_eps for channel_eps in cur_eps]}")
+        print(
+            f"[{epoch + 1}/{num_epochs}]: eps {[channel_eps for channel_eps in cur_eps]}"
+        )
         hardened_model.train()
         original_model.train()
         running_loss = 0.0
-        
+
         for batch_idx, (data, target) in enumerate(train_loader):
 
             cur_eps = eps_scheduler.get_cur_eps().reshape(-1, 1, 1)
-            
-            ptb = PerturbationLpNorm(eps=cur_eps, norm=np.inf, x_L=torch.clamp(data - cur_eps, train_loader.min, train_loader.max).to(device), x_U=torch.clamp(data + cur_eps, train_loader.min, train_loader.max).to(device))
 
-              
-            if lr_decay_schedule_unit == 'batch':
+            ptb = PerturbationLpNorm(
+                eps=cur_eps,
+                norm=np.inf,
+                x_L=torch.clamp(data - cur_eps, train_loader.min, train_loader.max).to(
+                    device
+                ),
+                x_U=torch.clamp(data + cur_eps, train_loader.min, train_loader.max).to(
+                    device
+                ),
+            )
+
+            if lr_decay_schedule_unit == "batch":
                 if no_batches + 1 in lr_decay_schedule:
                     print("LEARNING RATE DECAYED!")
                     cur_lr = cur_lr * lr_decay_factor
                     for g in optimizer.param_groups:
-                        g['lr'] = cur_lr
-            
+                        g["lr"] = cur_lr
+
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             clean_output = hardened_model(data)
-            regular_err = torch.sum(torch.argmax(clean_output, dim=1) != target).item() / data.size(0)
+            regular_err = torch.sum(
+                torch.argmax(clean_output, dim=1) != target
+            ).item() / data.size(0)
             epoch_nat_err += regular_err
-            if eps_scheduler.get_cur_eps(normalise=False) != 0.:
-                
+            if eps_scheduler.get_cur_eps(normalise=False) != 0.0:
+
                 sabr_loss, robust_err, adv_err = get_sabr_loss(
                     hardened_model=hardened_model,
                     original_model=original_model,
@@ -143,18 +181,20 @@ def sabr_train_model(original_model, hardened_model, train_loader, val_loader=No
                     pgd_early_stopping=pgd_early_stopping,
                     pgd_decay_factor=pgd_decay_factor,
                     pgd_decay_checkpoints=pgd_decay_checkpoints,
-                    return_stats=True
+                    return_stats=True,
                 )
-                
+
                 epoch_adv_err += adv_err
                 epoch_rob_err += robust_err
 
                 loss = sabr_loss
-            
+
             else:
                 loss = criterion(clean_output, target).mean()
 
-            if (eps_scheduler.get_cur_eps(normalise=False) != eps_scheduler.get_max_eps(normalise=False)):
+            if eps_scheduler.get_cur_eps(normalise=False) != eps_scheduler.get_max_eps(
+                normalise=False
+            ):
                 # SABR also uses Shi regularisation during warm up/ramp-up
                 loss_regularisers = get_shi_regulariser(
                     model=hardened_model,
@@ -164,36 +204,43 @@ def sabr_train_model(original_model, hardened_model, train_loader, val_loader=No
                     eps_scheduler=eps_scheduler,
                     n_classes=n_classes,
                     device=device,
-                    included_regularisers=['relu', 'tightness'],
+                    included_regularisers=["relu", "tightness"],
                     verbose=False,
-                    regularisation_decay=shi_reg_decay
+                    regularisation_decay=shi_reg_decay,
                 )
                 loss = loss + shi_regularisation_weight * loss_regularisers
-            
+
             if l1_regularisation_weight is not None:
-                l1_regularisation = l1_regularisation_weight * get_l1_reg(model=original_model, device=device)
+                l1_regularisation = l1_regularisation_weight * get_l1_reg(
+                    model=original_model, device=device
+                )
                 loss = loss + l1_regularisation
-                
+
             loss.backward()
             if gradient_clip is not None:
-                nn.utils.clip_grad_value_(hardened_model.parameters(), clip_value=gradient_clip)
+                nn.utils.clip_grad_value_(
+                    hardened_model.parameters(), clip_value=gradient_clip
+                )
             optimizer.step()
-            
+
             running_loss += loss.item()
             eps_scheduler.batch_step()
             no_batches += 1
 
-        train_acc_nat = (1 - epoch_nat_err / len(train_loader))
-        train_acc_adv = (1 - epoch_adv_err / len(train_loader))
-        train_acc_cert = (1 - epoch_rob_err / len(train_loader))
+        train_acc_nat = 1 - epoch_nat_err / len(train_loader)
+        train_acc_adv = 1 - epoch_adv_err / len(train_loader)
+        train_acc_cert = 1 - epoch_rob_err / len(train_loader)
 
-        print(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_loader):.4f}')
-        print(f'\t Natural Acc. Train: {train_acc_nat:.4f}')
-        print(f'\t Adv. Acc. Train: {train_acc_adv:.4f}')
-        print(f'\t Certified Acc. Train: {train_acc_cert:.4f}')
+        print(
+            f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_loader):.4f}"
+        )
+        print(f"\t Natural Acc. Train: {train_acc_nat:.4f}")
+        print(f"\t Adv. Acc. Train: {train_acc_adv:.4f}")
+        print(f"\t Certified Acc. Train: {train_acc_cert:.4f}")
 
-        if results_path is not None:
-            save_checkpoint(hardened_model, optimizer, running_loss, epoch + 1, results_path)
-        
+        if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
+            save_checkpoint(
+                hardened_model, optimizer, running_loss, epoch + 1, results_path
+            )
+
     return hardened_model
-

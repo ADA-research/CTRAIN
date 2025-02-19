@@ -24,7 +24,7 @@ class STAPSModelWrapper(CTRAINWrapper):
                  sabr_pgd_early_stopping=False, sabr_pgd_alpha_decay_factor=.1, sabr_pgd_decay_milestones=(4,7),
                  sabr_subselection_ratio=0.8, block_sizes=None, gradient_expansion_alpha=5,
                  gradient_link_thresh=.5, gradient_link_tol=0.00001,
-                 checkpoint_save_path=None,
+                 checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
         Initializes the STAPSModelWrapper.
@@ -63,10 +63,11 @@ class STAPSModelWrapper(CTRAINWrapper):
             gradient_link_thresh (float): Threshold for gradient link.
             gradient_link_tol (float): Tolerance for gradient link.
             checkpoint_save_path (str): Path to save checkpoints.
+            checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path)
+        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
         self.cert_train_method = 'staps'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -169,6 +170,7 @@ class STAPSModelWrapper(CTRAINWrapper):
             subselection_ratio=self.sabr_subselection_ratio,
             start_epoch=start_epoch,
             results_path=self.checkpoint_path,
+            checkpoint_save_interval=self.checkpoint_save_interval,
             device=self.device
         )
         

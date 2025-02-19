@@ -16,7 +16,7 @@ class CTRAINWrapper(nn.Module):
     """
     Wrapper base class for certifiably training models.
     """
-    def __init__(self, model: nn.Module, eps:float, input_shape: tuple, train_eps_factor=1, lr=0.0005, optimizer_func=torch.optim.Adam, bound_opts=dict(conv_mode='patches', relu='adaptive'), device='cuda', checkpoint_save_path=None):
+    def __init__(self, model: nn.Module, eps:float, input_shape: tuple, train_eps_factor=1, lr=0.0005, optimizer_func=torch.optim.Adam, bound_opts=dict(conv_mode='patches', relu='adaptive'), device='cuda', checkpoint_save_path=None, checkpoint_save_interval=10):
         """
         Initialize the CTRAINWrapper Base Class.
         
@@ -30,6 +30,7 @@ class CTRAINWrapper(nn.Module):
             bound_opts (dict, optional): Options for bounding the model. Default is {'conv_mode': 'patches', 'relu': 'adaptive'}.
             device (str or torch.device, optional): The device to run the model on. Default is 'cuda'.
             checkpoint_save_path (str, optional): Path to save checkpoints. Default is None.
+            checkpoint_save_interval (int, optional): Interval to save checkpoints. Default is 10.
         
         Attributes:
             original_model (nn.Module): The original neural network model.
@@ -82,6 +83,8 @@ class CTRAINWrapper(nn.Module):
         self.checkpoint_path = checkpoint_save_path
         if checkpoint_save_path is not None:
             os.makedirs(self.checkpoint_path, exist_ok=True)
+        
+        self.checkpoint_save_interval = checkpoint_save_interval
     
     def train(self):
         """

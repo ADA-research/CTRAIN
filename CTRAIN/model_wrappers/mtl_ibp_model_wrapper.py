@@ -15,7 +15,7 @@ class MTLIBPModelWrapper(CTRAINWrapper):
                  lr_decay_factor=.2, lr_decay_milestones=(80, 90), gradient_clip=10, l1_reg_weight=0.000001,
                  shi_reg_weight=.5, shi_reg_decay=True, pgd_steps=1, 
                  pgd_alpha=10, pgd_restarts=1, pgd_early_stopping=False, pgd_alpha_decay_factor=.1,
-                 pgd_decay_milestones=(), pgd_eps_factor=1, mtl_ibp_alpha=0.5, checkpoint_save_path=None, 
+                 pgd_decay_milestones=(), pgd_eps_factor=1, mtl_ibp_alpha=0.5, checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
         Initializes the MTLIBPModelWrapper.
@@ -45,10 +45,11 @@ class MTLIBPModelWrapper(CTRAINWrapper):
             pgd_eps_factor (float): Factor for PGD epsilon.
             mtl_ibp_alpha (float): Alpha value for MTL-IBP, i.e. the trade-off between certified and adversarial loss.
             checkpoint_save_path (str): Path to save checkpoints.
+            checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path)
+        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
         self.cert_train_method = 'mtl_ibp'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -112,6 +113,7 @@ class MTLIBPModelWrapper(CTRAINWrapper):
             pgd_decay_factor=self.pgd_alpha_decay_factor,
             pgd_decay_checkpoints=self.pgd_decay_milestones,
             results_path=self.checkpoint_path,
+            checkpoint_save_interval=self.checkpoint_save_interval,
             device=self.device
         )
         
