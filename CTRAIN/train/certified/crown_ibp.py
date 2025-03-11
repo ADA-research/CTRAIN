@@ -28,6 +28,8 @@ def crown_ibp_train_model(
     lr_decay_factor=0.2,
     lr_decay_schedule_unit="epoch",
     n_classes=10,
+    loss_fusion=False,
+    loss_fusion_model=None,
     gradient_clip=None,
     l1_regularisation_weight=0.00001,
     shi_regularisation_weight=1,
@@ -57,6 +59,8 @@ def crown_ibp_train_model(
         lr_decay_factor (float, optional): Factor by which to decay the learning rate. Defaults to .2.
         lr_decay_schedule_unit (str, optional): Unit for learning rate decay schedule ('epoch' or 'batch'). Defaults to 'epoch'.
         n_classes (int, optional): Number of classes in the dataset. Defaults to 10.
+        loss_fusion (bool, optional): Whether to use loss fusion. Defaults to True.
+        loss_fusion_model (auto_LiRPA.BoundedModule, optional): Model to use for loss fusion. Defaults to None.
         gradient_clip (float, optional): Value for gradient clipping. Defaults to None.
         l1_regularisation_weight (float, optional): Weight for L1 regularization. Defaults to 0.00001.
         shi_regularisation_weight (float, optional): Weight for SHI regularization. Defaults to 1.
@@ -141,23 +145,33 @@ def crown_ibp_train_model(
 
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
-
-            clean_output = hardened_model(data)
-            clean_loss = criterion(clean_output, target).mean()
-            regular_err = torch.sum(
-                torch.argmax(clean_output, dim=1) != target
-            ).item() / data.size(0)
-            epoch_nat_err += regular_err
+            
+            if loss_fusion:
+                clean_output = loss_fusion_model(data, target)
+                clean_loss = torch.mean(torch.log(clean_output))
+                with torch.no_grad():
+                    regular_err = torch.sum(
+                        torch.argmax(hardened_model(data), dim=1) != target
+                    ).item() / data.size(0)
+                    epoch_nat_err += regular_err
+            else:
+                clean_output = hardened_model(data)
+                clean_loss = criterion(clean_output, target).mean()
+                regular_err = torch.sum(
+                    torch.argmax(clean_output, dim=1) != target
+                ).item() / data.size(0)
+                epoch_nat_err += regular_err
 
             if eps_scheduler.get_cur_eps(normalise=False) != 0.0:
                 certified_loss, robust_err = get_crown_ibp_loss(
-                    hardened_model=hardened_model,
+                    hardened_model=hardened_model if not loss_fusion else loss_fusion_model,
                     ptb=ptb,
                     data=data,
                     target=target,
                     n_classes=n_classes,
                     criterion=criterion,
                     beta=beta,
+                    loss_fusion=loss_fusion,
                     return_bounds=False,
                     return_stats=True,
                 )
@@ -173,7 +187,7 @@ def crown_ibp_train_model(
             ):
                 # Not done in original paper - however it is SotA and generally beneficial
                 loss_regularisers = get_shi_regulariser(
-                    model=hardened_model,
+                    model=hardened_model if not loss_fusion else loss_fusion_model,
                     ptb=ptb,
                     data=data,
                     target=target,
@@ -183,6 +197,7 @@ def crown_ibp_train_model(
                     included_regularisers=["relu", "tightness"],
                     verbose=False,
                     regularisation_decay=shi_reg_decay,
+                    loss_fusion=loss_fusion,
                 )
 
                 loss_regularisers = shi_regularisation_weight * loss_regularisers
@@ -197,7 +212,7 @@ def crown_ibp_train_model(
             loss.backward()
             if gradient_clip is not None:
                 nn.utils.clip_grad_value_(
-                    hardened_model.parameters(), clip_value=gradient_clip
+                    hardened_model.parameters() if not loss_fusion else loss_fusion_model.parameters(), clip_value=gradient_clip
                 )
             optimizer.step()
 
