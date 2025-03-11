@@ -3,6 +3,9 @@ from torchvision import datasets, transforms as transforms
 from torch.utils.data import DataLoader, random_split, Subset
 from sklearn.model_selection import train_test_split
 import numpy as np
+import os
+import requests
+import zipfile
 
 def load_mnist(batch_size=64, normalise=True, train_transforms=[], val_split=True, data_root='./data'): # TODO replace to multi epoch pre-loader
     """
@@ -259,7 +262,35 @@ def load_gtsrb(batch_size=64, normalise=True, train_transforms=[transforms.Rando
     else:
         return train_loader, test_loader
     
-# TODO: add code to download tiny imagenet
+def download_tinyimagenet(data_root='./data'):
+    """
+    Downloads the TinyImageNet dataset and extracts it to the specified directory.
+    
+    Args:
+        data_root (str, optional): Root directory where the dataset will be stored. Default is './data'.
+    """
+    url = 'http://cs231n.stanford.edu/tiny-imagenet-200.zip'
+    dataset_dir = os.path.join(data_root, 'tiny-imagenet-200')
+    zip_path = os.path.join(data_root, 'tiny-imagenet-200.zip')
+
+    # Check if the dataset directory exists and contains the expected subdirectories
+    expected_subdirs = ['train', 'val', 'test', 'wnids.txt', 'words.txt']
+    if not os.path.exists(dataset_dir) or not all(os.path.exists(os.path.join(dataset_dir, subdir)) for subdir in expected_subdirs):
+        os.makedirs(data_root, exist_ok=True)
+        print(f'Downloading TinyImageNet dataset from {url}...')
+        response = requests.get(url, stream=True)
+        with open(zip_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+        print('Extracting TinyImageNet dataset...')
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(data_root)
+        os.remove(zip_path)
+        print('TinyImageNet dataset downloaded and extracted successfully.')
+    else:
+        print('TinyImageNet dataset already exists and is complete.')
+        
 
 def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transforms.RandomHorizontalFlip(), transforms.RandomCrop(64, 4, padding_mode='edge'),], val_split=True, data_root='./data'):
     """
@@ -282,6 +313,8 @@ def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transform
         - max: The maximum value in the dataset.
         - normalised: Whether the dataset was normalized.
     """
+    download_tinyimagenet(data_root)
+    
     if normalise:
         mean = torch.tensor([0.4802, 0.4481, 0.3975])
         std = torch.tensor([0.2302, 0.2265, 0.2262])
@@ -308,8 +341,8 @@ def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transform
             transforms.ToTensor(),
         ])
 
-    train_dataset = datasets.ImageFolder(root=data_root + '/train', transform=train_transform)
-    test_dataset = datasets.ImageFolder(root=data_root + '/val', transform=test_transform)
+    train_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/train', transform=train_transform)
+    test_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/val', transform=test_transform)
     if val_split:
         train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
