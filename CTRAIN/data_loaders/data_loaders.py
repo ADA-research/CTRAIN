@@ -288,9 +288,35 @@ def download_tinyimagenet(data_root='./data'):
             zip_ref.extractall(data_root)
         os.remove(zip_path)
         print('TinyImageNet dataset downloaded and extracted successfully.')
+        create_val_img_folder(dataset_dir)
+        print('Validation images separated into subfolders.')
     else:
         print('TinyImageNet dataset already exists and is complete.')
-        
+
+
+def create_val_img_folder(data_dir):
+    '''
+    This method is responsible for separating validation images into separate sub folders
+    From https://github.com/DennisHanyuanXu/Tiny-ImageNet/blob/master/src/data_prep.py
+    '''
+    val_dir = os.path.join(data_dir, 'val')
+    img_dir = os.path.join(val_dir, 'images')
+
+    fp = open(os.path.join(val_dir, 'val_annotations.txt'), 'r')
+    data = fp.readlines()
+    val_img_dict = {}
+    for line in data:
+        words = line.split('\t')
+        val_img_dict[words[0]] = words[1]
+    fp.close()
+
+    # Create folder if not present and move images into proper folders
+    for img, folder in val_img_dict.items():
+        newpath = (os.path.join(img_dir, folder))
+        if not os.path.exists(newpath):
+            os.makedirs(newpath)
+        if os.path.exists(os.path.join(img_dir, img)):
+            os.rename(os.path.join(img_dir, img), os.path.join(newpath, img))
 
 def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transforms.RandomHorizontalFlip(), transforms.RandomCrop(64, 4, padding_mode='edge'),], val_split=True, data_root='./data'):
     """
@@ -342,7 +368,7 @@ def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transform
         ])
 
     train_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/train', transform=train_transform)
-    test_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/val', transform=test_transform)
+    test_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/val/images', transform=test_transform)
     if val_split:
         train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
