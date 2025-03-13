@@ -1,4 +1,5 @@
 from ConfigSpace import Categorical, ConfigurationSpace, EqualsCondition, Float, Integer, Constant
+from ConfigSpace.types import NotSet
 import math
 
 import torch
@@ -34,9 +35,9 @@ def get_base_config(epochs, eps, defaults=dict()):
             'lr_decay_epoch_2': Integer('lr_decay_epoch_2', (0, math.ceil(.25 * epochs)), default=defaults.get('lr_decay_epoch_2')),
             'l1_reg_weight': Float('l1_reg_weight', (1e-8, 1e-4), log=True, default=defaults.get('l1_reg_weight')),
             'shi_reg_weight': Float("shi_reg_weight", (0.0, 1.0), default=defaults.get('shi_reg_weight')),
-            'shi_reg_decay': Categorical('shi_reg_decay', [True, False], default=defaults.get('shi_reg_decay')),
+            'shi_reg_decay': Categorical('shi_reg_decay', [True, False], default=defaults.get('shi_reg_decay', NotSet)),
             'train_eps_factor': Float("train_eps_factor", (1, 2), default=defaults.get('train_eps_factor')),
-            'optimizer_func': Categorical('optimizer_func', ['adam', 'adamw', 'radam'], default=defaults.get('optimizer_func')),
+            'optimizer_func': Categorical('optimizer_func', ['adam', 'adamw', 'radam'], default=defaults.get('optimizer_func', NotSet)),
             'learning_rate': Float('learning_rate', (1e-5, 0.1), log=True, default=defaults.get('lr'))
         }
     )
