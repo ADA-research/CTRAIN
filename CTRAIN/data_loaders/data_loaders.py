@@ -59,7 +59,7 @@ def load_mnist(batch_size=64, normalise=True, train_transforms=[], val_split=Tru
     test_dataset = datasets.MNIST(root=data_root, train=False, transform=test_transform)
     if val_split:
         train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
     
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
@@ -137,7 +137,7 @@ def load_cifar10(batch_size=64, normalise=True, train_transforms=[transforms.Ran
     test_dataset = datasets.CIFAR10(root=data_root, train=False, transform=test_transform, download=True)
     if val_split:
         train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
         val_loader.mean, val_loader.std = mean, std
     
 
@@ -229,7 +229,7 @@ def load_gtsrb(batch_size=64, normalise=True, train_transforms=[transforms.Rando
         train_dataset = Subset(train_dataset_ori, train_ids)
         val_dataset = Subset(train_dataset_ori, val_ids)
 
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
         val_loader.mean, val_loader.std = mean, std
 
     else:
@@ -371,7 +371,7 @@ def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transform
     test_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/val/images', transform=test_transform)
     if val_split:
         train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
         val_loader.mean, val_loader.std = mean, std
     
 
