@@ -36,7 +36,7 @@ def load_mnist(batch_size=64, normalise=True, train_transforms=[], val_split=Tru
         mean = torch.tensor([0.1307])
         std = torch.tensor([0.3081])
     else:
-        mean = torch.tensor([.5])
+        mean = torch.tensor([0])
         std = torch.tensor([1])
     if normalise:
         train_transform = transforms.Compose([
@@ -66,15 +66,8 @@ def load_mnist(batch_size=64, normalise=True, train_transforms=[], val_split=Tru
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
     
     # Initialize variables to track the min and max values
-    min_val = float('inf')
-    max_val = float('-inf')
-
-    # Loop over the dataset
-    for data, _ in train_loader:
-        min_val = min(min_val, data.min().item())
-        max_val = max(max_val, data.max().item())
-    
-    min_val, max_val = torch.tensor(min_val), torch.tensor(max_val)
+    min_val = ((torch.zeros(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
+    max_val = ((torch.ones(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
 
     print(f'MNIST dataset - Min value: {min_val}, Max value: {max_val}')
     
@@ -112,7 +105,7 @@ def load_cifar10(batch_size=64, normalise=True, train_transforms=[transforms.Ran
         mean = torch.tensor([0.4914, 0.4822, 0.4465])
         std = torch.tensor([0.247, 0.243, 0.261])
     else:
-        mean = torch.tensor([.5, .5, .5])
+        mean = torch.tensor([0, 0, 0])
         std = torch.tensor([1, 1, 1])
     if normalise:
         train_transform = transforms.Compose([
@@ -145,13 +138,8 @@ def load_cifar10(batch_size=64, normalise=True, train_transforms=[transforms.Ran
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
     
     # Initialize variables to track the min and max values
-    min_val = float('inf')
-    max_val = float('-inf')
-
-    # Loop over the dataset
-    for data, _ in train_loader:
-        min_val = torch.tensor(min(min_val, data.min().item()))
-        max_val = torch.tensor(max(max_val, data.max().item()))
+    min_val = ((torch.zeros(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
+    max_val = ((torch.ones(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
 
     print(f'CIFAR10 dataset - Min value: {min_val}, Max value: {max_val}')
     
@@ -189,7 +177,7 @@ def load_gtsrb(batch_size=64, normalise=True, train_transforms=[transforms.Rando
         mean = torch.tensor([0.3403, 0.3121, 0.3214])
         std =  torch.tensor([0.2724, 0.2608, 0.2669])
     else:
-        mean = torch.tensor([.5, .5, .5])
+        mean = torch.tensor([0, 0, 0])
         std = torch.tensor([1, 1, 1])
     if normalise:
         train_transform = transforms.Compose([
@@ -240,14 +228,12 @@ def load_gtsrb(batch_size=64, normalise=True, train_transforms=[transforms.Rando
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Initialize variables to track the min and max values
-    min_val = float('inf')
-    max_val = float('-inf')
+    min_val = ((torch.zeros(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
+    max_val = ((torch.ones(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
 
     max_target = float('-inf')
     # Loop over the dataset
     for data, target in train_loader:
-        min_val = torch.tensor(min(min_val, data.min().item()))
-        max_val = torch.tensor(max(max_val, data.max().item()))
         max_target = torch.tensor(max(max_target, target.max().item()))
         
 
@@ -345,7 +331,7 @@ def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transform
         mean = torch.tensor([0.4802, 0.4481, 0.3975])
         std = torch.tensor([0.2302, 0.2265, 0.2262])
     else:
-        mean = torch.tensor([.5, .5, .5])
+        mean = torch.tensor([0, 0, 0])
         std = torch.tensor([1, 1, 1])
 
     if normalise:
@@ -379,15 +365,10 @@ def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transform
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
     
     # Initialize variables to track the min and max values
-    min_val = float('inf')
-    max_val = float('-inf')
+    min_val = ((torch.zeros(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
+    max_val = ((torch.ones(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
 
-    # Loop over the dataset
-    for data, _ in train_loader:
-        min_val = torch.tensor(min(min_val, data.min().item()))
-        max_val = torch.tensor(max(max_val, data.max().item()))
-
-    print(f'TinyImageNet dataset - Min value: {min_val}, Max value: {max_val}')
+    print(f'TinyImageNet dataset - Min value: {str(min_val)}, Max value: {str(max_val)}')
     
     train_loader.mean, train_loader.std, train_loader.min, train_loader.max, train_loader.normalised = mean, std, min_val, max_val, normalise
     test_loader.mean, test_loader.std, test_loader.min, test_loader.max, test_loader.normalised = mean, std, min_val, max_val, normalise
