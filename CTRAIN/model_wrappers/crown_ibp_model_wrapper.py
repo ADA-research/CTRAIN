@@ -188,6 +188,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             bound_opts=self.bound_opts,
             checkpoint_save_path=None,
             device=self.device,
+            loss_fusion=self.loss_fusion,
             train_eps_factor=config['train_eps_factor'],
             optimizer_func=optimizer_func,
             lr=config['learning_rate'],
