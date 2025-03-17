@@ -7,7 +7,7 @@ from auto_LiRPA.operators.relu import BoundRelu
 from auto_LiRPA.perturbations import PerturbationLpNorm
 from CTRAIN.bound import bound_ibp
 
-def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, device, tolerance=.5, verbose=False, included_regularisers=['relu', 'tightness'], regularisation_decay=True):
+def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, device, tolerance=.5, verbose=False, included_regularisers=['relu', 'tightness'], regularisation_decay=True, loss_fusion=False):
     """
     Compute the Shi regularisation loss for a given model. See Shi et al. (2020) for more details.
     
@@ -23,6 +23,7 @@ def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, devi
         verbose (bool, optional): If True, prints detailed information during computation. Default is False.
         included_regularisers (list of str, optional): List of regularisers to include in the loss computation. Default is ['relu', 'tightness'].
         regularisation_decay (bool, optional): If True, applies decay to the regularisation loss. Default is True.
+        loss_fusion (bool, optional): If True, uses loss fusion. Default is False.
     
     Returns:
         torch.Tensor: The computed SHI regulariser loss.
@@ -48,7 +49,8 @@ def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, devi
                 data=data,
                 target=target,
                 n_classes=n_classes,
-                bound_upper=True
+                bound_upper=True,
+                loss_fusion=loss_fusion
             )
     tightness_0 = ((node_inp.upper - node_inp.lower) / 2).mean()
     ratio_init = tightness_0 / ((node_inp.upper + node_inp.lower) / 2).std()

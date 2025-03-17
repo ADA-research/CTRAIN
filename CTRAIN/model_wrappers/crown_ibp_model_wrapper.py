@@ -2,6 +2,7 @@ import copy
 import torch
 
 from smac.utils.configspace import get_config_hash
+from auto_LiRPA import BoundedModule, CrossEntropyWrapper
 
 from CTRAIN.model_wrappers.model_wrapper import CTRAINWrapper
 from CTRAIN.train.certified import crown_ibp_train_model
@@ -15,7 +16,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
     def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,
                  lr_decay_factor=.2, lr_decay_milestones=(80, 90), gradient_clip=10, l1_reg_weight=0.000001,
                  shi_reg_weight=.5, shi_reg_decay=True, start_kappa=1, end_kappa=0, start_beta=1, end_beta=0,
-                 checkpoint_save_path=None, checkpoint_save_interval=10,
+                 loss_fusion=True, checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
         Initializes the CrownIBPModelWrapper.
@@ -40,6 +41,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             end_kappa (float): Ending value of kappa.
             start_beta (float): Starting value of beta that trades off IBP and CROWN-IBP loss.
             end_beta (float): Ending value of beta.
+            loss_fusion (bool): Whether to use loss fusion in loss calculation (saves memory).
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
@@ -62,7 +64,44 @@ class CrownIBPModelWrapper(CTRAINWrapper):
         self.start_beta = start_beta
         self.end_beta = end_beta
         self.optimizer_func = optimizer_func
+        self.loss_fusion = loss_fusion
         
+        if loss_fusion:
+            original_train = self.original_model.training
+            self.original_model.eval()
+            example_input = torch.ones(self.input_shape, device=device)
+            self.bound_opts['loss_fusion'] = True
+            self.loss_fusion_model = BoundedModule(model=CrossEntropyWrapper(self.original_model), global_input=(example_input, torch.zeros(1, dtype=torch.long)), bound_opts=self.bound_opts, device=device)
+            self.loss_fusion_optimizer = optimizer_func(self.loss_fusion_model.parameters(), lr=lr)
+
+            if original_train:
+                self.original_model.train()
+                self.bounded_model.train()
+                self.loss_fusion_model.train()
+    
+    def train(self):
+        """
+        Sets wrapper into training mode.
+
+        This method calls the `train` method on both the `original_model` and 
+        the `bounded_model` to set them into training mode
+        """
+        self.original_model.train()
+        self.bounded_model.train()
+        self.loss_fusion_model.train()
+    
+    def eval(self):
+        """
+        Sets the model to evaluation mode.
+
+        This method sets both the original model and the bounded model to evaluation mode.
+        In evaluation mode, certain layers like dropout and batch normalization behave differently
+        compared to training mode, typically affecting the model's performance and predictions.
+        """
+        self.original_model.eval()
+        self.bounded_model.eval()
+        self.loss_fusion_model.eval()
+            
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
         """
         Trains the model using the CROWN-IBP method.
@@ -81,6 +120,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
         trained_model = crown_ibp_train_model(
             original_model=self.original_model,
             hardened_model=self.bounded_model,
+            loss_fusion_model=self.loss_fusion_model if self.loss_fusion else None,
             train_loader=train_loader,
             val_loader=val_loader,
             start_epoch=start_epoch,
@@ -90,10 +130,11 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             eps_std=eps_std,
             eps_schedule=(self.warm_up_epochs, self.ramp_up_epochs),
             eps_scheduler_args={'start_kappa': self.start_kappa, 'end_kappa': self.end_kappa, 'start_beta': self.start_beta, 'end_beta': self.end_beta},
-            optimizer=self.optimizer,
+            optimizer=self.optimizer if not self.loss_fusion else self.loss_fusion_optimizer,
             lr_decay_schedule=self.lr_decay_milestones,
             lr_decay_factor=self.lr_decay_factor,
             n_classes=self.n_classes,
+            loss_fusion=self.loss_fusion,
             gradient_clip=self.gradient_clip,
             l1_regularisation_weight=self.l1_reg_weight,
             shi_regularisation_weight=self.shi_reg_weight,
@@ -147,6 +188,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             bound_opts=self.bound_opts,
             checkpoint_save_path=None,
             device=self.device,
+            loss_fusion=self.loss_fusion,
             train_eps_factor=config['train_eps_factor'],
             optimizer_func=optimizer_func,
             lr=config['learning_rate'],
