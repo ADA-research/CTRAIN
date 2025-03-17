@@ -221,7 +221,7 @@ class CTRAINWrapper(nn.Module):
 
         self.train_model(train_loader, val_loader, start_epoch=self.epoch, end_epoch=end_epoch)
     
-    def hpo(self, train_loader, val_loader, budget=5*24*60*60, defaults=dict(), eval_samples=1000, output_dir='./smac_hpo', include_nat_loss=True, include_adv_loss=True, include_cert_loss=True):
+    def hpo(self, train_loader, val_loader, budget=5*24*60*60, defaults=dict(), eval_samples=1000, output_dir='./smac_hpo', deterministic=False, include_nat_loss=True, include_adv_loss=True, include_cert_loss=True):
         """
         Perform hyperparameter optimization (HPO) using SMAC3 for the model. After the method returns, the model will have loaded the best hyperparameters found during the optimization and the according trained weights.
         
@@ -232,6 +232,7 @@ class CTRAINWrapper(nn.Module):
             defaults (dict, optional): Default hyperparameter values. Default is an empty dictionary.
             eval_samples (int, optional): Number of samples to use for loss computation. Default is 1000.
             output_dir (str, optional): Directory to store HPO results. Default is './smac_hpo'.
+            deterministic (bool, optional): Whether SMAC3 should treat the objective function as deterministic. Speeds up the optimisation. Default is False.
             include_nat_loss (bool, optional): Whether to include natural loss in the optimization. Default is True.
             include_adv_loss (bool, optional): Whether to include adversarial loss in the optimization. Default is True.
             include_cert_loss (bool, optional): Whether to include certified loss in the optimization. Default is True.
@@ -249,6 +250,7 @@ class CTRAINWrapper(nn.Module):
         eps_std = self.eps / train_loader.std
         scenario = Scenario(
             configspace=get_config_space(self, self.num_epochs, eps_std, defaults=defaults),
+            deterministic=deterministic,
             walltime_limit=budget,
             n_trials=np.inf,
             output_directory=f'{output_dir}/smac/',
