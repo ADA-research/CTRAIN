@@ -33,20 +33,22 @@ def get_mtl_ibp_loss(hardened_model, original_model, ptb, data, target, n_classe
     """
     hardened_model.eval()
     original_model.eval()
-    x_adv = pgd_attack(
-        model=hardened_model,
-        data=data,
-        target=target,
-        x_L=pgd_ptb.x_L,
-        x_U=pgd_ptb.x_U,
-        restarts=restarts,
-        step_size=step_size,
-        n_steps=n_steps,
-        early_stopping=early_stopping,
-        device=device,
-        decay_factor=decay_factor,
-        decay_checkpoints=decay_checkpoints
-    )
+    
+    with torch.no_grad():
+        x_adv = pgd_attack(
+            model=hardened_model,
+            data=data,
+            target=target,
+            x_L=pgd_ptb.x_L,
+            x_U=pgd_ptb.x_U,
+            restarts=restarts,
+            step_size=step_size,
+            n_steps=n_steps,
+            early_stopping=early_stopping,
+            device=device,
+            decay_factor=decay_factor,
+            decay_checkpoints=decay_checkpoints
+        )
     
     hardened_model.train()
     original_model.train()
