@@ -69,6 +69,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
         if loss_fusion:
             original_train = self.original_model.training
             self.original_model.eval()
+            self.bounded_model.eval()
             example_input = torch.ones(self.input_shape, device=device)
             self.bound_opts['loss_fusion'] = True
             self.loss_fusion_model = BoundedModule(model=CrossEntropyWrapper(self.original_model), global_input=(example_input, torch.zeros(1, dtype=torch.long)), bound_opts=self.bound_opts, device=device)
@@ -88,7 +89,8 @@ class CrownIBPModelWrapper(CTRAINWrapper):
         """
         self.original_model.train()
         self.bounded_model.train()
-        self.loss_fusion_model.train()
+        if self.loss_fusion:
+            self.loss_fusion_model.train()
     
     def eval(self):
         """
@@ -100,7 +102,8 @@ class CrownIBPModelWrapper(CTRAINWrapper):
         """
         self.original_model.eval()
         self.bounded_model.eval()
-        self.loss_fusion_model.eval()
+        if self.loss_fusion:
+            self.loss_fusion_model.eval()
             
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
         """

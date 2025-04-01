@@ -113,7 +113,7 @@ def crown_ibp_train_model(
                     g["lr"] = cur_lr
 
         print(
-            f"[{epoch + 1}/{num_epochs}]: eps {[channel_eps for channel_eps in cur_eps]}, kappa {kappa:.2f} "
+            f"[{epoch + 1}/{num_epochs}]: eps {eps_scheduler.get_cur_eps(normalise=False):.4f}, kappa {kappa:.2f} "
         )
         hardened_model.train()
         original_model.train()
@@ -211,8 +211,8 @@ def crown_ibp_train_model(
 
             loss.backward()
             if gradient_clip is not None:
-                nn.utils.clip_grad_value_(
-                    hardened_model.parameters() if not loss_fusion else loss_fusion_model.parameters(), clip_value=gradient_clip
+                nn.utils.clip_grad_norm_(
+                    original_model.parameters(), max_norm=gradient_clip
                 )
             optimizer.step()
 

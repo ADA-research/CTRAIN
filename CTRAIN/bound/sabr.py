@@ -74,7 +74,8 @@ def bound_sabr(hardened_model, original_model, data, target, eps, subselection_r
     lb, ub = bound_ibp(
         model=hardened_model if intermediate_bound_model is None else intermediate_bound_model,
         ptb=ptb,
-        data=propagation_inputs,
+        data=data,
+        # data=propagation_inputs,
         # Only provide target if intermediate_bound_model is not used (as we are not interested in final bound margins)
         target=target if intermediate_bound_model is None else None,
         n_classes=n_classes,
@@ -117,24 +118,26 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
         x_L=torch.clamp(data - eps, data_min, data_max).to(device)
         x_U=torch.clamp(data + eps, data_min, data_max).to(device)
     else:
+        # TODO: This might break TAPS/STAPS
         eps = torch.max((x_U - x_L))
     
     tau =  subselection_ratio * eps
-
-    x_adv = pgd_attack(
-        model=model,
-        data=data,
-        target=target,
-        x_L=x_L,
-        x_U=x_U,
-        n_steps=n_steps,
-        step_size=step_size,
-        restarts=restarts,
-        early_stopping=early_stopping,
-        device=device,
-        decay_checkpoints=decay_checkpoints,
-        decay_factor=decay_factor
-    )
+    
+    with torch.no_grad():
+        x_adv = pgd_attack(
+            model=model,
+            data=data,
+            target=target,
+            x_L=x_L,
+            x_U=x_U,
+            n_steps=n_steps,
+            step_size=step_size,
+            restarts=restarts,
+            early_stopping=early_stopping,
+            device=device,
+            decay_checkpoints=decay_checkpoints,
+            decay_factor=decay_factor
+        )
     
     propagation_inputs = torch.clamp(x_adv, x_L + tau, x_U - tau) # called midpoints in SABR code
     tau = torch.tensor(tau, device=device)

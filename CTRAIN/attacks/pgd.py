@@ -23,7 +23,7 @@ def pgd_attack(model, data, target, x_L, x_U, restarts=1, step_size=.2, n_steps=
     Returns:
         torch.Tensor: The generated adversarial examples.
     """
-    x_L, x_U = x_L.to(device), x_U.to(device)
+    x_L, x_U = x_L.to(device).detach().clone(), x_U.to(device).detach().clone()
     if data is None:
         data = ((x_L + x_U) / 2).to(device)
     
