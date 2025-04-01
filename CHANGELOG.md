@@ -1,6 +1,28 @@
 # CHANGELOG
 
 
+## v0.3.1 (2025-04-01)
+
+### Bug Fixes
+
+- Adjust cifar10 std values in accordance with MTL-IBP/SABR implementations
+  ([`70d6cb7`](https://github.com/ADA-research/CTRAIN/commit/70d6cb7bb68fda7d6404006631ce53993d165ed6))
+
+- Fix argument passing to SABR
+  ([`ee7cd8a`](https://github.com/ADA-research/CTRAIN/commit/ee7cd8a126b4f8141922b2c20719bc54685cdd09))
+
+- Fix Crown IBP training without loss fusion
+  ([`88c9f68`](https://github.com/ADA-research/CTRAIN/commit/88c9f68ab7df9e107d88cf9a631cb4db27ab8bad))
+
+- Fix pgd implementation to work with torch.no_grad()
+  ([`17681d4`](https://github.com/ADA-research/CTRAIN/commit/17681d4757d66394bfbfc0a0c41e2e211d179521))
+
+### Chores
+
+- Adjust eps logging
+  ([`3d11b9a`](https://github.com/ADA-research/CTRAIN/commit/3d11b9ab24b71f61b98895309ffd12dc04a8d90c))
+
+
 ## v0.3.0 (2025-03-17)
 
 ### Bug Fixes
