@@ -103,7 +103,10 @@ def load_cifar10(batch_size=64, normalise=True, train_transforms=[transforms.Ran
     """
     if normalise:
         mean = torch.tensor([0.4914, 0.4822, 0.4465])
-        std = torch.tensor([0.247, 0.243, 0.261])
+        # TODO: Check std deviaton - values the comment is a value found here: https://github.com/kuangliu/pytorch-cifar/issues/19
+        # std = torch.tensor([0.247, 0.243, 0.261])
+        # The value below is taken from MTL-IBP/SABR Code
+        std = torch.tensor([0.2023, 0.1994, 0.2010])
     else:
         mean = torch.tensor([0, 0, 0])
         std = torch.tensor([1, 1, 1])
