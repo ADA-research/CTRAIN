@@ -149,7 +149,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
         
         return trained_model
     
-    def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, include_nat_loss=True, include_adv_loss=True, include_cert_loss=True):
+    def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1., adv_loss_weight=1., cert_loss_weight=1.):
         """
         Function called during hyperparameter optimization (HPO) using SMAC3, returns the loss.
 
@@ -161,10 +161,10 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             val_loader (torch.utils.data.DataLoader): DataLoader for validation data.
             output_dir (str): Directory to save output.
             cert_eval_samples (int, optional): Number of samples for certification evaluation.
-            include_nat_loss (bool, optional): Whether to include natural loss into HPO loss.
-            include_adv_loss (bool, optional): Whether to include adversarial loss into HPO loss.
-            include_cert_loss (bool, optional): Whether to include certification loss into HPO loss.
-
+            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss function.
+            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss function.
+            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss function.
+        
         Returns:
             tuple: Loss and dictionary of accuracies that is saved as information to the run by SMAC3.
         """
@@ -206,7 +206,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             start_kappa=config['crown_ibp:start_kappa'],
             end_kappa=config['crown_ibp:end_kappa'] * config['crown_ibp:start_kappa'],
             start_beta=config['crown_ibp:start_beta'],
-            end_beta=config['crown_ibp:end_beta'],
+            end_beta=config['crown_ibp:end_beta'] * config['crown_ibp:start_beta'],
         )
 
         model_wrapper.train_model(train_loader=train_loader)
@@ -215,11 +215,8 @@ class CrownIBPModelWrapper(CTRAINWrapper):
         std_acc, cert_acc, adv_acc = model_wrapper.evaluate(test_loader=val_loader, test_samples=cert_eval_samples)
 
         loss = 0
-        if include_nat_loss:
-            loss -= std_acc
-        if include_adv_loss:
-            loss -= adv_acc
-        if include_cert_loss:
-            loss -= cert_acc
+        loss -= nat_loss_weight * std_acc
+        loss -= adv_loss_weight * adv_acc
+        loss -= cert_loss_weight * cert_acc
 
         return loss, {'nat_acc': std_acc, 'adv_acc': adv_acc, 'cert_acc': cert_acc}

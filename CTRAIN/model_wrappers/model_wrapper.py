@@ -221,7 +221,7 @@ class CTRAINWrapper(nn.Module):
 
         self.train_model(train_loader, val_loader, start_epoch=self.epoch, end_epoch=end_epoch)
     
-    def hpo(self, train_loader, val_loader, budget=5*24*60*60, defaults=dict(), eval_samples=1000, output_dir='./smac_hpo', deterministic=False, include_nat_loss=True, include_adv_loss=True, include_cert_loss=True):
+    def hpo(self, train_loader, val_loader, budget=5*24*60*60, defaults=dict(), eval_samples=1000, output_dir='./smac_hpo', deterministic=False, nat_loss_weight=1., adv_loss_weight=1., cert_loss_weight=1.):
         """
         Perform hyperparameter optimization (HPO) using SMAC3 for the model. After the method returns, the model will have loaded the best hyperparameters found during the optimization and the according trained weights.
         
@@ -233,10 +233,10 @@ class CTRAINWrapper(nn.Module):
             eval_samples (int, optional): Number of samples to use for loss computation. Default is 1000.
             output_dir (str, optional): Directory to store HPO results. Default is './smac_hpo'.
             deterministic (bool, optional): Whether SMAC3 should treat the objective function as deterministic. Speeds up the optimisation. Default is False.
-            include_nat_loss (bool, optional): Whether to include natural loss in the optimization. Default is True.
-            include_adv_loss (bool, optional): Whether to include adversarial loss in the optimization. Default is True.
-            include_cert_loss (bool, optional): Whether to include certified loss in the optimization. Default is True.
-        
+            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss function.
+            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss function.
+            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss function.
+            
         Returns:
             Configuration: The best hyperparameter configuration found during the optimization.
         """
@@ -259,7 +259,7 @@ class CTRAINWrapper(nn.Module):
         initial_design = HyperparameterOptimizationFacade.get_initial_design(scenario, n_configs_per_hyperparamter=1)
         smac = HyperparameterOptimizationFacade(
             scenario,
-            partial(self._hpo_runner, epochs=self.num_epochs, train_loader=train_loader, val_loader=val_loader, cert_eval_samples=eval_samples, output_dir=output_dir, include_nat_loss=include_nat_loss, include_adv_loss=include_adv_loss, include_cert_loss=include_cert_loss),
+            partial(self._hpo_runner, epochs=self.num_epochs, train_loader=train_loader, val_loader=val_loader, cert_eval_samples=eval_samples, output_dir=output_dir, nat_loss_weight=nat_loss_weight, adv_loss_weight=adv_loss_weight, cert_loss_weight=cert_loss_weight),
             initial_design=initial_design,
             overwrite=True,
         )
