@@ -45,6 +45,7 @@ def sabr_train_model(
     pgd_early_stopping=True,
     pgd_decay_factor=0.1,
     pgd_decay_checkpoints=(4, 7),
+    pgd_eps_factor=1,
     results_path="./results",
     checkpoint_save_interval=10,
     device="cuda",
@@ -81,6 +82,7 @@ def sabr_train_model(
         pgd_early_stopping (bool, optional): Whether to use early stopping for PGD. Defaults to True.
         pgd_decay_factor (float, optional): Decay factor for PGD. Defaults to 0.1.
         pgd_decay_checkpoints (tuple, optional): Checkpoints for PGD decay. Defaults to (4, 7).
+        pgd_eps_factor (float, optional): Factor for PGD epsilon. Defaults to 1.
         results_path (str, optional): Path to save the training results. Defaults to "./results".
         checkpoint_save_interval (int, optional): Interval for saving checkpoints. Defaults to 10.
         device (str, optional): Device to use for training ('cuda' or 'cpu'). Defaults to 'cuda'.
@@ -166,6 +168,20 @@ def sabr_train_model(
             ).item() / data.size(0)
             epoch_nat_err += regular_err
             if eps_scheduler.get_cur_eps(normalise=False) != 0.0:
+                
+                if pgd_eps_factor == 1:
+                    pgd_ptb = ptb
+                else:
+                    pgd_eps = (cur_eps * pgd_eps_factor).to(device)
+                    data_min, data_max = train_loader.min.to(
+                        device
+                    ), train_loader.max.to(device)
+                    pgd_ptb = PerturbationLpNorm(
+                        eps=pgd_eps,
+                        norm=np.inf,
+                        x_L=torch.clamp(data - pgd_eps, data_min, data_max).to(device),
+                        x_U=torch.clamp(data + pgd_eps, data_min, data_max).to(device),
+                    )
 
                 sabr_loss, robust_err, adv_err = get_sabr_loss(
                     hardened_model=hardened_model,
@@ -186,6 +202,7 @@ def sabr_train_model(
                     pgd_early_stopping=pgd_early_stopping,
                     pgd_decay_factor=pgd_decay_factor,
                     pgd_decay_checkpoints=pgd_decay_checkpoints,
+                    pgd_ptb=pgd_ptb,
                     return_stats=True,
                 )
 

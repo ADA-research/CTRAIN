@@ -16,7 +16,7 @@ class SABRModelWrapper(CTRAINWrapper):
                  lr_decay_factor=.2, lr_decay_milestones=(80, 90), gradient_clip=10, l1_reg_weight=0.000001,
                  shi_reg_weight=.5, shi_reg_decay=True, sabr_subselection_ratio=.2, pgd_steps=8, 
                  pgd_alpha=0.5, pgd_restarts=1, pgd_early_stopping=False, pgd_alpha_decay_factor=.1,
-                 pgd_decay_milestones=(4,7), checkpoint_save_path=None, checkpoint_save_interval=10,
+                 pgd_decay_milestones=(4,7), pgd_eps_factor=1, checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
         Initializes the SABRModelWrapper.
@@ -44,6 +44,7 @@ class SABRModelWrapper(CTRAINWrapper):
             pgd_early_stopping (bool): Whether to use early stopping in PGD during adversarial loss calculation.
             pgd_alpha_decay_factor (float): PGD alpha decay factor.
             pgd_decay_milestones (tuple): Milestones for PGD alpha decay.
+            pgd_eps_factor (float): Factor for epsilon used during PGD attack.
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
@@ -69,6 +70,7 @@ class SABRModelWrapper(CTRAINWrapper):
         self.pgd_early_stopping = pgd_early_stopping
         self.pgd_alpha_decay_factor = pgd_alpha_decay_factor
         self.pgd_decay_milestones = pgd_decay_milestones
+        self.pgd_eps_factor = pgd_eps_factor
         
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
         """
@@ -114,6 +116,7 @@ class SABRModelWrapper(CTRAINWrapper):
             pgd_early_stopping=self.pgd_early_stopping,
             pgd_decay_checkpoints=self.pgd_decay_milestones,
             pgd_decay_factor=self.pgd_alpha_decay_factor,
+            pgd_eps_factor=self.pgd_eps_factor,
             results_path=self.checkpoint_path,
             checkpoint_save_interval=self.checkpoint_save_interval,
             device=self.device
@@ -121,7 +124,7 @@ class SABRModelWrapper(CTRAINWrapper):
         
         return trained_model
     
-    def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, include_nat_loss=True, include_adv_loss=True, include_cert_loss=True):
+    def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1., adv_loss_weight=1., cert_loss_weight=1.):
         """
         Function called during hyperparameter optimization (HPO) using SMAC3, returns the loss.
 
@@ -133,10 +136,10 @@ class SABRModelWrapper(CTRAINWrapper):
             val_loader (torch.utils.data.DataLoader): DataLoader for validation data.
             output_dir (str): Directory to save output.
             cert_eval_samples (int, optional): Number of samples for certification evaluation.
-            include_nat_loss (bool, optional): Whether to include natural loss into HPO loss.
-            include_adv_loss (bool, optional): Whether to include adversarial loss into HPO loss.
-            include_cert_loss (bool, optional): Whether to include certification loss into HPO loss.
-
+            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss function.
+            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss function.
+            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss function.
+        
         Returns:
             tuple: Loss and dictionary of accuracies that is saved as information to the run by SMAC3.
         """
@@ -179,7 +182,8 @@ class SABRModelWrapper(CTRAINWrapper):
             pgd_early_stopping=False,
             pgd_restarts=config['sabr:pgd_restarts'],
             pgd_steps=config['sabr:pgd_steps'],
-            pgd_decay_milestones=()
+            pgd_decay_milestones=(),
+            pgd_eps_factor=config['sabr:pgd_eps_factor'],
         )
 
         model_wrapper.train_model(train_loader=train_loader)
@@ -188,11 +192,8 @@ class SABRModelWrapper(CTRAINWrapper):
         std_acc, cert_acc, adv_acc = model_wrapper.evaluate(test_loader=val_loader, test_samples=cert_eval_samples)
 
         loss = 0
-        if include_nat_loss:
-            loss -= std_acc
-        if include_adv_loss:
-            loss -= adv_acc
-        if include_cert_loss:
-            loss -= cert_acc
+        loss -= nat_loss_weight * std_acc
+        loss -= adv_loss_weight * adv_acc
+        loss -= cert_loss_weight * cert_acc
 
         return loss, {'nat_acc': std_acc, 'adv_acc': adv_acc, 'cert_acc': cert_acc}
