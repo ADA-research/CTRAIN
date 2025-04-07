@@ -35,7 +35,7 @@ def get_base_config(epochs, eps, defaults=dict()):
             'lr_decay_epoch_2': Integer('lr_decay_epoch_2', (0, math.ceil(.25 * epochs)), default=defaults.get('lr_decay_epoch_2')),
             'l1_reg_weight': Float('l1_reg_weight', (1e-8, 1e-4), log=True, default=defaults.get('l1_reg_weight')),
             'shi_reg_weight': Float("shi_reg_weight", (0.0, 1.0), default=defaults.get('shi_reg_weight')),
-            'shi_reg_decay': Categorical('shi_reg_decay', [True, False], default=defaults.get('shi_reg_decay', NotSet)),
+            'shi_reg_decay': Constant('shi_reg_decay', True),
             'train_eps_factor': Float("train_eps_factor", (1, 2), default=defaults.get('train_eps_factor')),
             'optimizer_func': Categorical('optimizer_func', ['adam', 'adamw', 'radam'], default=defaults.get('optimizer_func', NotSet)),
             'learning_rate': Float('learning_rate', (1e-5, 0.1), log=True, default=defaults.get('lr'))
@@ -89,10 +89,11 @@ def build_sabr_config_space(epochs, eps, include_base_config=True, defaults=dict
     sabr_config_space = ConfigurationSpace(
         name='sabr',
         space={
-            'subselection_ratio': Float('subselection_ratio', (0.01, 0.9), default=defaults.get('subselection_ratio')),
+            'subselection_ratio': Float('subselection_ratio', (0.001, 0.5), log=True, default=defaults.get('subselection_ratio')),
             'pgd_steps': Integer('pgd_steps', (1, 10), default=defaults.get('pgd_steps')),
             'pgd_alpha': Float('pgd_alpha', (0.1, 2), default=defaults.get('pgd_alpha')),
             'pgd_restarts': Constant('pgd_restarts', 1), # fixed number since it can get very expensive with more restarts
+            'pgd_eps_factor': Float('pgd_eps_factor', (1, 3), default=defaults.get('pgd_eps_factor')),
             # we do not optimise the pgd decay
         },
 
@@ -129,10 +130,12 @@ def build_staps_config_space(epochs, eps, include_base_config=True, defaults=dic
     sabr_config_space = ConfigurationSpace(
         name='sabr',
         space={
-            'subselection_ratio': Float('subselection_ratio', (0.01, 0.9), default=defaults.get('subselection_ratio')),
+            'subselection_ratio': Float('subselection_ratio', (0.001, 0.5), log=True, default=defaults.get('subselection_ratio')),
             'pgd_steps': Integer('pgd_steps', (1, 10), default=defaults.get('pgd_steps')),
             'pgd_alpha': Float('pgd_alpha', (0.1, 2), default=defaults.get('pgd_alpha')),
             'pgd_restarts': Constant('pgd_restarts', 1), # fixed number since it can get very expensive with more restarts
+            'pgd_eps_factor': Float('pgd_eps_factor', (1, 3), default=defaults.get('pgd_eps_factor')),
+            # we do not optimise the pgd decay
         },
 
     )
@@ -150,7 +153,7 @@ def build_mtl_ibp_config_space(epochs, eps, include_base_config=True, defaults=d
     mtl_ibp_config_space = ConfigurationSpace(
         name='mtl_ibp',
         space={
-            'mtl_ibp_alpha': Float('mtl_ibp_alpha', (0.001, 0.7), log=True, default=defaults.get('mtl_ibp_alpha')),
+            'mtl_ibp_alpha': Float('mtl_ibp_alpha', (0.001, 0.5), log=True, default=defaults.get('mtl_ibp_alpha')),
             'pgd_steps': Integer('pgd_steps', (1, 10), default=defaults.get('pgd_steps')),
             'pgd_alpha': Float('pgd_alpha', (0.1, 2), default=defaults.get('pgd_alpha')),
             'pgd_restarts': Constant('pgd_restarts', 1), # fixed number since it can get very expensive with more restarts
