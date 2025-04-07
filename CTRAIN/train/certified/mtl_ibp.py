@@ -168,7 +168,7 @@ def mtl_ibp_train_model(
                 if pgd_eps_factor == 1:
                     pgd_ptb = ptb
                 else:
-                    pgd_eps = (eps_std * pgd_eps_factor).to(device)
+                    pgd_eps = (cur_eps * pgd_eps_factor).to(device)
                     data_min, data_max = train_loader.min.to(
                         device
                     ), train_loader.max.to(device)
