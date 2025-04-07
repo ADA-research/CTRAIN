@@ -526,7 +526,7 @@ def eval_model(model, data_loader, eps, n_classes=10, test_samples=np.inf, metho
     """
     std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples)
     cert_acc = eval_certified(model=model, data_loader=data_loader, n_classes=n_classes, eps=eps, test_samples=test_samples, method=method)
-    adv_acc = eval_adversarial(model=model, data_loader=data_loader, eps=eps, n_classes=n_classes, device=device, test_samples=test_samples)
+    adv_acc = eval_adversarial(model=model, data_loader=data_loader, eps=eps, n_classes=n_classes, device=device, test_samples=test_samples, restarts=30, n_steps=100, step_size=.1, early_stopping=True)
     
     return std_acc, cert_acc, adv_acc
     
