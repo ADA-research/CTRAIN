@@ -2,6 +2,7 @@ import torch
 import os
 import random
 import numpy as np
+import onnx
 
 def export_onnx(model, file_name, batch_size, input_shape):
     """
@@ -22,7 +23,7 @@ def export_onnx(model, file_name, batch_size, input_shape):
     if len(input_shape) == 4:
         batch_size = input_shape[0]
         input_shape = input_shape[1:4]
-    x = torch.randn(batch_size, *input_shape, requires_grad=True).to(device)
+    x = torch.randn(batch_size, *input_shape, requires_grad=False).to(device)
     torch_out = model(x)
 
     # Export the model
@@ -30,13 +31,29 @@ def export_onnx(model, file_name, batch_size, input_shape):
                     x,                         # model input (or a tuple for multiple inputs)
                     file_name,   # where to save the model (can be a file or file-like object)
                     export_params=True,        # store the trained parameter weights inside the model file
-                    opset_version=10,          # the ONNX version to export the model to
-                    do_constant_folding=False,  # whether to execute constant folding for optimization
+                    opset_version=18,          # the ONNX version to export the model to
+                    do_constant_folding=True,  # whether to execute constant folding for optimization
                     input_names = ['input'],   # the model's input names
                     output_names = ['output'], # the model's output names
                     dynamic_axes={'input' : {0 : 'batch_size'},    # variable length axes
-                                    'output' : {0 : 'batch_size'}})
+                                    'output' : {0 : 'batch_size'}},
+                    training=torch.onnx.TrainingMode.EVAL,
+                    verbose=False)
+    remove_training_mode_attr(file_name, file_name)
+    print(f"Model exported to {file_name}")
     
+def remove_training_mode_attr(onnx_path, output_path):
+    model = onnx.load(onnx_path)
+    for node in model.graph.node:
+        if node.op_type in ["BatchNormalization", "Dropout"]:
+            # Filter out 'training_mode' attributes
+            cleaned_attrs = [attr for attr in node.attribute if attr.name != "training_mode"]
+            # Clear and repopulate attributes
+            del node.attribute[:]
+            node.attribute.extend(cleaned_attrs)
+    onnx.save(model, output_path)
+    print(f"Cleaned model saved to: {output_path}")
+
 def save_checkpoint(model, optimizer, loss, epoch, results_path):
     """
     Saves the model checkpoint to the specified path.
