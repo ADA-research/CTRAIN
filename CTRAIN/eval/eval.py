@@ -175,7 +175,7 @@ def eval_crown(model, eps, data_loader, n_classes=10, test_samples=np.inf, devic
     return certified, total_images
 
 
-def eval_complete_abcrown(model, eps_std, data_loader, n_classes=10, input_shape=[1, 28, 28], test_samples=np.inf, timeout=1000, no_cores=28, abcrown_batch_size=512, separate_abcrown_process=False, device='cuda'):
+def eval_complete_abcrown(model, eps_std, data_loader, n_classes=10, input_shape=[1, 28, 28], test_samples=np.inf, timeout=1000, no_cores=28, abcrown_batch_size=512, abcrown_config_dict=dict(), separate_abcrown_process=False, device='cuda'):
     """
     Evaluate the model using the complete ABCROWN method. Attention, this evaluation may be very costly!
 
@@ -189,6 +189,7 @@ def eval_complete_abcrown(model, eps_std, data_loader, n_classes=10, input_shape
         timeout (int, optional): Timeout for the ABCROWN evaluation in seconds. Default is 1000.
         no_cores (int, optional): Number of cores to use for MIP solving during the ABCROWN evaluation (if configured). Default is 28.
         abcrown_batch_size (int, optional): Batch size for the ABCROWN evaluation. Default is 512.
+        abcrown_config_dict (dict, optional): Configuration dictionary for the ABCROWN verification system. Default is an empty dictionary.
         separate_abcrown_process (bool, optional): Whether to run ABCROWN in a separate process. Default is False.
         device (str, optional): Device to run the evaluation on. Default is 'cuda'.
 
@@ -204,6 +205,16 @@ def eval_complete_abcrown(model, eps_std, data_loader, n_classes=10, input_shape
     
     std_config = get_abcrown_standard_conf(timeout=timeout, no_cores=no_cores)
     std_config['solver']['batch_size'] = abcrown_batch_size
+    
+    def update_config(base_config, custom_config):
+        for key, value in custom_config.items():
+            if isinstance(value, dict) and key in base_config:
+                update_config(base_config[key], value)
+            else:
+                base_config[key] = value
+
+    update_config(std_config, abcrown_config_dict)
+    
     
     os.makedirs('/tmp/abCROWN/', exist_ok=True)
     

@@ -135,7 +135,7 @@ class CTRAINWrapper(nn.Module):
         eps_std = torch.reshape(eps_std, (*eps_std.shape, 1, 1))
         return eval_model(self.bounded_model, test_loader, n_classes=self.n_classes, eps=eps_std, test_samples=test_samples, method=eval_method, device=self.device)
 
-    def evaluate_complete(self, test_loader, test_samples=np.inf, timeout=1000, no_cores=4, abcrown_batch_size=512):
+    def evaluate_complete(self, test_loader, test_samples=np.inf, timeout=1000, no_cores=4, abcrown_batch_size=512, abcrown_config_dict=dict()):
         """
         Evaluate the model using the complete verification tool abCROWN.
 
@@ -145,6 +145,7 @@ class CTRAINWrapper(nn.Module):
             timeout (int, optional): Per-instance timeout for the verification process in seconds. Defaults to 1000.
             no_cores (int, optional): Number of CPU cores to use for verification. Only relevant, if MIP refinement is used in abCROWN. Defaults to 4.
             abcrown_batch_size (int, optional): Batch size for abCROWN. Defaults to 512. Decrease, if you run out of memory.
+            abcrown_config_dict (dict, optional): Configuration dictionary for abCROWN according to the tools documentation. Defaults to an empty dictionary.
 
         Returns:
             (tuple): A tuple containing: std_acc (float): Standard accuracy of the model on the test set, certified_acc (float): Certified accuracy of the model on the test set and adv_acc (float): Adversarial accuracy of the model on the test set.
@@ -162,6 +163,7 @@ class CTRAINWrapper(nn.Module):
             timeout=timeout,
             no_cores=no_cores,
             abcrown_batch_size=abcrown_batch_size,
+            abcrown_config_dict=abcrown_config_dict,
             device=self.device
         )
         return std_acc, certified_acc, adv_acc
