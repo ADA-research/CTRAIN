@@ -1,6 +1,63 @@
 # CHANGELOG
 
 
+## v0.3.1 (2025-04-01)
+
+### Bug Fixes
+
+- Adjust cifar10 std values in accordance with MTL-IBP/SABR implementations
+  ([`70d6cb7`](https://github.com/ADA-research/CTRAIN/commit/70d6cb7bb68fda7d6404006631ce53993d165ed6))
+
+- Fix argument passing to SABR
+  ([`ee7cd8a`](https://github.com/ADA-research/CTRAIN/commit/ee7cd8a126b4f8141922b2c20719bc54685cdd09))
+
+- Fix Crown IBP training without loss fusion
+  ([`88c9f68`](https://github.com/ADA-research/CTRAIN/commit/88c9f68ab7df9e107d88cf9a631cb4db27ab8bad))
+
+- Fix pgd implementation to work with torch.no_grad()
+  ([`17681d4`](https://github.com/ADA-research/CTRAIN/commit/17681d4757d66394bfbfc0a0c41e2e211d179521))
+
+### Chores
+
+- Adjust eps logging
+  ([`3d11b9a`](https://github.com/ADA-research/CTRAIN/commit/3d11b9ab24b71f61b98895309ffd12dc04a8d90c))
+
+
+## v0.3.0 (2025-03-17)
+
+### Bug Fixes
+
+- Fix data min and data max values in data loader
+  ([`d978948`](https://github.com/ADA-research/CTRAIN/commit/d978948f5545a96341a48a422234601312360284))
+
+- Fix HPO when no default configuration is provided.
+  ([`5ef65bf`](https://github.com/ADA-research/CTRAIN/commit/5ef65bfe4378e54af43210eebfa07a7362593a55))
+
+None is not a valid value for Categoricals.
+
+- Fix preprocessing for tiny imagenet
+  ([`dab2c3b`](https://github.com/ADA-research/CTRAIN/commit/dab2c3b1280f73338935a205ffcce5f81d43a63c))
+
+### Features
+
+- Add automatic download of TinyImageNet dataset
+  ([`c84f6b8`](https://github.com/ADA-research/CTRAIN/commit/c84f6b83828b2607b86d79782a4e1998e3f34123))
+
+added the automatic download to the data loader
+
+- Add Loss Fusion for CROWN IBP
+  ([`bfbd3cc`](https://github.com/ADA-research/CTRAIN/commit/bfbd3ccd7a2c54512501b93cf4ba33430faafb7e))
+
+Technique was introduced in the auto_LiRPA paper. This reduces memory requirements substantially and
+  can thus scale CROWN IBP to larger models and datasets.
+
+- Add possibility to treat training as deterministic in HPO
+  ([`6078f5b`](https://github.com/ADA-research/CTRAIN/commit/6078f5b9690486ccc7eac9569d07d3b73ed8765c))
+
+this leads to only one training run per hyperparameter configuration which may be useful on large
+  datasets and models. However, this gives an inaccurate estimate of the configuration performance.
+
+
 ## v0.2.1 (2025-02-19)
 
 ### Bug Fixes
