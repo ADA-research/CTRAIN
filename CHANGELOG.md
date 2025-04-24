@@ -1,7 +1,13 @@
 # CHANGELOG
 
 
+## v0.4.0 (2025-04-24)
+
+
 ## v0.3.1 (2025-04-01)
+
+
+## v0.3.0 (2025-03-17)
 
 ### Bug Fixes
 
@@ -14,19 +20,6 @@
 - Fix Crown IBP training without loss fusion
   ([`88c9f68`](https://github.com/ADA-research/CTRAIN/commit/88c9f68ab7df9e107d88cf9a631cb4db27ab8bad))
 
-- Fix pgd implementation to work with torch.no_grad()
-  ([`17681d4`](https://github.com/ADA-research/CTRAIN/commit/17681d4757d66394bfbfc0a0c41e2e211d179521))
-
-### Chores
-
-- Adjust eps logging
-  ([`3d11b9a`](https://github.com/ADA-research/CTRAIN/commit/3d11b9ab24b71f61b98895309ffd12dc04a8d90c))
-
-
-## v0.3.0 (2025-03-17)
-
-### Bug Fixes
-
 - Fix data min and data max values in data loader
   ([`d978948`](https://github.com/ADA-research/CTRAIN/commit/d978948f5545a96341a48a422234601312360284))
 
@@ -35,8 +28,24 @@
 
 None is not a valid value for Categoricals.
 
+- Fix ONNX export for certification with abCROWN
+  ([`ad4d887`](https://github.com/ADA-research/CTRAIN/commit/ad4d8871150ffd4ad461bf7696f624e7040f1831))
+
+removal of training attribute since
+
+- Fix pgd implementation to work with torch.no_grad()
+  ([`17681d4`](https://github.com/ADA-research/CTRAIN/commit/17681d4757d66394bfbfc0a0c41e2e211d179521))
+
 - Fix preprocessing for tiny imagenet
   ([`dab2c3b`](https://github.com/ADA-research/CTRAIN/commit/dab2c3b1280f73338935a205ffcce5f81d43a63c))
+
+- Use current eps in MTL IBP pgd epsilon adjustment
+  ([`cea2582`](https://github.com/ADA-research/CTRAIN/commit/cea2582ccae23e43a35c7fb1b37ca9a8613e8af1))
+
+### Chores
+
+- Adjust eps logging
+  ([`3d11b9a`](https://github.com/ADA-research/CTRAIN/commit/3d11b9ab24b71f61b98895309ffd12dc04a8d90c))
 
 ### Features
 
@@ -44,6 +53,11 @@ None is not a valid value for Categoricals.
   ([`c84f6b8`](https://github.com/ADA-research/CTRAIN/commit/c84f6b83828b2607b86d79782a4e1998e3f34123))
 
 added the automatic download to the data loader
+
+- Add eps factor for PGD attack to SABR.
+  ([`3565d15`](https://github.com/ADA-research/CTRAIN/commit/3565d158f6cf187c7b85dd09ce4f29619e453b7a))
+
+According to De Palma et al., this is equivalent to ReLU shrinking.
 
 - Add Loss Fusion for CROWN IBP
   ([`bfbd3cc`](https://github.com/ADA-research/CTRAIN/commit/bfbd3ccd7a2c54512501b93cf4ba33430faafb7e))
@@ -56,6 +70,12 @@ Technique was introduced in the auto_LiRPA paper. This reduces memory requiremen
 
 this leads to only one training run per hyperparameter configuration which may be useful on large
   datasets and models. However, this gives an inaccurate estimate of the configuration performance.
+
+- Add user-specifiable weights for the components of the HPO loss
+  ([`6602f60`](https://github.com/ADA-research/CTRAIN/commit/6602f607b375e47c5aab2f2f43354a988b8b6cb0))
+
+- Make abCROWN config adjustable in complete verification
+  ([`ca366fc`](https://github.com/ADA-research/CTRAIN/commit/ca366fc4c7a569a5f254408555d6db54c8ba5846))
 
 
 ## v0.2.1 (2025-02-19)
