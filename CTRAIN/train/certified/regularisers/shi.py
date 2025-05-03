@@ -41,7 +41,7 @@ def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, devi
     # print(modules)
     # print(modules.keys())
     # print(model)
-    node_inp = modules['/input']#modules['/input.1']
+    node_inp = modules['/input-1']#modules['/input.1']
     if node_inp.upper is None:
         _, _ = bound_ibp(
                 model=model,
