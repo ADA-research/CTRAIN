@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.4.1 (2025-05-03)
+
+### Bug Fixes
+
+- Change input node for shi regulariser
+  ([`13a3576`](https://github.com/ADA-research/CTRAIN/commit/13a35768248c17d60ab259692db0b4d7cdfbd6c0))
+
+- Make SMAC optimisation seed adjustable
+  ([`ac3d25f`](https://github.com/ADA-research/CTRAIN/commit/ac3d25f98f930afcc461b5bd1aa32ef8a5928471))
+
+
 ## v0.4.0 (2025-04-24)
 
 
