@@ -14,7 +14,7 @@ class ShiIBPModelWrapper(CTRAINWrapper):
     
     def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,
                  lr_decay_factor=.2, lr_decay_milestones=(80, 90), gradient_clip=10, l1_reg_weight=0.000001,
-                 shi_reg_weight=.5, shi_reg_decay=True, start_kappa=1, end_kappa=0, checkpoint_save_path=None, checkpoint_save_interval=10,
+                 shi_reg_weight=.5, shi_reg_decay=True, checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
         Initializes the ShiIBPModelWrapper.
@@ -35,8 +35,6 @@ class ShiIBPModelWrapper(CTRAINWrapper):
             l1_reg_weight (float): L1 regularization weight.
             shi_reg_weight (float): SHI regularization weight.
             shi_reg_decay (bool): Whether to decay SHI regularization during the ramp up phase.
-            start_kappa (float): Starting value of kappa that trades-off IBP and clean loss.
-            end_kappa (float): Ending value of kappa.
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
@@ -54,8 +52,8 @@ class ShiIBPModelWrapper(CTRAINWrapper):
         self.l1_reg_weight = l1_reg_weight
         self.shi_reg_weight = shi_reg_weight
         self.shi_reg_decay = shi_reg_decay
-        self.start_kappa = start_kappa
-        self.end_kappa = end_kappa
+        self.start_kappa = 0
+        self.end_kappa = 0
         self.optimizer_func = optimizer_func
         
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):

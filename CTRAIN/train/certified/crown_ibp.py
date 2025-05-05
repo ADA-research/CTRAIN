@@ -113,7 +113,7 @@ def crown_ibp_train_model(
                     g["lr"] = cur_lr
 
         print(
-            f"[{epoch + 1}/{num_epochs}]: eps {eps_scheduler.get_cur_eps(normalise=False):.4f}, kappa {kappa:.2f} "
+            f"[{epoch + 1}/{num_epochs}]: eps {eps_scheduler.get_cur_eps(normalise=False):.4f}"
         )
         hardened_model.train()
         original_model.train()
@@ -189,7 +189,7 @@ def crown_ibp_train_model(
             ):
                 # Not done in original paper - however it is SotA and generally beneficial
                 loss_regularisers = get_shi_regulariser(
-                    model=hardened_model if not loss_fusion else loss_fusion_model,
+                    model=hardened_model,
                     ptb=ptb,
                     data=data,
                     target=target,

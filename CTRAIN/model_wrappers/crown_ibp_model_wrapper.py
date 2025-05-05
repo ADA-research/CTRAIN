@@ -15,7 +15,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
     
     def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,
                  lr_decay_factor=.2, lr_decay_milestones=(80, 90), gradient_clip=10, l1_reg_weight=0.000001,
-                 shi_reg_weight=.5, shi_reg_decay=True, start_kappa=1, end_kappa=0, start_beta=1, end_beta=0,
+                 shi_reg_weight=.5, shi_reg_decay=True, start_beta=1, end_beta=0,
                  loss_fusion=True, checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
@@ -37,8 +37,6 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             l1_reg_weight (float): L1 regularization weight.
             shi_reg_weight (float): Shi regularization weight.
             shi_reg_decay (bool): Whether to decay Shi regularization during the ramp up phase.
-            start_kappa (float): Starting value of kappa that trades-off IBP and clean loss.
-            end_kappa (float): Ending value of kappa.
             start_beta (float): Starting value of beta that trades off IBP and CROWN-IBP loss.
             end_beta (float): Ending value of beta.
             loss_fusion (bool): Whether to use loss fusion in loss calculation (saves memory).
@@ -59,8 +57,8 @@ class CrownIBPModelWrapper(CTRAINWrapper):
         self.l1_reg_weight = l1_reg_weight
         self.shi_reg_weight = shi_reg_weight
         self.shi_reg_decay = shi_reg_decay
-        self.start_kappa = start_kappa
-        self.end_kappa = end_kappa
+        self.start_kappa = 0
+        self.end_kappa = 0
         self.start_beta = start_beta
         self.end_beta = end_beta
         self.optimizer_func = optimizer_func
