@@ -1,0 +1,3063 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../mtl_ibp_model_wrapper/">
+      
+      
+        <link rel="next" href="../shi_ibp_model_wrapper/">
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
+    
+    
+      
+        <title>SABR - CTRAIN Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.2afb09e1.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#CTRAIN.model_wrappers.sabr_model_wrapper" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="CTRAIN Documentation" class="md-header__button md-logo" aria-label="CTRAIN Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CTRAIN Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              SABR
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="CTRAIN Documentation" class="md-nav__button md-logo" aria-label="CTRAIN Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CTRAIN Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/certified_training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Certified Training with CTRAIN
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/model_evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Evaluation of models using CTRAIN
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/hyperparameter_optimisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Hyperparameter Optimisation using CTRAIN
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    attacks
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            attacks
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../attacks/pgd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    pgd
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    bound
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            bound
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bound/ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ibp
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bound/crown/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    crown
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bound/sabr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    sabr
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bound/taps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    taps
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    complete_verification
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            complete_verification
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../complete_verification/abCROWN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    abCROWN
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../data_loaders/data_loaders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    data_loaders
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../eval/eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    eval
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../model_definitions/model_definitions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    model_definitions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    model_wrappers
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            model_wrappers
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crown_ibp_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CROWN IBP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mtl_ibp_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MTL IBP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    SABR
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    SABR
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#CTRAIN.model_wrappers.sabr_model_wrapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      sabr_model_wrapper
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#CTRAIN.model_wrappers.sabr_model_wrapper.SABRModelWrapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      SABRModelWrapper
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SABRModelWrapper">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#CTRAIN.model_wrappers.sabr_model_wrapper.SABRModelWrapper.__init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      __init__
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#CTRAIN.model_wrappers.sabr_model_wrapper.SABRModelWrapper.train_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      train_model
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../shi_ibp_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SHI IBP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../taps_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TAPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../staps_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STAPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ctrain_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CTRAIN
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    train
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            train
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8_1" id="__nav_3_8_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    certified
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_8_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8_1">
+            <span class="md-nav__icon md-icon"></span>
+            certified
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    IBP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/crown_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CROWN IBP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/sabr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SABR
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/taps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TAPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/staps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STAPS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/mtl_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MTL-IBP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/util/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    util
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/eps_scheduler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    eps_scheduler
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8_1_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8_1_9" id="__nav_3_8_1_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    initialisation
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_3_8_1_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8_1_9">
+            <span class="md-nav__icon md-icon"></span>
+            initialisation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/initialisation/shi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    shi
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8_1_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8_1_10" id="__nav_3_8_1_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    regularisers
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_3_8_1_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8_1_10">
+            <span class="md-nav__icon md-icon"></span>
+            regularisers
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/regularisers/shi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    shi
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/regularisers/l1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    l1
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8_1_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8_1_11" id="__nav_3_8_1_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    losses
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_3_8_1_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8_1_11">
+            <span class="md-nav__icon md-icon"></span>
+            losses
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/losses/convex_combinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    convex_combinations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/losses/crown_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    crown_ibp
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/losses/ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ibp
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/losses/sabr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    sabr
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/losses/taps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    taps
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../train/certified/losses/util/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    util
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../util/util/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    util
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#CTRAIN.model_wrappers.sabr_model_wrapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      sabr_model_wrapper
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#CTRAIN.model_wrappers.sabr_model_wrapper.SABRModelWrapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      SABRModelWrapper
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SABRModelWrapper">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#CTRAIN.model_wrappers.sabr_model_wrapper.SABRModelWrapper.__init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      __init__
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#CTRAIN.model_wrappers.sabr_model_wrapper.SABRModelWrapper.train_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      train_model
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+  <h1>SABR</h1>
+
+<div class="doc doc-object doc-module">
+
+
+
+<a id="CTRAIN.model_wrappers.sabr_model_wrapper"></a>
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="CTRAIN.model_wrappers.sabr_model_wrapper.SABRModelWrapper" class="doc doc-heading">
+            <code>SABRModelWrapper</code>
+
+
+</h2>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="CTRAINWrapper (CTRAIN.model_wrappers.model_wrapper.CTRAINWrapper)" href="../ctrain_wrapper/#CTRAIN.model_wrappers.model_wrapper.CTRAINWrapper">CTRAINWrapper</a></code></p>
+
+
+        <p>Wrapper class for training models using SABR method. For details, see Müller et al. (2023) Certified training: Small boxes are all you need. https://arxiv.org/pdf/2210.04871</p>
+
+
+
+
+
+
+
+              <details class="quote">
+                <summary>Source code in <code>CTRAIN/model_wrappers/sabr_model_wrapper.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 10</span>
+<span class="normal"> 11</span>
+<span class="normal"> 12</span>
+<span class="normal"> 13</span>
+<span class="normal"> 14</span>
+<span class="normal"> 15</span>
+<span class="normal"> 16</span>
+<span class="normal"> 17</span>
+<span class="normal"> 18</span>
+<span class="normal"> 19</span>
+<span class="normal"> 20</span>
+<span class="normal"> 21</span>
+<span class="normal"> 22</span>
+<span class="normal"> 23</span>
+<span class="normal"> 24</span>
+<span class="normal"> 25</span>
+<span class="normal"> 26</span>
+<span class="normal"> 27</span>
+<span class="normal"> 28</span>
+<span class="normal"> 29</span>
+<span class="normal"> 30</span>
+<span class="normal"> 31</span>
+<span class="normal"> 32</span>
+<span class="normal"> 33</span>
+<span class="normal"> 34</span>
+<span class="normal"> 35</span>
+<span class="normal"> 36</span>
+<span class="normal"> 37</span>
+<span class="normal"> 38</span>
+<span class="normal"> 39</span>
+<span class="normal"> 40</span>
+<span class="normal"> 41</span>
+<span class="normal"> 42</span>
+<span class="normal"> 43</span>
+<span class="normal"> 44</span>
+<span class="normal"> 45</span>
+<span class="normal"> 46</span>
+<span class="normal"> 47</span>
+<span class="normal"> 48</span>
+<span class="normal"> 49</span>
+<span class="normal"> 50</span>
+<span class="normal"> 51</span>
+<span class="normal"> 52</span>
+<span class="normal"> 53</span>
+<span class="normal"> 54</span>
+<span class="normal"> 55</span>
+<span class="normal"> 56</span>
+<span class="normal"> 57</span>
+<span class="normal"> 58</span>
+<span class="normal"> 59</span>
+<span class="normal"> 60</span>
+<span class="normal"> 61</span>
+<span class="normal"> 62</span>
+<span class="normal"> 63</span>
+<span class="normal"> 64</span>
+<span class="normal"> 65</span>
+<span class="normal"> 66</span>
+<span class="normal"> 67</span>
+<span class="normal"> 68</span>
+<span class="normal"> 69</span>
+<span class="normal"> 70</span>
+<span class="normal"> 71</span>
+<span class="normal"> 72</span>
+<span class="normal"> 73</span>
+<span class="normal"> 74</span>
+<span class="normal"> 75</span>
+<span class="normal"> 76</span>
+<span class="normal"> 77</span>
+<span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SABRModelWrapper</span><span class="p">(</span><span class="n">CTRAINWrapper</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper class for training models using SABR method. For details, see Müller et al. (2023) Certified training: Small boxes are all you need. https://arxiv.org/pdf/2210.04871</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">num_epochs</span><span class="p">,</span> <span class="n">train_eps_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimizer_func</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span> <span class="n">warm_up_epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ramp_up_epochs</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span>
+                 <span class="n">lr_decay_factor</span><span class="o">=</span><span class="mf">.2</span><span class="p">,</span> <span class="n">lr_decay_milestones</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">90</span><span class="p">),</span> <span class="n">gradient_clip</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">l1_reg_weight</span><span class="o">=</span><span class="mf">0.000001</span><span class="p">,</span>
+                 <span class="n">shi_reg_weight</span><span class="o">=</span><span class="mf">.5</span><span class="p">,</span> <span class="n">shi_reg_decay</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sabr_subselection_ratio</span><span class="o">=</span><span class="mf">.2</span><span class="p">,</span> <span class="n">pgd_steps</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> 
+                 <span class="n">pgd_alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">pgd_restarts</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pgd_early_stopping</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pgd_alpha_decay_factor</span><span class="o">=</span><span class="mf">.1</span><span class="p">,</span>
+                 <span class="n">pgd_decay_milestones</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span> <span class="n">pgd_eps_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">checkpoint_save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">checkpoint_save_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                 <span class="n">bound_opts</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">conv_mode</span><span class="o">=</span><span class="s1">&#39;patches&#39;</span><span class="p">,</span> <span class="n">relu</span><span class="o">=</span><span class="s1">&#39;adaptive&#39;</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;cuda&#39;</span><span class="p">)):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initializes the SABRModelWrapper.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model (torch.nn.Module): The model to be trained.</span>
+<span class="sd">            input_shape (tuple): Shape of the input data.</span>
+<span class="sd">            eps (float): Epsilon value describing the perturbation the network should be certifiably robust against.</span>
+<span class="sd">            num_epochs (int): Number of epochs for training.</span>
+<span class="sd">            train_eps_factor (float): Factor for training epsilon.</span>
+<span class="sd">            optimizer_func (torch.optim.Optimizer): Optimizer function.</span>
+<span class="sd">            lr (float): Learning rate.</span>
+<span class="sd">            warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is trained on clean loss.</span>
+<span class="sd">            ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is gradually increased to the target train epsilon.</span>
+<span class="sd">            lr_decay_factor (float): Learning rate decay factor.</span>
+<span class="sd">            lr_decay_milestones (tuple): Milestones for learning rate decay.</span>
+<span class="sd">            gradient_clip (float): Gradient clipping value.</span>
+<span class="sd">            l1_reg_weight (float): L1 regularization weight.</span>
+<span class="sd">            shi_reg_weight (float): SHI regularization weight.</span>
+<span class="sd">            shi_reg_decay (bool): Whether to decay SHI regularization during the ramp up phase.</span>
+<span class="sd">            sabr_subselection_ratio (float): Ratio of subselection for SABR (lambda in original publication).</span>
+<span class="sd">            pgd_steps (int): Number of PGD steps for adversarial loss computation.</span>
+<span class="sd">            pgd_alpha (float): PGD step size for adversarial loss calculation.</span>
+<span class="sd">            pgd_restarts (int): Number of PGD restarts for adversarial loss calculation.</span>
+<span class="sd">            pgd_early_stopping (bool): Whether to use early stopping in PGD during adversarial loss calculation.</span>
+<span class="sd">            pgd_alpha_decay_factor (float): PGD alpha decay factor.</span>
+<span class="sd">            pgd_decay_milestones (tuple): Milestones for PGD alpha decay.</span>
+<span class="sd">            pgd_eps_factor (float): Factor for epsilon used during PGD attack.</span>
+<span class="sd">            checkpoint_save_path (str): Path to save checkpoints.</span>
+<span class="sd">            checkpoint_save_interval (int): Interval for saving checkpoints.</span>
+<span class="sd">            bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.</span>
+<span class="sd">            device (torch.device): Device to run the training on.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="n">train_eps_factor</span><span class="p">,</span> <span class="n">lr</span><span class="p">,</span> <span class="n">optimizer_func</span><span class="p">,</span> <span class="n">bound_opts</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">checkpoint_save_path</span><span class="o">=</span><span class="n">checkpoint_save_path</span><span class="p">,</span> <span class="n">checkpoint_save_interval</span><span class="o">=</span><span class="n">checkpoint_save_interval</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cert_train_method</span> <span class="o">=</span> <span class="s1">&#39;sabr&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_epochs</span> <span class="o">=</span> <span class="n">num_epochs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr</span> <span class="o">=</span> <span class="n">lr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">warm_up_epochs</span> <span class="o">=</span> <span class="n">warm_up_epochs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ramp_up_epochs</span> <span class="o">=</span> <span class="n">ramp_up_epochs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr_decay_factor</span> <span class="o">=</span> <span class="n">lr_decay_factor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr_decay_milestones</span> <span class="o">=</span> <span class="n">lr_decay_milestones</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gradient_clip</span> <span class="o">=</span> <span class="n">gradient_clip</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">l1_reg_weight</span> <span class="o">=</span> <span class="n">l1_reg_weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shi_reg_weight</span> <span class="o">=</span> <span class="n">shi_reg_weight</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shi_reg_decay</span> <span class="o">=</span> <span class="n">shi_reg_decay</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimizer_func</span> <span class="o">=</span> <span class="n">optimizer_func</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sabr_subselection_ratio</span> <span class="o">=</span> <span class="n">sabr_subselection_ratio</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pgd_steps</span> <span class="o">=</span> <span class="n">pgd_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pgd_alpha</span> <span class="o">=</span> <span class="n">pgd_alpha</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pgd_restarts</span> <span class="o">=</span> <span class="n">pgd_restarts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pgd_early_stopping</span> <span class="o">=</span> <span class="n">pgd_early_stopping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pgd_alpha_decay_factor</span> <span class="o">=</span> <span class="n">pgd_alpha_decay_factor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pgd_decay_milestones</span> <span class="o">=</span> <span class="n">pgd_decay_milestones</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pgd_eps_factor</span> <span class="o">=</span> <span class="n">pgd_eps_factor</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">val_loader</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_epoch</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_epoch</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Trains the model using the SABR method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            train_loader (torch.utils.data.DataLoader): DataLoader for training data.</span>
+<span class="sd">            val_loader (torch.utils.data.DataLoader, optional): DataLoader for validation data.</span>
+<span class="sd">            start_epoch (int, optional): Epoch to start training from. Initialises learning rate and epsilon schedulers accordingly. Defaults to 0.</span>
+<span class="sd">            end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (auto_LiRPA.BoundedModule): Trained model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eps_std</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_eps</span> <span class="o">/</span> <span class="n">train_loader</span><span class="o">.</span><span class="n">std</span> <span class="k">if</span> <span class="n">train_loader</span><span class="o">.</span><span class="n">normalised</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_eps</span><span class="p">)</span>
+        <span class="n">eps_std</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">eps_std</span><span class="p">,</span> <span class="p">(</span><span class="o">*</span><span class="n">eps_std</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">trained_model</span> <span class="o">=</span> <span class="n">sabr_train_model</span><span class="p">(</span>
+            <span class="n">original_model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">original_model</span><span class="p">,</span>
+            <span class="n">hardened_model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bounded_model</span><span class="p">,</span>
+            <span class="n">train_loader</span><span class="o">=</span><span class="n">train_loader</span><span class="p">,</span>
+            <span class="n">val_loader</span><span class="o">=</span><span class="n">val_loader</span><span class="p">,</span>
+            <span class="n">start_epoch</span><span class="o">=</span><span class="n">start_epoch</span><span class="p">,</span>
+            <span class="n">end_epoch</span><span class="o">=</span><span class="n">end_epoch</span><span class="p">,</span>
+            <span class="n">num_epochs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_epochs</span><span class="p">,</span>
+            <span class="n">eps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">train_eps</span><span class="p">,</span>
+            <span class="n">eps_std</span><span class="o">=</span><span class="n">eps_std</span><span class="p">,</span>
+            <span class="n">eps_schedule</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_up_epochs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ramp_up_epochs</span><span class="p">),</span>
+            <span class="n">eps_scheduler_args</span><span class="o">=</span><span class="p">{},</span>
+            <span class="n">optimizer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span>
+            <span class="n">lr_decay_schedule</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lr_decay_milestones</span><span class="p">,</span>
+            <span class="n">lr_decay_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lr_decay_factor</span><span class="p">,</span>
+            <span class="n">n_classes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_classes</span><span class="p">,</span>
+            <span class="n">gradient_clip</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gradient_clip</span><span class="p">,</span>
+            <span class="n">l1_regularisation_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">l1_reg_weight</span><span class="p">,</span>
+            <span class="n">shi_regularisation_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">shi_reg_weight</span><span class="p">,</span>
+            <span class="n">shi_reg_decay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">shi_reg_decay</span><span class="p">,</span>
+            <span class="n">eps_schedule_unit</span><span class="o">=</span><span class="s1">&#39;epoch&#39;</span><span class="p">,</span>
+            <span class="n">lr_decay_schedule_unit</span><span class="o">=</span><span class="s1">&#39;epoch&#39;</span><span class="p">,</span>
+            <span class="n">subselection_ratio</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sabr_subselection_ratio</span><span class="p">,</span>
+            <span class="n">pgd_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_steps</span><span class="p">,</span>
+            <span class="n">pgd_step_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_alpha</span><span class="p">,</span>
+            <span class="n">pgd_restarts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_restarts</span><span class="p">,</span>
+            <span class="n">pgd_early_stopping</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_early_stopping</span><span class="p">,</span>
+            <span class="n">pgd_decay_checkpoints</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_decay_milestones</span><span class="p">,</span>
+            <span class="n">pgd_decay_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_alpha_decay_factor</span><span class="p">,</span>
+            <span class="n">pgd_eps_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_eps_factor</span><span class="p">,</span>
+            <span class="n">results_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">checkpoint_path</span><span class="p">,</span>
+            <span class="n">checkpoint_save_interval</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">checkpoint_save_interval</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">trained_model</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_hpo_runner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">seed</span><span class="p">,</span> <span class="n">epochs</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">val_loader</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">cert_eval_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">nat_loss_weight</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">adv_loss_weight</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">cert_loss_weight</span><span class="o">=</span><span class="mf">1.</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Function called during hyperparameter optimization (HPO) using SMAC3, returns the loss.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            config (dict): Configuration of hyperparameters.</span>
+<span class="sd">            seed (int): Seed used.</span>
+<span class="sd">            epochs (int): Number of epochs for training.</span>
+<span class="sd">            train_loader (torch.utils.data.DataLoader): DataLoader for training data.</span>
+<span class="sd">            val_loader (torch.utils.data.DataLoader): DataLoader for validation data.</span>
+<span class="sd">            output_dir (str): Directory to save output.</span>
+<span class="sd">            cert_eval_samples (int, optional): Number of samples for certification evaluation.</span>
+<span class="sd">            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss function.</span>
+<span class="sd">            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss function.</span>
+<span class="sd">            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss function.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: Loss and dictionary of accuracies that is saved as information to the run by SMAC3.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">config_hash</span> <span class="o">=</span> <span class="n">get_config_hash</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+        <span class="n">seed_ctrain</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;optimizer_func&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;adam&#39;</span><span class="p">:</span>
+            <span class="n">optimizer_func</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span>
+        <span class="k">elif</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;optimizer_func&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;radam&#39;</span><span class="p">:</span>
+            <span class="n">optimizer_func</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">RAdam</span>
+        <span class="k">if</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;optimizer_func&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;adamw&#39;</span><span class="p">:</span>
+            <span class="n">optimizer_func</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">AdamW</span>
+
+        <span class="n">lr_decay_milestones</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">config</span><span class="p">[</span><span class="s1">&#39;warm_up_epochs&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;ramp_up_epochs&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;lr_decay_epoch_1&#39;</span><span class="p">],</span>
+            <span class="n">config</span><span class="p">[</span><span class="s1">&#39;warm_up_epochs&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;ramp_up_epochs&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;lr_decay_epoch_1&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;lr_decay_epoch_2&#39;</span><span class="p">]</span>
+        <span class="p">]</span>
+
+        <span class="n">model_wrapper</span> <span class="o">=</span> <span class="n">SABRModelWrapper</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_model</span><span class="p">),</span> 
+            <span class="n">input_shape</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">input_shape</span><span class="p">,</span>
+            <span class="n">eps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">,</span>
+            <span class="n">num_epochs</span><span class="o">=</span><span class="n">epochs</span><span class="p">,</span> 
+            <span class="n">bound_opts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bound_opts</span><span class="p">,</span>
+            <span class="n">checkpoint_save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">train_eps_factor</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;train_eps_factor&#39;</span><span class="p">],</span>
+            <span class="n">optimizer_func</span><span class="o">=</span><span class="n">optimizer_func</span><span class="p">,</span>
+            <span class="n">lr</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;learning_rate&#39;</span><span class="p">],</span>
+            <span class="n">warm_up_epochs</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;warm_up_epochs&#39;</span><span class="p">],</span>
+            <span class="n">ramp_up_epochs</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;ramp_up_epochs&#39;</span><span class="p">],</span>
+            <span class="n">gradient_clip</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+            <span class="n">lr_decay_factor</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;lr_decay_factor&#39;</span><span class="p">],</span>
+            <span class="n">lr_decay_milestones</span><span class="o">=</span><span class="p">[</span><span class="n">epoch</span> <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="n">lr_decay_milestones</span> <span class="k">if</span> <span class="n">epoch</span> <span class="o">&lt;=</span> <span class="n">epochs</span><span class="p">],</span>
+            <span class="n">l1_reg_weight</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;l1_reg_weight&#39;</span><span class="p">],</span>
+            <span class="n">shi_reg_weight</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;shi_reg_weight&#39;</span><span class="p">],</span>
+            <span class="n">shi_reg_decay</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;shi_reg_decay&#39;</span><span class="p">],</span>
+            <span class="n">sabr_subselection_ratio</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;sabr:subselection_ratio&#39;</span><span class="p">],</span>
+            <span class="n">pgd_alpha</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;sabr:pgd_alpha&#39;</span><span class="p">],</span>
+            <span class="n">pgd_early_stopping</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">pgd_restarts</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;sabr:pgd_restarts&#39;</span><span class="p">],</span>
+            <span class="n">pgd_steps</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;sabr:pgd_steps&#39;</span><span class="p">],</span>
+            <span class="n">pgd_decay_milestones</span><span class="o">=</span><span class="p">(),</span>
+            <span class="n">pgd_eps_factor</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;sabr:pgd_eps_factor&#39;</span><span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="n">model_wrapper</span><span class="o">.</span><span class="n">train_model</span><span class="p">(</span><span class="n">train_loader</span><span class="o">=</span><span class="n">train_loader</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model_wrapper</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s1">/nets/</span><span class="si">{</span><span class="n">config_hash</span><span class="si">}</span><span class="s1">.pt&#39;</span><span class="p">)</span>
+        <span class="n">model_wrapper</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="n">std_acc</span><span class="p">,</span> <span class="n">cert_acc</span><span class="p">,</span> <span class="n">adv_acc</span> <span class="o">=</span> <span class="n">model_wrapper</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">test_loader</span><span class="o">=</span><span class="n">val_loader</span><span class="p">,</span> <span class="n">test_samples</span><span class="o">=</span><span class="n">cert_eval_samples</span><span class="p">)</span>
+
+        <span class="n">loss</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">loss</span> <span class="o">-=</span> <span class="n">nat_loss_weight</span> <span class="o">*</span> <span class="n">std_acc</span>
+        <span class="n">loss</span> <span class="o">-=</span> <span class="n">adv_loss_weight</span> <span class="o">*</span> <span class="n">adv_acc</span>
+        <span class="n">loss</span> <span class="o">-=</span> <span class="n">cert_loss_weight</span> <span class="o">*</span> <span class="n">cert_acc</span>
+
+        <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;nat_acc&#39;</span><span class="p">:</span> <span class="n">std_acc</span><span class="p">,</span> <span class="s1">&#39;adv_acc&#39;</span><span class="p">:</span> <span class="n">adv_acc</span><span class="p">,</span> <span class="s1">&#39;cert_acc&#39;</span><span class="p">:</span> <span class="n">cert_acc</span><span class="p">}</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="CTRAIN.model_wrappers.sabr_model_wrapper.SABRModelWrapper.__init__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">num_epochs</span><span class="p">,</span> <span class="n">train_eps_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimizer_func</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span> <span class="n">warm_up_epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ramp_up_epochs</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span> <span class="n">lr_decay_factor</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">lr_decay_milestones</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">90</span><span class="p">),</span> <span class="n">gradient_clip</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">l1_reg_weight</span><span class="o">=</span><span class="mf">1e-06</span><span class="p">,</span> <span class="n">shi_reg_weight</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">shi_reg_decay</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sabr_subselection_ratio</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">pgd_steps</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">pgd_alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">pgd_restarts</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pgd_early_stopping</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pgd_alpha_decay_factor</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">pgd_decay_milestones</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="n">pgd_eps_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">checkpoint_save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">checkpoint_save_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bound_opts</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">conv_mode</span><span class="o">=</span><span class="s1">&#39;patches&#39;</span><span class="p">,</span> <span class="n">relu</span><span class="o">=</span><span class="s1">&#39;adaptive&#39;</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;cuda&#39;</span><span class="p">))</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Initializes the SABRModelWrapper.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td>
+                  <code><span title="torch.nn.Module">Module</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model to be trained.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>input_shape</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Shape of the input data.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>eps</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Epsilon value describing the perturbation the network should be certifiably robust against.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>num_epochs</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of epochs for training.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>train_eps_factor</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Factor for training epsilon.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimizer_func</code>
+            </td>
+            <td>
+                  <code><span title="torch.optim.Optimizer">Optimizer</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optimizer function.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="torch.optim.Adam">Adam</span></code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>lr</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0005</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>warm_up_epochs</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of warm-up epochs, i.e. epochs where the model is trained on clean loss.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ramp_up_epochs</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of ramp-up epochs, i.e. epochs where the epsilon is gradually increased to the target train epsilon.</p>
+              </div>
+            </td>
+            <td>
+                  <code>70</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>lr_decay_factor</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Learning rate decay factor.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.2</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>lr_decay_milestones</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Milestones for learning rate decay.</p>
+              </div>
+            </td>
+            <td>
+                  <code>(80, 90)</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>gradient_clip</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Gradient clipping value.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>l1_reg_weight</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>L1 regularization weight.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1e-06</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>shi_reg_weight</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>SHI regularization weight.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>shi_reg_decay</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to decay SHI regularization during the ramp up phase.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sabr_subselection_ratio</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Ratio of subselection for SABR (lambda in original publication).</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.2</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pgd_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of PGD steps for adversarial loss computation.</p>
+              </div>
+            </td>
+            <td>
+                  <code>8</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pgd_alpha</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>PGD step size for adversarial loss calculation.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pgd_restarts</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of PGD restarts for adversarial loss calculation.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pgd_early_stopping</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to use early stopping in PGD during adversarial loss calculation.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pgd_alpha_decay_factor</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>PGD alpha decay factor.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pgd_decay_milestones</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Milestones for PGD alpha decay.</p>
+              </div>
+            </td>
+            <td>
+                  <code>(4, 7)</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pgd_eps_factor</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Factor for epsilon used during PGD attack.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>checkpoint_save_path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Path to save checkpoints.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>checkpoint_save_interval</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Interval for saving checkpoints.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>bound_opts</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Options for bounding according to the auto_LiRPA documentation.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>(conv_mode=&#39;patches&#39;, relu=&#39;adaptive&#39;)</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code><span title="torch.device">device</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Device to run the training on.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="torch.device">device</span>(&#39;cuda&#39;)</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>CTRAIN/model_wrappers/sabr_model_wrapper.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span>
+<span class="normal">71</span>
+<span class="normal">72</span>
+<span class="normal">73</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">num_epochs</span><span class="p">,</span> <span class="n">train_eps_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">optimizer_func</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span> <span class="n">warm_up_epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ramp_up_epochs</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span>
+             <span class="n">lr_decay_factor</span><span class="o">=</span><span class="mf">.2</span><span class="p">,</span> <span class="n">lr_decay_milestones</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">90</span><span class="p">),</span> <span class="n">gradient_clip</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">l1_reg_weight</span><span class="o">=</span><span class="mf">0.000001</span><span class="p">,</span>
+             <span class="n">shi_reg_weight</span><span class="o">=</span><span class="mf">.5</span><span class="p">,</span> <span class="n">shi_reg_decay</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sabr_subselection_ratio</span><span class="o">=</span><span class="mf">.2</span><span class="p">,</span> <span class="n">pgd_steps</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> 
+             <span class="n">pgd_alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">pgd_restarts</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pgd_early_stopping</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pgd_alpha_decay_factor</span><span class="o">=</span><span class="mf">.1</span><span class="p">,</span>
+             <span class="n">pgd_decay_milestones</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span> <span class="n">pgd_eps_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">checkpoint_save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">checkpoint_save_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+             <span class="n">bound_opts</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">conv_mode</span><span class="o">=</span><span class="s1">&#39;patches&#39;</span><span class="p">,</span> <span class="n">relu</span><span class="o">=</span><span class="s1">&#39;adaptive&#39;</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;cuda&#39;</span><span class="p">)):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Initializes the SABRModelWrapper.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model (torch.nn.Module): The model to be trained.</span>
+<span class="sd">        input_shape (tuple): Shape of the input data.</span>
+<span class="sd">        eps (float): Epsilon value describing the perturbation the network should be certifiably robust against.</span>
+<span class="sd">        num_epochs (int): Number of epochs for training.</span>
+<span class="sd">        train_eps_factor (float): Factor for training epsilon.</span>
+<span class="sd">        optimizer_func (torch.optim.Optimizer): Optimizer function.</span>
+<span class="sd">        lr (float): Learning rate.</span>
+<span class="sd">        warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is trained on clean loss.</span>
+<span class="sd">        ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is gradually increased to the target train epsilon.</span>
+<span class="sd">        lr_decay_factor (float): Learning rate decay factor.</span>
+<span class="sd">        lr_decay_milestones (tuple): Milestones for learning rate decay.</span>
+<span class="sd">        gradient_clip (float): Gradient clipping value.</span>
+<span class="sd">        l1_reg_weight (float): L1 regularization weight.</span>
+<span class="sd">        shi_reg_weight (float): SHI regularization weight.</span>
+<span class="sd">        shi_reg_decay (bool): Whether to decay SHI regularization during the ramp up phase.</span>
+<span class="sd">        sabr_subselection_ratio (float): Ratio of subselection for SABR (lambda in original publication).</span>
+<span class="sd">        pgd_steps (int): Number of PGD steps for adversarial loss computation.</span>
+<span class="sd">        pgd_alpha (float): PGD step size for adversarial loss calculation.</span>
+<span class="sd">        pgd_restarts (int): Number of PGD restarts for adversarial loss calculation.</span>
+<span class="sd">        pgd_early_stopping (bool): Whether to use early stopping in PGD during adversarial loss calculation.</span>
+<span class="sd">        pgd_alpha_decay_factor (float): PGD alpha decay factor.</span>
+<span class="sd">        pgd_decay_milestones (tuple): Milestones for PGD alpha decay.</span>
+<span class="sd">        pgd_eps_factor (float): Factor for epsilon used during PGD attack.</span>
+<span class="sd">        checkpoint_save_path (str): Path to save checkpoints.</span>
+<span class="sd">        checkpoint_save_interval (int): Interval for saving checkpoints.</span>
+<span class="sd">        bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.</span>
+<span class="sd">        device (torch.device): Device to run the training on.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="n">train_eps_factor</span><span class="p">,</span> <span class="n">lr</span><span class="p">,</span> <span class="n">optimizer_func</span><span class="p">,</span> <span class="n">bound_opts</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">checkpoint_save_path</span><span class="o">=</span><span class="n">checkpoint_save_path</span><span class="p">,</span> <span class="n">checkpoint_save_interval</span><span class="o">=</span><span class="n">checkpoint_save_interval</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">cert_train_method</span> <span class="o">=</span> <span class="s1">&#39;sabr&#39;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">num_epochs</span> <span class="o">=</span> <span class="n">num_epochs</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">lr</span> <span class="o">=</span> <span class="n">lr</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">warm_up_epochs</span> <span class="o">=</span> <span class="n">warm_up_epochs</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">ramp_up_epochs</span> <span class="o">=</span> <span class="n">ramp_up_epochs</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">lr_decay_factor</span> <span class="o">=</span> <span class="n">lr_decay_factor</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">lr_decay_milestones</span> <span class="o">=</span> <span class="n">lr_decay_milestones</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">gradient_clip</span> <span class="o">=</span> <span class="n">gradient_clip</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">l1_reg_weight</span> <span class="o">=</span> <span class="n">l1_reg_weight</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">shi_reg_weight</span> <span class="o">=</span> <span class="n">shi_reg_weight</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">shi_reg_decay</span> <span class="o">=</span> <span class="n">shi_reg_decay</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">optimizer_func</span> <span class="o">=</span> <span class="n">optimizer_func</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">sabr_subselection_ratio</span> <span class="o">=</span> <span class="n">sabr_subselection_ratio</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">pgd_steps</span> <span class="o">=</span> <span class="n">pgd_steps</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">pgd_alpha</span> <span class="o">=</span> <span class="n">pgd_alpha</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">pgd_restarts</span> <span class="o">=</span> <span class="n">pgd_restarts</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">pgd_early_stopping</span> <span class="o">=</span> <span class="n">pgd_early_stopping</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">pgd_alpha_decay_factor</span> <span class="o">=</span> <span class="n">pgd_alpha_decay_factor</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">pgd_decay_milestones</span> <span class="o">=</span> <span class="n">pgd_decay_milestones</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">pgd_eps_factor</span> <span class="o">=</span> <span class="n">pgd_eps_factor</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="CTRAIN.model_wrappers.sabr_model_wrapper.SABRModelWrapper.train_model" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">train_model</span><span class="p">(</span><span class="n">train_loader</span><span class="p">,</span> <span class="n">val_loader</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_epoch</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_epoch</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Trains the model using the SABR method.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>train_loader</code>
+            </td>
+            <td>
+                  <code><span title="torch.utils.data.DataLoader">DataLoader</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>DataLoader for training data.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>val_loader</code>
+            </td>
+            <td>
+                  <code><span title="torch.utils.data.DataLoader">DataLoader</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>DataLoader for validation data.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>start_epoch</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Epoch to start training from. Initialises learning rate and epsilon schedulers accordingly. Defaults to 0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>end_epoch</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Epoch to prematurely end training at. Defaults to None.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="auto_LiRPA.BoundedModule">BoundedModule</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Trained model.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>CTRAIN/model_wrappers/sabr_model_wrapper.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 75</span>
+<span class="normal"> 76</span>
+<span class="normal"> 77</span>
+<span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">val_loader</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_epoch</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_epoch</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Trains the model using the SABR method.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        train_loader (torch.utils.data.DataLoader): DataLoader for training data.</span>
+<span class="sd">        val_loader (torch.utils.data.DataLoader, optional): DataLoader for validation data.</span>
+<span class="sd">        start_epoch (int, optional): Epoch to start training from. Initialises learning rate and epsilon schedulers accordingly. Defaults to 0.</span>
+<span class="sd">        end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        (auto_LiRPA.BoundedModule): Trained model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">eps_std</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_eps</span> <span class="o">/</span> <span class="n">train_loader</span><span class="o">.</span><span class="n">std</span> <span class="k">if</span> <span class="n">train_loader</span><span class="o">.</span><span class="n">normalised</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_eps</span><span class="p">)</span>
+    <span class="n">eps_std</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">eps_std</span><span class="p">,</span> <span class="p">(</span><span class="o">*</span><span class="n">eps_std</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">trained_model</span> <span class="o">=</span> <span class="n">sabr_train_model</span><span class="p">(</span>
+        <span class="n">original_model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">original_model</span><span class="p">,</span>
+        <span class="n">hardened_model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bounded_model</span><span class="p">,</span>
+        <span class="n">train_loader</span><span class="o">=</span><span class="n">train_loader</span><span class="p">,</span>
+        <span class="n">val_loader</span><span class="o">=</span><span class="n">val_loader</span><span class="p">,</span>
+        <span class="n">start_epoch</span><span class="o">=</span><span class="n">start_epoch</span><span class="p">,</span>
+        <span class="n">end_epoch</span><span class="o">=</span><span class="n">end_epoch</span><span class="p">,</span>
+        <span class="n">num_epochs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_epochs</span><span class="p">,</span>
+        <span class="n">eps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">train_eps</span><span class="p">,</span>
+        <span class="n">eps_std</span><span class="o">=</span><span class="n">eps_std</span><span class="p">,</span>
+        <span class="n">eps_schedule</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_up_epochs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ramp_up_epochs</span><span class="p">),</span>
+        <span class="n">eps_scheduler_args</span><span class="o">=</span><span class="p">{},</span>
+        <span class="n">optimizer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="p">,</span>
+        <span class="n">lr_decay_schedule</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lr_decay_milestones</span><span class="p">,</span>
+        <span class="n">lr_decay_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lr_decay_factor</span><span class="p">,</span>
+        <span class="n">n_classes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_classes</span><span class="p">,</span>
+        <span class="n">gradient_clip</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gradient_clip</span><span class="p">,</span>
+        <span class="n">l1_regularisation_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">l1_reg_weight</span><span class="p">,</span>
+        <span class="n">shi_regularisation_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">shi_reg_weight</span><span class="p">,</span>
+        <span class="n">shi_reg_decay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">shi_reg_decay</span><span class="p">,</span>
+        <span class="n">eps_schedule_unit</span><span class="o">=</span><span class="s1">&#39;epoch&#39;</span><span class="p">,</span>
+        <span class="n">lr_decay_schedule_unit</span><span class="o">=</span><span class="s1">&#39;epoch&#39;</span><span class="p">,</span>
+        <span class="n">subselection_ratio</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sabr_subselection_ratio</span><span class="p">,</span>
+        <span class="n">pgd_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_steps</span><span class="p">,</span>
+        <span class="n">pgd_step_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_alpha</span><span class="p">,</span>
+        <span class="n">pgd_restarts</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_restarts</span><span class="p">,</span>
+        <span class="n">pgd_early_stopping</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_early_stopping</span><span class="p">,</span>
+        <span class="n">pgd_decay_checkpoints</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_decay_milestones</span><span class="p">,</span>
+        <span class="n">pgd_decay_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_alpha_decay_factor</span><span class="p">,</span>
+        <span class="n">pgd_eps_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pgd_eps_factor</span><span class="p">,</span>
+        <span class="n">results_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">checkpoint_path</span><span class="p">,</span>
+        <span class="n">checkpoint_save_interval</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">checkpoint_save_interval</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">trained_model</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../../..", "features": [], "search": "../../../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+    
+  </body>
+</html>
