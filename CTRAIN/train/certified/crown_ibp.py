@@ -117,6 +117,8 @@ def crown_ibp_train_model(
         )
         hardened_model.train()
         original_model.train()
+        loss_fusion_model.train() if loss_fusion else None
+
         running_loss = 0.0
 
         for batch_idx, (data, target) in enumerate(train_loader):

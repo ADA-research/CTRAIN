@@ -37,8 +37,6 @@ def get_crown_ibp_loss(hardened_model, ptb, data, target, n_classes, criterion, 
     if beta < 1e-5:
         lb, ub = ilb, iub
     else:
-        # Attention: We have to reuse the input here. Otherwise the memory requirements become too large!
-        # Input is reused from above bound_ibp call!
         clb, cub = bound_crown_ibp(
             model=hardened_model,
             ptb=ptb,
