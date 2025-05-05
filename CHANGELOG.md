@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.4.2 (2025-05-05)
+
+### Bug Fixes
+
+- Set loss fusion model to train mode
+  ([`bf57f4e`](https://github.com/ADA-research/CTRAIN/commit/bf57f4e8306b456561ae8292d82f9d62f803bbb1))
+
+### Chores
+
+- Remove kappa trade off
+  ([`0554e3e`](https://github.com/ADA-research/CTRAIN/commit/0554e3ebebda5a843757a6a67cb11e8dd59462dc))
+
+
 ## v0.4.1 (2025-05-03)
 
 ### Bug Fixes
