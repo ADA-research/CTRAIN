@@ -331,15 +331,18 @@ def eval_adaptive(model, eps, data_loader, n_classes=10, test_samples=np.inf, de
     certified = torch.tensor([], device=device)
     total_images = 0
     
+    ibp_data_loader = DataLoader(data_loader.dataset, batch_size=data_loader.batch_size, shuffle=False)
+    ibp_data_loader.max, ibp_data_loader.min, ibp_data_loader.std = data_loader.max, data_loader.min, data_loader.std
+
     crown_data_loader = DataLoader(data_loader.dataset, batch_size=1, shuffle=False)
     crown_data_loader.max, crown_data_loader.min, crown_data_loader.std = data_loader.max, data_loader.min, data_loader.std
     
-    for batch_idx, (data, targets) in tqdm(enumerate(data_loader)):
+    for batch_idx, (data, targets) in tqdm(enumerate(ibp_data_loader)):
         certified_idx = torch.zeros(len(data), device=device, dtype=torch.bool)
         
-        ptb = PerturbationLpNorm(eps=eps, norm=np.inf, x_L=torch.clamp(data - eps, data_loader.min, data_loader.max).to(device), x_U=torch.clamp(data + eps, data_loader.min, data_loader.max).to(device))
+        ptb = PerturbationLpNorm(eps=eps, norm=np.inf, x_L=torch.clamp(data - eps, ibp_data_loader.min, ibp_data_loader.max).to(device), x_U=torch.clamp(data + eps, ibp_data_loader.min, ibp_data_loader.max).to(device))
         data, targets = data.to(device), targets.to(device)
-        if batch_idx * data_loader.batch_size >= test_samples:
+        if batch_idx * ibp_data_loader.batch_size >= test_samples:
             continue
         
         total_images += len(targets)
@@ -357,7 +360,7 @@ def eval_adaptive(model, eps, data_loader, n_classes=10, test_samples=np.inf, de
         
         data = data.to('cpu')
         certified_idx = certified_idx.to("cpu")
-        ptb = PerturbationLpNorm(eps=eps, norm=np.inf, x_L=torch.clamp(data[~certified_idx] - eps, data_loader.min, data_loader.max).to(device), x_U=torch.clamp(data[~certified_idx] + eps, data_loader.min, data_loader.max).to(device))
+        ptb = PerturbationLpNorm(eps=eps, norm=np.inf, x_L=torch.clamp(data[~certified_idx] - eps, ibp_data_loader.min, ibp_data_loader.max).to(device), x_U=torch.clamp(data[~certified_idx] + eps, ibp_data_loader.min, ibp_data_loader.max).to(device))
         data = data.to(device)
         certified_idx = certified_idx.to(device)
         
