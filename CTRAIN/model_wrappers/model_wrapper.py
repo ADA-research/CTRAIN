@@ -86,15 +86,15 @@ class CTRAINWrapper(nn.Module):
         
         self.checkpoint_save_interval = checkpoint_save_interval
     
-    def train(self):
+    def train(self, mode=True):
         """
         Sets wrapper into training mode.
 
         This method calls the `train` method on both the `original_model` and 
         the `bounded_model` to set them into training mode
         """
-        self.original_model.train()
-        self.bounded_model.train()
+        self.original_model.train(mode=mode)
+        self.bounded_model.train(mode=mode)
     
     def eval(self):
         """
