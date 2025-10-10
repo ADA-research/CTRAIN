@@ -89,4 +89,5 @@ def pgd_attack(model, data, target, x_L, x_U, restarts=1, step_size=.2, n_steps=
                 if early_stopping and example_found.all():
                     break
                 
+    grad_cleaner.zero_grad()
     return adversarial_examples.detach()
