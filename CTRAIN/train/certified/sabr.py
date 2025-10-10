@@ -217,10 +217,23 @@ def sabr_train_model(
             if eps_scheduler.get_cur_eps(normalise=False) != eps_scheduler.get_max_eps(
                 normalise=False
             ):
+                # Use small boxes for the calculation of the Shi regulariser (in line with Müller et al. 2021)
+                # usually, this should be done since the regularisation function uses previously computed bounds
+                # however, sometimes these bounds may not be available
+                reg_ptb = PerturbationLpNorm(
+                    eps=cur_eps * subselection_ratio,
+                    norm=np.inf,
+                    x_L=torch.clamp(data - cur_eps, train_loader.min, train_loader.max).to(
+                        device
+                    ),
+                    x_U=torch.clamp(data + cur_eps, train_loader.min, train_loader.max).to(
+                        device
+                    ),
+                )
                 # SABR also uses Shi regularisation during warm up/ramp-up
                 loss_regularisers = get_shi_regulariser(
                     model=hardened_model,
-                    ptb=ptb,
+                    ptb=reg_ptb,
                     data=data,
                     target=target,
                     eps_scheduler=eps_scheduler,
