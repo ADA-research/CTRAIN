@@ -40,8 +40,8 @@ def pgd_attack(model, data, target, x_L, x_U, restarts=1, step_size=.2, n_steps=
         if early_stopping and example_found.all():
             break
 
-        random_noise = (x_L + torch.rand(data.shape, device=device) * (x_U - x_L)).to(device)
-        attack_input = data.detach().clone().to(device) + random_noise            
+        random_init = (x_L + torch.rand(data.shape, device=device) * (x_U - x_L)).to(device)
+        attack_input = random_init.detach().clone()     
                         
         grad_cleaner = optim.SGD([attack_input], lr=1e-3)
         with torch.enable_grad():
