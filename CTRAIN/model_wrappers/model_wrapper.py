@@ -168,7 +168,7 @@ class CTRAINWrapper(nn.Module):
         )
         return std_acc, certified_acc, adv_acc
     
-    def state_dict(self):
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
         """
         Returns the state dictionary of the LiRPA model.
 
@@ -177,7 +177,7 @@ class CTRAINWrapper(nn.Module):
         Returns:
             dict: A dictionary containing the model's state.
         """
-        return self.bounded_model.state_dict()
+        return self.bounded_model.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
     
     def load_state_dict(self, state_dict, strict = True):
         """
