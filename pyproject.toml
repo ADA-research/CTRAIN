@@ -24,7 +24,8 @@ dependencies = [
     "onnxoptimizer",
     "skl2onnx",
     "appdirs>=1.4",
-    "graphviz>=0.20.3"
+    "graphviz>=0.20.3",
+    "requests"
 ]
 requires-python = ">=3.8"
 keywords = ["certified training", "robustness", "machine learning", "verification"]
