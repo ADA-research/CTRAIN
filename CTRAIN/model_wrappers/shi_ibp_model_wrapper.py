@@ -12,10 +12,8 @@ class ShiIBPModelWrapper(CTRAINWrapper):
     Wrapper class for training models using SHI-IBP method. For details, see Shi et al. (2021) Fast certified robust training with short warmup. https://proceedings.neurips.cc/paper/2021/file/988f9153ac4fd966ea302dd9ab9bae15-Paper.pdf
     """
     
-    def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,
-                 lr_decay_factor=.2, lr_decay_milestones=(80, 90), gradient_clip=10, l1_reg_weight=0.000001,
-                 shi_reg_weight=.5, shi_reg_decay=True, checkpoint_save_path=None, checkpoint_save_interval=10,
-                 bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
+    def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), gradient_clip=10, l1_reg_weight=0.000001, shi_reg_weight=.5, shi_reg_decay=True, checkpoint_save_path=None, checkpoint_save_interval=10,
+    bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
         Initializes the ShiIBPModelWrapper.
 
@@ -40,14 +38,12 @@ class ShiIBPModelWrapper(CTRAINWrapper):
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
+        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
         self.cert_train_method = 'shi'
         self.num_epochs = num_epochs
         self.lr = lr
         self.warm_up_epochs = warm_up_epochs
         self.ramp_up_epochs = ramp_up_epochs
-        self.lr_decay_factor = lr_decay_factor
-        self.lr_decay_milestones = lr_decay_milestones
         self.gradient_clip = gradient_clip
         self.l1_reg_weight = l1_reg_weight
         self.shi_reg_weight = shi_reg_weight
