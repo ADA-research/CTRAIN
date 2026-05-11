@@ -31,8 +31,7 @@ def taps_train_model(
     eps_schedule_unit="epoch",
     eps_scheduler_args=dict(),
     optimizer=None,
-    lr_decay_schedule=(15, 25),
-    lr_decay_factor=10,
+    lr_scheduler=None,
     lr_decay_schedule_unit="epoch",
     n_classes=10,
     gradient_clip=None,
@@ -125,13 +124,6 @@ def taps_train_model(
         epoch_nat_err = 0
         epoch_rob_err = 0
 
-        if lr_decay_schedule_unit == "epoch":
-            if epoch + 1 in lr_decay_schedule:
-                print("LEARNING RATE DECAYED!")
-                cur_lr = cur_lr * lr_decay_factor
-                for g in optimizer.param_groups:
-                    g["lr"] = cur_lr
-
         print(
             f"[{epoch + 1}/{num_epochs}]: eps {eps_scheduler.get_cur_eps(normalise=False):.4f}"
         )
@@ -155,13 +147,6 @@ def taps_train_model(
                     device
                 ),
             )
-
-            if lr_decay_schedule_unit == "batch":
-                if no_batches + 1 in lr_decay_schedule:
-                    print("LEARNING RATE DECAYED!")
-                    cur_lr = cur_lr * lr_decay_factor
-                    for g in optimizer.param_groups:
-                        g["lr"] = cur_lr
 
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
@@ -252,6 +237,9 @@ def taps_train_model(
             eps_scheduler.batch_step()
             no_batches += 1
 
+            if lr_scheduler is not None and lr_decay_schedule_unit == "batch":
+                lr_scheduler.step()
+
         train_acc_nat = 1 - epoch_nat_err / len(train_loader)
         train_acc_cert = 1 - epoch_rob_err / len(train_loader)
 
@@ -266,5 +254,8 @@ def taps_train_model(
             save_checkpoint(
                 hardened_model, optimizer, running_loss, epoch + 1, results_path
             )
+
+        if lr_scheduler is not None and lr_decay_schedule_unit == "epoch":
+            lr_scheduler.step()
 
     return hardened_model
