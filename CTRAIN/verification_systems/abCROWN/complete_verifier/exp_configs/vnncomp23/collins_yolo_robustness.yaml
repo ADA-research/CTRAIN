@@ -1,12 +1,11 @@
 general:
   root_path: ../../vnncomp2023_benchmarks/benchmarks/collins_yolo_robustness
   csv_name: instances.csv
-  enable_incomplete_verification: False
 model:
   onnx_quirks: "{'Reshape': {'fix_batch_size': True}}"
   flatten_final_output: True
 solver:
-  batch_size: 1  # OOM
+  batch_size: 1
   bound_prop_method: forward+backward
 attack:
   pgd_order: before

@@ -1,0 +1,25 @@
+# Configuration file for running the nn4sys_2023 benchmark (pensieve models).
+general:
+  root_path: ../../vnncomp2023_benchmarks/benchmarks/nn4sys
+  csv_name: instances.csv
+  adhoc_tuning: Customized("custom_adhoc_tuning", "customized_nn4sys_tuning")
+model:
+  onnx_quirks: "{'Reshape': {'fix_batch_size': True}}"  # Fix batch dimension in this onnx.
+  cache_onnx_conversion: True
+solver:
+  batch_size: 256
+  auto_enlarge_batch_size: true
+  bound_prop_method: forward+crown
+bab:
+  branching:
+    method: sb
+    input_split:
+      enable: True
+      adv_check: .inf
+      sb_coeff_thresh: 0.1
+      reorder_bab: True
+  clip_n_verify:
+   clip_input_domain:
+     enabled: True
+attack:
+  pgd_order: input_bab

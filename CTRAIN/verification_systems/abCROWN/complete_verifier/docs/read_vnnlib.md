@@ -27,57 +27,57 @@ This utility provides functions to process `.vnnlib` files, a format used to spe
 
 ### read_statements
 
-**Signature**: `read_statements(vnnlib_filename) -> List[str]` 
+**Signature**: `read_statements(vnnlib_filename) -> List[str]`
 
-**Description**:  
+**Description**:
 Processes a `.vnnlib` file and returns a list of string statements. Useful for removing comments, blank lines, and combining multi-line statements.
 
-**Parameters**:   
+**Parameters**:
 `vnnlib_filename`: Path to the `.vnnlib` file to process.
 
-**Returns**:  
+**Returns**:
 A list of statements from the file, processed for comments, blank lines, and combined multi-line statements.
 
 ### update_rv_tuple
 
 **Signature**: `update_rv_tuple(rv_tuple, op, first, second, num_inputs, num_outputs) -> None`
 
-**Description**:  
+**Description**:
 Updates a tuple with constraints from the `.vnnlib` file.
 
-**Parameters**:   
-`rv_tuple`: The tuple to update.  
-`op`: Operation ("<=" or ">=").  
-`first`: First operand.  
-`second`: Second operand.  
-`num_inputs`: Total number of input variables.  
+**Parameters**:
+`rv_tuple`: The tuple to update.
+`op`: Operation ("<=" or ">=").
+`first`: First operand.
+`second`: Second operand.
+`num_inputs`: Total number of input variables.
 `num_outputs`: Total number of output variables.
 
 ### make_input_box_dict
 
 **Signature**: `make_input_box_dict(num_inputs) -> Dict[int, List[float]]`
 
-**Description**:  
+**Description**:
 Creates a dictionary for input box constraints.
 
-**Parameters**:   
+**Parameters**:
 `num_inputs`: Total number of input variables.
 
-**Returns**:  
+**Returns**:
 A dictionary with input indices as keys and their constraints as values.
 
 ### read_vnnlib
 
 **Signature**: `read_vnnlib(vnnlib_filename, regression=False) -> Union[List[Tuple]], List[Tuple]]`
 
-**Description**:  
+**Description**:
 Reads and processes a `.vnnlib` file. It is designed for 'nice' format files. For optimization, it caches the parsed output using a hash of the original file, so subsequent loads are faster.
 
-**Parameters**:   
-`vnnlib_filename`: Path to the `.vnnlib` file to process.  
+**Parameters**:
+`vnnlib_filename`: Path to the `.vnnlib` file to process.
 `regression`: Boolean indicating if the specification is for a regression problem. Default is `False`.
 
-**Returns**:  
+**Returns**:
 A processed list containing the constraints or regression cases parsed from the `.vnnlib` file.
 The list a list containing 2-tuples:
         1. input ranges (box), list of pairs for each input variable
@@ -86,22 +86,22 @@ The list a list containing 2-tuples:
 
 **Examples**:
 1. For `./test_vnnlib/little.vnnlib`:
-  
--**Constraint Input**:  
+
+-**Constraint Input**:
 ```python
 (assert (>= Y_0 3.991125645861615))
 ```
 -**Output**:
 ```python
 [(
-    [[0.6, 0.679857769], [-0.5, 0.5], [-0.5, 0.5], [0.45, 0.5], [-0.5, -0.45]], 
+    [[0.6, 0.679857769], [-0.5, 0.5], [-0.5, 0.5], [0.45, 0.5], [-0.5, -0.45]],
     [(
-        array([[-1.,  0.,  0.,  0.,  0.]]), 
+        array([[-1.,  0.,  0.,  0.,  0.]]),
         array([-3.99112565])
     )]
 )]
 ```
--**Output Explanation**: 
+-**Output Explanation**:
 >X_range:<br>
 >(List[X_lower_bound, X_higher_bound]): [[0.6, 0.679857769], [-0.5, 0.5], [-0.5, 0.5], [0.45, 0.5], [-0.5, -0.45]], which indicates 0.6 <= X_0 <= >0.679857769, -0.5 <= X_1 <= 0.5, ... and so on<br>
 
@@ -124,9 +124,9 @@ The list a list containing 2-tuples:
 -**Output**:
 ```python
 [(
-    [[0.6, 0.679857769], [-0.5, 0.5], [-0.5, 0.5], [0.45, 0.5], [-0.5, -0.45]], 
+    [[0.6, 0.679857769], [-0.5, 0.5], [-0.5, 0.5], [0.45, 0.5], [-0.5, -0.45]],
     [(
-        array([[-1.,  1.,  0.,  0.,  0.], [-1.,  0.,  1.,  0.,  0.], [-1.,  0.,  0.,  1.,  0.],[-1.,  0.,  0.,  0.,  1.]]), 
+        array([[-1.,  1.,  0.,  0.,  0.], [-1.,  0.,  1.,  0.,  0.], [-1.,  0.,  0.,  1.,  0.],[-1.,  0.,  0.,  0.,  1.]]),
        array([0., 0., 0., 0.])
     )]
 )]
@@ -139,11 +139,11 @@ The list a list containing 2-tuples:
 >rhs: array([0., 0., 0., 0.])<br>
 >--> mat * y <= rhs<br>
 >So, -Y_0 + Y_1 <= 0, -Y_0 + Y_2 <= 0, -Y_0 + Y_3 <= 0, -Y_0 + Y_4 <= 0<br>
->Or, Y_1 <= Y_0, Y_1 <= Y_2, Y_1 <= Y_3, Y_1 <= Y_4<br>
+>Or, Y_1 <= Y_0, Y_2 <= Y_0, Y_3 <= Y_0, Y_4 <= Y_0<br>
 
 
 3. For `./test_vnnlib/little3.vnnlib`:
-   
+
 -**Constraint Input (OR clause)**:
 ```python
 (assert (or
@@ -156,21 +156,21 @@ The list a list containing 2-tuples:
 -**Output**:
 ```python
 [(
-    [[-0.295233916, -0.212261512], [-0.063661977, -0.022281692], [-0.499999896, -0.498408347], [-0.5, -0.454545455], [-0.5, -0.375]], 
+    [[-0.295233916, -0.212261512], [-0.063661977, -0.022281692], [-0.499999896, -0.498408347], [-0.5, -0.454545455], [-0.5, -0.375]],
     [(
-        array([[ 1.,  0.,  0., -1.,  0.]]), 
+        array([[ 1.,  0.,  0., -1.,  0.]]),
         array([0.])
-        ), 
+        ),
         (
-        array([[ 0.,  1.,  0., -1.,  0.]]), 
+        array([[ 0.,  1.,  0., -1.,  0.]]),
         array([0.])
-        ), 
+        ),
         (
-        array([[ 0.,  0.,  1., -1.,  0.]]), 
+        array([[ 0.,  0.,  1., -1.,  0.]]),
         array([0.])
-        ), 
+        ),
         (
-        array([[ 0.,  0.,  0., -1.,  1.]]), 
+        array([[ 0.,  0.,  0., -1.,  1.]]),
         array([0.])
         )]
 )]
@@ -211,7 +211,7 @@ The list a list containing 2-tuples:
 >Or, Y_4 <= Y_3<br>
 
 4. For `./test_vnnlib/littleGeneral.vnnlib`:
-   
+
 -**Constraint Input (mixed AND and OR clause):**:
 ```python
 (assert (or (and (<= Y_1 0.5) (>= Y_2 Y_3) (<= Y_4 0.1))
@@ -223,17 +223,17 @@ The list a list containing 2-tuples:
 -**Output**:
 ```python
 [(
-    [[-0.295233916, -0.212261512], [-0.063661977, -0.022281692], [-0.499999896, -0.498408347], [-0.5, -0.454545455], [-0.5, -0.375]], 
+    [[-0.295233916, -0.212261512], [-0.063661977, -0.022281692], [-0.499999896, -0.498408347], [-0.5, -0.454545455], [-0.5, -0.375]],
     [(
         array([[ 0.,  1.,  0.,  0.,  0.], [ 0.,  0., -1.,  1.,  0.],[ 0.,  0.,  0.,  0.,  1.]]),
         array([0.5, 0. , 0.1])
-    ), 
+    ),
     (
-        array([[-1.,  0.,  1.,  0.,  0.],[ 0.,  0.,  0.,  1.,  0.]]), 
+        array([[-1.,  0.,  1.,  0.,  0.],[ 0.,  0.,  0.,  1.,  0.]]),
         array([0., 1.])
-    ), 
-    (   
-        array([[ 0.,  1.,  0.,  0.,  0.], [ 0.,  0., -1.,  0.,  0.]]), 
+    ),
+    (
+        array([[ 0.,  1.,  0.,  0.,  0.], [ 0.,  0., -1.,  0.,  0.]]),
         array([ 1., -2.])
     )
     ]
@@ -267,7 +267,7 @@ The list a list containing 2-tuples:
 >Or, Y_1 <= 1, Y_2 >= 2<br>
 
 5. For `./test_vnnlib/littleXY.vnnlib`:
-   
+
 -**Constraint Input (both X and Y appear in mixed AND and OR clause):**:
 ```python
 (assert (or (and (<= X_0 0.66) (>= Y_2 Y_3) (<= Y_4 0.1))
@@ -278,16 +278,16 @@ The list a list containing 2-tuples:
 -**Output**:
 ```python
 [(
-    [[0.6, 0.66], [-0.5, 0.5], [-0.5, 0.5], [0.45, 0.5], [-0.5, -0.45]], 
+    [[0.6, 0.66], [-0.5, 0.5], [-0.5, 0.5], [0.45, 0.5], [-0.5, -0.45]],
     [(
-        array([[ 0.,  0., -1.,  1.,  0.],[ 0.,  0.,  0.,  0.,  1.]]), 
+        array([[ 0.,  0., -1.,  1.,  0.],[ 0.,  0.,  0.,  0.,  1.]]),
         array([0. , 0.1])
     )]
-), 
+),
 (
-    [[0.6, 0.679857769], [-0.5, 0.5], [0.2, 0.5], [0.45, 0.5], [-0.5, -0.45]], 
+    [[0.6, 0.679857769], [-0.5, 0.5], [0.2, 0.5], [0.45, 0.5], [-0.5, -0.45]],
     [(
-        array([[0., 0., 0., 1., 0.]]), 
+        array([[0., 0., 0., 1., 0.]]),
         array([1.])
     )]
 )]

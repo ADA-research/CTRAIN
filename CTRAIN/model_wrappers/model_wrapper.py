@@ -16,11 +16,11 @@ class CTRAINWrapper(nn.Module):
     """
     Wrapper base class for certifiably training models.
     """
-    def __init__(self, model: nn.Module, eps:float, input_shape: tuple, train_eps_factor=1, lr=0.0005, optimizer_func=torch.optim.Adam, 
+    def __init__(self, model: nn.Module, eps:float, input_shape: tuple, train_eps_factor=1, lr=0.0005, optimizer_func=torch.optim.Adam,
                  lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), bound_opts=dict(conv_mode='patches', relu='adaptive'), device='cuda', checkpoint_save_path=None, checkpoint_save_interval=10):
         """
         Initialize the CTRAINWrapper Base Class.
-        
+
         Args:
             model (nn.Module): The neural network model to be wrapped.
             eps (float): The epsilon value for training.
@@ -32,7 +32,7 @@ class CTRAINWrapper(nn.Module):
             device (str or torch.device, optional): The device to run the model on. Default is 'cuda'.
             checkpoint_save_path (str, optional): Path to save checkpoints. Default is None.
             checkpoint_save_interval (int, optional): Interval to save checkpoints. Default is 10.
-        
+
         Attributes:
             original_model (nn.Module): The original neural network model.
             eps (float): The epsilon value for training.
@@ -49,7 +49,7 @@ class CTRAINWrapper(nn.Module):
         """
         super(CTRAINWrapper, self).__init__()
         model = model.to(device)
-        
+
         original_train = model.training
         self.original_model = model
         self.eps = eps
@@ -62,7 +62,7 @@ class CTRAINWrapper(nn.Module):
             else:
                 print("Unknown device - falling back to device CPU!")
                 self.device = torch.device('cpu')
-        
+
         if len(input_shape) < 4:
             input_shape = [1, *input_shape]
         model.eval()
@@ -71,35 +71,35 @@ class CTRAINWrapper(nn.Module):
         self.bound_opts = bound_opts
         self.bounded_model = BoundedModule(model=self.original_model, global_input=example_input, bound_opts=bound_opts, device=device)
         self.input_shape = input_shape
-        
+
         self.optimizer_func = optimizer_func
         self.optimizer = optimizer_func(self.bounded_model.parameters(), lr=lr)
 
         self.lr_scheduler_func = lr_scheduler_func
         self.lr_scheduler = self.lr_scheduler_func(self.optimizer, **lr_decay_kwargs)
-        
+
         self.epoch = 0
-        
+
         if original_train:
             self.original_model.train()
             self.bounded_model.train()
-        
+
         self.checkpoint_path = checkpoint_save_path
         if checkpoint_save_path is not None:
             os.makedirs(self.checkpoint_path, exist_ok=True)
-        
+
         self.checkpoint_save_interval = checkpoint_save_interval
-    
+
     def train(self, mode=True):
         """
         Sets wrapper into training mode.
 
-        This method calls the `train` method on both the `original_model` and 
+        This method calls the `train` method on both the `original_model` and
         the `bounded_model` to set them into training mode
         """
         self.original_model.train(mode=mode)
         self.bounded_model.train(mode=mode)
-    
+
     def eval(self):
         """
         Sets the model to evaluation mode.
@@ -110,7 +110,7 @@ class CTRAINWrapper(nn.Module):
         """
         self.original_model.eval()
         self.bounded_model.eval()
-    
+
     def forward(self, x):
         """
         Perform a forward pass through the LiRPA model.
@@ -122,7 +122,7 @@ class CTRAINWrapper(nn.Module):
             torch.Tensor: Output tensor after passing through the bounded model.
         """
         return self.bounded_model(x)
-    
+
     def evaluate(self, test_loader, test_samples=np.inf, eval_method='ADAPTIVE'):
         """
         Evaluate the model using the provided test data loader.
@@ -139,7 +139,20 @@ class CTRAINWrapper(nn.Module):
         eps_std = torch.reshape(eps_std, (*eps_std.shape, 1, 1))
         return eval_model(self.bounded_model, test_loader, n_classes=self.n_classes, eps=eps_std, test_samples=test_samples, method=eval_method, device=self.device)
 
-    def evaluate_complete(self, test_loader, test_samples=np.inf, timeout=1000, no_cores=4, abcrown_batch_size=512, abcrown_config_dict=dict()):
+    def evaluate_complete(
+        self,
+        test_loader,
+        test_samples=np.inf,
+        timeout=1000,
+        no_cores=4,
+        abcrown_batch_size=512,
+        abcrown_config_dict=None,
+        results_path='./abcrown_results',
+        warm_start=False,
+        start_idx=0,
+        end_idx=None,
+        results_filename="results.json",
+    ):
         """
         Evaluate the model using the complete verification tool abCROWN.
 
@@ -150,12 +163,17 @@ class CTRAINWrapper(nn.Module):
             no_cores (int, optional): Number of CPU cores to use for verification. Only relevant, if MIP refinement is used in abCROWN. Defaults to 4.
             abcrown_batch_size (int, optional): Batch size for abCROWN. Defaults to 512. Decrease, if you run out of memory.
             abcrown_config_dict (dict, optional): Configuration dictionary for abCROWN according to the tools documentation. Defaults to an empty dictionary.
+            results_path (str, optional): Path to save abCROWN results and logs. Defaults to './abcrown_results'.
+            warm_start (bool, optional): Reuse existing results from the results file. Defaults to False.
+            start_idx (int, optional): First dataset index to verify. Defaults to 0.
+            end_idx (int, optional): Exclusive end dataset index to verify. Defaults to None.
+            results_filename (str, optional): JSON file name under results_path. Defaults to 'results.json'.
 
         Returns:
             (tuple): A tuple containing: std_acc (float): Standard accuracy of the model on the test set, certified_acc (float): Certified accuracy of the model on the test set and adv_acc (float): Adversarial accuracy of the model on the test set.
         """
-        eps_std = self.eps / test_loader.std if test_loader.normalised else self.eps
-        eps_std = torch.reshape(eps_std, (*eps_std.shape, 1, 1))
+        eps_std = self.eps / test_loader.std if test_loader.normalised else torch.tensor(self.eps)
+        eps_std = torch.reshape(eps_std, (*eps_std.shape, 1, 1)).to(self.device)
         std_acc = eval_acc(self.bounded_model, test_loader=test_loader, test_samples=test_samples)
         certified_acc, adv_acc = eval_complete_abcrown(
             model=self.bounded_model,
@@ -168,10 +186,15 @@ class CTRAINWrapper(nn.Module):
             no_cores=no_cores,
             abcrown_batch_size=abcrown_batch_size,
             abcrown_config_dict=abcrown_config_dict,
-            device=self.device
+            device=self.device,
+            results_path=results_path,
+            warm_start=warm_start,
+            start_idx=start_idx,
+            end_idx=end_idx,
+            results_filename=results_filename,
         )
         return std_acc, certified_acc, adv_acc
-    
+
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         """
         Returns the state dictionary of the LiRPA model.
@@ -182,16 +205,16 @@ class CTRAINWrapper(nn.Module):
             dict: A dictionary containing the model's state.
         """
         return self.bounded_model.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
-    
+
     def load_state_dict(self, state_dict, strict = True):
         """
         Load the state dictionary into the bounded LiRPA model.
 
         Args:
             state_dict (dict): A dictionary containing model state parameters.
-            strict (bool, optional): Whether to strictly enforce that the keys 
-                                     in `state_dict` match the keys returned by 
-                                     the model's `state_dict()` function. 
+            strict (bool, optional): Whether to strictly enforce that the keys
+                                     in `state_dict` match the keys returned by
+                                     the model's `state_dict()` function.
                                      Defaults to True.
 
         Returns:
@@ -200,7 +223,7 @@ class CTRAINWrapper(nn.Module):
                         `unexpected_keys` is a list of str containing the unexpected keys.
         """
         return self.bounded_model.load_state_dict(state_dict, strict)
-    
+
     def parameters(self, recurse=True):
         return self.bounded_model.parameters(recurse=recurse)
     # TODO: Add onnx export/loading
@@ -215,7 +238,7 @@ class CTRAINWrapper(nn.Module):
             val_loader (DataLoader, optional): DataLoader for the validation dataset. Defaults to None.
             end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
 
-        Loads the model and optimizer state from the checkpoint, sets the starting epoch, 
+        Loads the model and optimizer state from the checkpoint, sets the starting epoch,
         and resumes training from that epoch.
         """
         checkpoint = torch.load(checkpoint_path)
@@ -226,11 +249,11 @@ class CTRAINWrapper(nn.Module):
         self.optimizer.load_state_dict(optimizer_state_dict)
 
         self.train_model(train_loader, val_loader, start_epoch=self.epoch, end_epoch=end_epoch)
-    
+
     def hpo(self, train_loader, val_loader, budget=5*24*60*60, defaults=dict(), eval_samples=1000, output_dir='./smac_hpo', deterministic=False, seed=42, nat_loss_weight=1., adv_loss_weight=1., cert_loss_weight=1.):
         """
         Perform hyperparameter optimization (HPO) using SMAC3 for the model. After the method returns, the model will have loaded the best hyperparameters found during the optimization and the according trained weights.
-        
+
         Args:
             train_loader (DataLoader): DataLoader for the training dataset.
             val_loader (DataLoader): DataLoader for the validation dataset.
@@ -243,14 +266,14 @@ class CTRAINWrapper(nn.Module):
             nat_loss_weight (float, optional): Weight for the natural accuracy in the loss function.
             adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss function.
             cert_loss_weight (float, optional): Weight for the certified accuracy in the loss function.
-            
+
         Returns:
             Configuration: The best hyperparameter configuration found during the optimization.
         """
         os.makedirs(output_dir, exist_ok=True)
         if os.listdir(output_dir):
             assert False, 'Output directory for HPO is not empty!'
-        
+
         os.makedirs(f'{output_dir}/nets', exist_ok=True)
         os.makedirs(f'{output_dir}/smac/', exist_ok=True)
 
@@ -273,7 +296,7 @@ class CTRAINWrapper(nn.Module):
         )
 
         inc = smac.optimize()
-        
+
         config_hash = get_config_hash(inc, 32)
         self.load_state_dict(torch.load(f'{output_dir}/nets/{config_hash}.pt'))
 
@@ -281,5 +304,3 @@ class CTRAINWrapper(nn.Module):
 
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000):
         raise NotImplementedError('HPO can only be run on the concrete Wrappers!')
-
-

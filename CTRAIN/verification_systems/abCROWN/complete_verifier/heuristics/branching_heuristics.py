@@ -1,12 +1,12 @@
 #########################################################################
 ##   This file is part of the α,β-CROWN (alpha-beta-CROWN) verifier    ##
 ##                                                                     ##
-##   Copyright (C) 2021-2024 The α,β-CROWN Team                        ##
-##   Primary contacts: Huan Zhang <huan@huan-zhang.com>                ##
-##                     Zhouxing Shi <zshi@cs.ucla.edu>                 ##
-##                     Kaidi Xu <kx46@drexel.edu>                      ##
+##   Copyright (C) 2021-2025 The α,β-CROWN Team                        ##
+##   Team leaders:                                                     ##
+##          Faculty:   Huan Zhang <huan@huan-zhang.com> (UIUC)         ##
+##          Student:   Xiangru Zhong <xiangru4@illinois.edu> (UIUC)    ##
 ##                                                                     ##
-##    See CONTRIBUTORS for all author contacts and affiliations.       ##
+##   See CONTRIBUTORS for all current and past developers in the team. ##
 ##                                                                     ##
 ##     This program is licensed under the BSD 3-Clause License,        ##
 ##        contained in the LICENCE file in this directory.             ##
@@ -21,8 +21,14 @@ from heuristics.kfsb import KfsbBranching
 from heuristics.nonlinear import NonlinearBranching
 
 
-def get_branching_heuristic(net):
-    branching_method = arguments.Config['bab']['branching']['method']
+def get_branching_heuristic(net, method=None):
+    if method is None:
+        branching_method = arguments.Config['bab']['branching']['method']
+    else:
+        branching_method = method
+    disable_genbab = arguments.Config['bab']['branching']['nonlinear_split']['disable']
+    if branching_method != 'nonlinear' and net.nonlinear_split and not disable_genbab:
+        branching_method = 'nonlinear'
     branching_obj = None
     if branching_method == 'random':
         branching_obj = RandomNeuronBranching(net)

@@ -1,12 +1,12 @@
 #########################################################################
 ##   This file is part of the α,β-CROWN (alpha-beta-CROWN) verifier    ##
 ##                                                                     ##
-##   Copyright (C) 2021-2024 The α,β-CROWN Team                        ##
-##   Primary contacts: Huan Zhang <huan@huan-zhang.com>                ##
-##                     Zhouxing Shi <zshi@cs.ucla.edu>                 ##
-##                     Kaidi Xu <kx46@drexel.edu>                      ##
+##   Copyright (C) 2021-2025 The α,β-CROWN Team                        ##
+##   Team leaders:                                                     ##
+##          Faculty:   Huan Zhang <huan@huan-zhang.com> (UIUC)         ##
+##          Student:   Xiangru Zhong <xiangru4@illinois.edu> (UIUC)    ##
 ##                                                                     ##
-##    See CONTRIBUTORS for all author contacts and affiliations.       ##
+##   See CONTRIBUTORS for all current and past developers in the team. ##
 ##                                                                     ##
 ##     This program is licensed under the BSD 3-Clause License,        ##
 ##        contained in the LICENCE file in this directory.             ##
@@ -15,7 +15,7 @@
 from collections import defaultdict
 import torch
 import numpy as np
-from heuristics.babsr import BabsrBranching
+from heuristics.babsr import BabsrBranching, babsr_score, babsr_score_intercept_only
 from utils import get_reduce_op, get_batch_size_from_masks
 
 
@@ -24,19 +24,6 @@ class KfsbBranching(BabsrBranching):
     Branching using the intercept term in ReLU relaxation.
     TODO: support general activation functions.
     """
-
-    def babsr_score_intercept_only(self, lbs, ubs, lAs, batch):
-        """Compute branching scores for kfsb based on intercept only."""
-        score = []
-        for k in lbs:
-            if k == self.net.final_name:
-                continue
-            assert len(self.net.split_activations[k]) == 1
-            A_key = self.net.split_activations[k][0][0].name
-            ratio = ((-lbs[k]).clamp(0, None) * ubs[k].clamp(0, None)) / (ubs[k] - lbs[k])
-            ratio *= (-lAs[A_key].mean(dim=1)).clamp(0, None)
-            score.append(ratio.reshape(batch, -1))
-        return score
 
     @torch.no_grad()
     def get_branching_decisions(self, domains, split_depth, branching_candidates=5,
@@ -52,18 +39,19 @@ class KfsbBranching(BabsrBranching):
         # Mask is 1 for unstable neurons. Otherwise it's 0.
         mask = orig_mask
         batch = get_batch_size_from_masks(mask)
-        reduce_op = get_reduce_op(branching_reduceop)
+        reduce_op = get_reduce_op(branching_reduceop, with_dim=False)
         topk = min(branching_candidates,
                    int(sum([i.sum() for i in mask.values()]).item()))
         # FIXME: it seems cs and should always be not None because they are used below.
         number_bounds = 1 if cs is None else cs.shape[1]
 
         if method == 'kfsb-intercept-only':
-            score = self.babsr_score_intercept_only(lower_bounds, upper_bounds, lAs, batch)
+            score = babsr_score_intercept_only(lower_bounds, upper_bounds, lAs, batch, self.net.final_name, self.net.split_activations)
         elif method == 'kfsb':
-            score, intercept_tb = self.babsr_score(
+            score, intercept_tb = babsr_score(
                 lower_bounds, upper_bounds, lAs, mask, reduce_op,
-                number_bounds, prioritize_alphas)
+                number_bounds, self.net.split_nodes, self.net.split_activations,
+                prioritize_alphas)
         else:
             raise ValueError(f'Unsupported branching method "{method}" for relu splits.')
 
@@ -110,6 +98,7 @@ class KfsbBranching(BabsrBranching):
                             device=all_score.device, requires_grad=False)
         set_alpha = True  # We only set the alpha once.
 
+        reduce_op = get_reduce_op(branching_reduceop, with_dim=True)
         for k in range(topk):
             # top-k candidates from the alpha scores.
             decision_index = score_idx_indices[:, k]
@@ -167,14 +156,21 @@ class KfsbBranching(BabsrBranching):
             mask_score = (score_idx.values[:,
                           k] <= 1e-4).float()  # build mask indicates invalid scores (stable neurons), batch wise, 1: invalid
             if method == 'kfsb-intercept-only':
-                k_ret[k] = reduce_op((k_ret_lbs.view(-1) - mask_score.repeat(2) * 999999).reshape(2, -1), dim=0).values
+                reduced_score = reduce_op((k_ret_lbs.view(-1) - mask_score.repeat(2) * 999999).reshape(2, -1), dim=0)
             elif method == 'kfsb':
                 mask_itb = (itb_idx.values[:, k] >= -1e-4).float()
                 # We first make the invalid lower bounds worse than normal lower bounds by minus 999999.
                 # Then we consider the best lower bound across two splits (in the first dimension after reshape) by using min(0) or max(0).
-                k_ret[k] = reduce_op(
-                    (k_ret_lbs.view(-1) - torch.cat([mask_score, mask_itb]).repeat(2) * 999999).reshape(2, -1),
-                    dim=0).values
+                reduced_score = reduce_op(
+                    (k_ret_lbs.view(-1)
+                     - torch.cat([mask_score, mask_itb]).repeat(2) * 999999
+                    ).reshape(2, -1), dim=0)
+            else:
+                raise NotImplementedError(method)
+            if isinstance(reduced_score, torch.Tensor):
+                k_ret[k] = reduced_score
+            else:
+                k_ret[k] = reduced_score.values
 
         if method == 'kfsb':
             for v in sps.values():

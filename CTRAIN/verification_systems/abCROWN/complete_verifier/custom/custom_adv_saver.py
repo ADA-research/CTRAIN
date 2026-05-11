@@ -1,12 +1,12 @@
 #########################################################################
 ##   This file is part of the α,β-CROWN (alpha-beta-CROWN) verifier    ##
 ##                                                                     ##
-##   Copyright (C) 2021-2024 The α,β-CROWN Team                        ##
-##   Primary contacts: Huan Zhang <huan@huan-zhang.com>                ##
-##                     Zhouxing Shi <zshi@cs.ucla.edu>                 ##
-##                     Kaidi Xu <kx46@drexel.edu>                      ##
+##   Copyright (C) 2021-2025 The α,β-CROWN Team                        ##
+##   Team leaders:                                                     ##
+##          Faculty:   Huan Zhang <huan@huan-zhang.com> (UIUC)         ##
+##          Student:   Xiangru Zhong <xiangru4@illinois.edu> (UIUC)    ##
 ##                                                                     ##
-##    See CONTRIBUTORS for all author contacts and affiliations.       ##
+##   See CONTRIBUTORS for all current and past developers in the team. ##
 ##                                                                     ##
 ##     This program is licensed under the BSD 3-Clause License,        ##
 ##        contained in the LICENCE file in this directory.             ##
@@ -20,10 +20,10 @@ def customized_gtrsb_saver(adv_example, adv_output, res_path):
     # permute the input back before flattening the tensor
     # (See customized_Gtrsb_loader() from custom/custom_model_loader.py
 
-    adv_example = adv_example.permute(0, 1, 3, 4, 2).contiguous()
+    adv_example = adv_example.permute(0, 2, 3, 1).contiguous()
 
     x = adv_example.view(-1).detach().cpu()
-    adv_output = F.softmax(adv_output).detach().cpu().numpy()
+    adv_output = F.softmax(adv_output, dim=1).detach().cpu().numpy()
     with open(res_path, 'w+') as f:
         input_dim = np.prod(adv_example[0].shape)
         f.write("(")
@@ -37,4 +37,3 @@ def customized_gtrsb_saver(adv_example, adv_output, res_path):
                 f.write("\n(Y_{} {})".format(i, adv_output[0,i]))
         f.write(")")
         f.flush()
-
