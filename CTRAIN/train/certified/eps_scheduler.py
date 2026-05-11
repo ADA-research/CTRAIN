@@ -84,10 +84,13 @@ class BaseScheduler():
         Notes:
             - The method checks for numerical instabilities and adjusts the current epsilon value if necessary.
         """
+        max_eps = self.get_max_eps(normalise=False)
+        cur_eps = torch.as_tensor(self.cur_eps)
         # Check needed to mitigate numerical instabilities
-        if (torch.tensor(self.get_max_eps(normalise=False) - self.cur_eps)  < 1e-7).all():
-            self.cur_eps = self.get_max_eps(normalise=False)
-        return torch.tensor(self.cur_eps) / torch.tensor(self.std) if normalise else self.cur_eps
+        if (torch.as_tensor(max_eps) - cur_eps < 1e-7).all():
+            self.cur_eps = max_eps
+            cur_eps = torch.as_tensor(self.cur_eps)
+        return cur_eps / torch.as_tensor(self.std) if normalise else self.cur_eps
     
     def get_cur_kappa(self):
         return self.cur_kappa
@@ -96,9 +99,9 @@ class BaseScheduler():
         return self.cur_beta
     
     def get_max_eps(self, normalise=True):
-        return torch.tensor(self.eps) / torch.tensor(self.std) if normalise else self.eps
+        return torch.as_tensor(self.eps) / torch.as_tensor(self.std) if normalise else self.eps
     
-    def batch_step(self, ):
+    def batch_step(self, metric=None):
         raise NotImplementedError
     
     
@@ -145,7 +148,7 @@ class LinearScheduler(BaseScheduler):
         if start_epoch > 0:
             self.batch_step()
     
-    def batch_step(self):
+    def batch_step(self, metric=None):
         if self.warm_up < self.no_batches < (self.warm_up + self.ramp_up):
             self.cur_eps += (self.eps / self.ramp_up)
             kappa_step = (self.start_kappa - self.end_kappa) / self.ramp_up
@@ -202,7 +205,7 @@ class SmoothedScheduler(BaseScheduler):
             self.batch_step()
     
     
-    def batch_step(self):
+    def batch_step(self, metric=None):
         init_value = self.start_eps
         final_value = self.eps
         beta = self.exponent
