@@ -133,19 +133,17 @@ def sabr_train_model(
         for batch_idx, (data, target) in enumerate(train_loader):
 
             cur_eps = eps_scheduler.get_cur_eps().reshape(-1, 1, 1)
+            data, target = data.to(device), target.to(device)
+            cur_eps_device = torch.as_tensor(cur_eps, device=device)
+            data_min, data_max = train_loader.min.to(device), train_loader.max.to(device)
 
             ptb = PerturbationLpNorm(
-                eps=cur_eps,
+                eps=cur_eps_device,
                 norm=np.inf,
-                x_L=torch.clamp(data - cur_eps, train_loader.min, train_loader.max).to(
-                    device
-                ),
-                x_U=torch.clamp(data + cur_eps, train_loader.min, train_loader.max).to(
-                    device
-                ),
+                x_L=torch.clamp(data - cur_eps_device, data_min, data_max),
+                x_U=torch.clamp(data + cur_eps_device, data_min, data_max),
             )
 
-            data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             clean_output = hardened_model(data)
             regular_err = torch.sum(
@@ -157,15 +155,12 @@ def sabr_train_model(
                 if pgd_eps_factor == 1:
                     pgd_ptb = ptb
                 else:
-                    pgd_eps = (cur_eps * pgd_eps_factor).to(device)
-                    data_min, data_max = train_loader.min.to(
-                        device
-                    ), train_loader.max.to(device)
+                    pgd_eps = cur_eps_device * pgd_eps_factor
                     pgd_ptb = PerturbationLpNorm(
                         eps=pgd_eps,
                         norm=np.inf,
-                        x_L=torch.clamp(data - pgd_eps, data_min, data_max).to(device),
-                        x_U=torch.clamp(data + pgd_eps, data_min, data_max).to(device),
+                        x_L=torch.clamp(data - pgd_eps, data_min, data_max),
+                        x_U=torch.clamp(data + pgd_eps, data_min, data_max),
                     )
 
                 sabr_loss, robust_err, adv_err = get_sabr_loss(
@@ -173,10 +168,10 @@ def sabr_train_model(
                     original_model=original_model,
                     train_loader=train_loader,
                     data=data,
-                    data_min=train_loader.min.to(device),
-                    data_max=train_loader.max.to(device),
+                    data_min=data_min,
+                    data_max=data_max,
                     target=target,
-                    eps=torch.tensor(cur_eps, device=device),
+                    eps=cur_eps_device,
                     subselection_ratio=subselection_ratio,
                     criterion=criterion,
                     device=device,
@@ -206,14 +201,10 @@ def sabr_train_model(
                 # usually, this should be done since the regularisation function uses previously computed bounds
                 # however, sometimes these bounds may not be available
                 reg_ptb = PerturbationLpNorm(
-                    eps=cur_eps * subselection_ratio,
+                    eps=cur_eps_device * subselection_ratio,
                     norm=np.inf,
-                    x_L=torch.clamp(data - cur_eps, train_loader.min, train_loader.max).to(
-                        device
-                    ),
-                    x_U=torch.clamp(data + cur_eps, train_loader.min, train_loader.max).to(
-                        device
-                    ),
+                    x_L=torch.clamp(data - cur_eps_device, data_min, data_max),
+                    x_U=torch.clamp(data + cur_eps_device, data_min, data_max),
                 )
                 # SABR also uses Shi regularisation during warm up/ramp-up
                 loss_regularisers = get_shi_regulariser(

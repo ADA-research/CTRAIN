@@ -153,19 +153,17 @@ def staps_train_model(
                 continue
 
             cur_eps = eps_scheduler.get_cur_eps().reshape(-1, 1, 1)
+            data, target = data.to(device), target.to(device)
+            cur_eps_device = torch.as_tensor(cur_eps, device=device)
+            data_min, data_max = train_loader.min.to(device), train_loader.max.to(device)
 
             ptb = PerturbationLpNorm(
-                eps=cur_eps,
+                eps=cur_eps_device,
                 norm=np.inf,
-                x_L=torch.clamp(data - cur_eps, train_loader.min, train_loader.max).to(
-                    device
-                ),
-                x_U=torch.clamp(data + cur_eps, train_loader.min, train_loader.max).to(
-                    device
-                ),
+                x_L=torch.clamp(data - cur_eps_device, data_min, data_max),
+                x_U=torch.clamp(data + cur_eps_device, data_min, data_max),
             )
 
-            data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             clean_output = hardened_model(data)
             regular_err = torch.sum(
@@ -183,11 +181,11 @@ def staps_train_model(
                 reg_loss, robust_err, adv_err = get_sabr_loss(
                     hardened_model=hardened_model,
                     original_model=original_model,
-                    data_max=train_loader.max.to(device),
-                    data_min=train_loader.min.to(device),
+                    data_max=data_max,
+                    data_min=data_min,
                     data=data,
                     target=target,
-                    eps=torch.tensor(cur_eps, device=device),
+                    eps=cur_eps_device,
                     subselection_ratio=subselection_ratio,
                     criterion=criterion,
                     device=device,
@@ -223,11 +221,11 @@ def staps_train_model(
                 sabr_args = dict(
                     hardened_model=hardened_model,
                     original_model=original_model,
-                    data_max=train_loader.max.to(device),
-                    data_min=train_loader.min.to(device),
+                    data_max=data_max,
+                    data_min=data_min,
                     data=data,
                     target=target,
-                    eps=torch.tensor(cur_eps, device=device),
+                    eps=cur_eps_device,
                     subselection_ratio=subselection_ratio,
                     device=device,
                     n_classes=n_classes,

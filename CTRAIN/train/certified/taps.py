@@ -136,19 +136,17 @@ def taps_train_model(
         for batch_idx, (data, target) in enumerate(train_loader):
 
             cur_eps = eps_scheduler.get_cur_eps().reshape(-1, 1, 1)
+            data, target = data.to(device), target.to(device)
+            cur_eps_device = torch.as_tensor(cur_eps, device=device)
+            data_min, data_max = train_loader.min.to(device), train_loader.max.to(device)
 
             ptb = PerturbationLpNorm(
-                eps=cur_eps,
+                eps=cur_eps_device,
                 norm=np.inf,
-                x_L=torch.clamp(data - cur_eps, train_loader.min, train_loader.max).to(
-                    device
-                ),
-                x_U=torch.clamp(data + cur_eps, train_loader.min, train_loader.max).to(
-                    device
-                ),
+                x_L=torch.clamp(data - cur_eps_device, data_min, data_max),
+                x_U=torch.clamp(data + cur_eps_device, data_min, data_max),
             )
 
-            data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             clean_output = hardened_model(data)
             regular_err = torch.sum(

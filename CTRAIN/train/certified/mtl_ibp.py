@@ -126,19 +126,17 @@ def mtl_ibp_train_model(
         for batch_idx, (data, target) in enumerate(train_loader):
 
             cur_eps = eps_scheduler.get_cur_eps().reshape(-1, 1, 1)
+            data, target = data.to(device), target.to(device)
+            cur_eps_device = torch.as_tensor(cur_eps, device=device)
+            data_min, data_max = train_loader.min.to(device), train_loader.max.to(device)
 
             ptb = PerturbationLpNorm(
-                eps=cur_eps,
+                eps=cur_eps_device,
                 norm=np.inf,
-                x_L=torch.clamp(data - cur_eps, train_loader.min, train_loader.max).to(
-                    device
-                ),
-                x_U=torch.clamp(data + cur_eps, train_loader.min, train_loader.max).to(
-                    device
-                ),
+                x_L=torch.clamp(data - cur_eps_device, data_min, data_max),
+                x_U=torch.clamp(data + cur_eps_device, data_min, data_max),
             )
 
-            data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
 
             clean_output = hardened_model(data)
@@ -153,15 +151,12 @@ def mtl_ibp_train_model(
                 if pgd_eps_factor == 1:
                     pgd_ptb = ptb
                 else:
-                    pgd_eps = (cur_eps * pgd_eps_factor).to(device)
-                    data_min, data_max = train_loader.min.to(
-                        device
-                    ), train_loader.max.to(device)
+                    pgd_eps = cur_eps_device * pgd_eps_factor
                     pgd_ptb = PerturbationLpNorm(
                         eps=pgd_eps,
                         norm=np.inf,
-                        x_L=torch.clamp(data - pgd_eps, data_min, data_max).to(device),
-                        x_U=torch.clamp(data + pgd_eps, data_min, data_max).to(device),
+                        x_L=torch.clamp(data - pgd_eps, data_min, data_max),
+                        x_U=torch.clamp(data + pgd_eps, data_min, data_max),
                     )
 
                 loss, robust_err, adv_err = get_mtl_ibp_loss(
