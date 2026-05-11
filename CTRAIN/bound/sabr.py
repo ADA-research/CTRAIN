@@ -123,21 +123,20 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
     
     tau =  subselection_ratio * eps
     
-    with torch.no_grad():
-        x_adv = pgd_attack(
-            model=model,
-            data=data,
-            target=target,
-            x_L=x_L,
-            x_U=x_U,
-            n_steps=n_steps,
-            step_size=step_size,
-            restarts=restarts,
-            early_stopping=early_stopping,
-            device=device,
-            decay_checkpoints=decay_checkpoints,
-            decay_factor=decay_factor
-        )
+    x_adv = pgd_attack(
+        model=model,
+        data=data,
+        target=target,
+        x_L=x_L,
+        x_U=x_U,
+        n_steps=n_steps,
+        step_size=step_size,
+        restarts=restarts,
+        early_stopping=early_stopping,
+        device=device,
+        decay_checkpoints=decay_checkpoints,
+        decay_factor=decay_factor
+    )
     
     propagation_inputs = torch.clamp(x_adv, x_L + tau, x_U - tau) # called midpoints in SABR code
     tau = torch.tensor(tau, device=device)
