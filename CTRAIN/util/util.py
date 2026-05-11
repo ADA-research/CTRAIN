@@ -38,6 +38,7 @@ def export_onnx(model, file_name, batch_size, input_shape):
                     dynamic_axes={'input' : {0 : 'batch_size'},    # variable length axes
                                     'output' : {0 : 'batch_size'}},
                     training=torch.onnx.TrainingMode.EVAL,
+                    dynamo=False,
                     verbose=False)
     remove_training_mode_attr(file_name, file_name)
     print(f"Model exported to {file_name}")
@@ -54,7 +55,7 @@ def remove_training_mode_attr(onnx_path, output_path):
     onnx.save(model, output_path)
     print(f"Cleaned model saved to: {output_path}")
 
-def save_checkpoint(model, optimizer, loss, epoch, results_path):
+def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False):
     """
     Saves the model checkpoint to the specified path.
 
@@ -68,7 +69,7 @@ def save_checkpoint(model, optimizer, loss, epoch, results_path):
     Raises:
         AssertionError: If a checkpoint for the given epoch already exists at the specified path.
     """
-    if os.path.exists(f"{results_path}/{epoch}_checkpoint.pt"):
+    if os.path.exists(f"{results_path}/{epoch}_checkpoint.pt") and not overwrite:
         assert False, "Checkpoint already exists!"
     torch.save({
             'epoch': epoch,
