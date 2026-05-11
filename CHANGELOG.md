@@ -1,6 +1,29 @@
 # CHANGELOG
 
 
+## v0.4.3 (2026-05-11)
+
+### Bug Fixes
+
+- Add dependency on requests for dataset loading
+  ([`aec3b5e`](https://github.com/ADA-research/CTRAIN/commit/aec3b5e7892e3b9690f9cfe60449a610369b510d))
+
+- Correct random initialisation in PGD adversarial attack
+  ([`0b5447e`](https://github.com/ADA-research/CTRAIN/commit/0b5447e73cf031ef43772115abd10798acdc503f))
+
+- Ensure that gradient is removed after PGD
+  ([`9d6f9e9`](https://github.com/ADA-research/CTRAIN/commit/9d6f9e955e10cb9312b4a1a71cb22be3d1171d04))
+
+- Ensure that SABR uses small boxes for regularisation in all cases
+  ([`5a17177`](https://github.com/ADA-research/CTRAIN/commit/5a17177d4180523d7caf8ffa11d3a071738bc769))
+
+- Make train function signature compatible with torch.nn
+  ([`3df510c`](https://github.com/ADA-research/CTRAIN/commit/3df510c636454f269205e9bc2272cafe9463852b))
+
+- Remove unintended shuffling for test loaders
+  ([`6b7b398`](https://github.com/ADA-research/CTRAIN/commit/6b7b398faed78e352d04966c66bd836536e24e5b))
+
+
 ## v0.4.2 (2025-05-05)
 
 ### Bug Fixes
@@ -50,12 +73,8 @@
 - Fix HPO when no default configuration is provided.
   ([`5ef65bf`](https://github.com/ADA-research/CTRAIN/commit/5ef65bfe4378e54af43210eebfa07a7362593a55))
 
-None is not a valid value for Categoricals.
-
 - Fix ONNX export for certification with abCROWN
   ([`ad4d887`](https://github.com/ADA-research/CTRAIN/commit/ad4d8871150ffd4ad461bf7696f624e7040f1831))
-
-removal of training attribute since
 
 - Fix pgd implementation to work with torch.no_grad()
   ([`17681d4`](https://github.com/ADA-research/CTRAIN/commit/17681d4757d66394bfbfc0a0c41e2e211d179521))
@@ -76,24 +95,14 @@ removal of training attribute since
 - Add automatic download of TinyImageNet dataset
   ([`c84f6b8`](https://github.com/ADA-research/CTRAIN/commit/c84f6b83828b2607b86d79782a4e1998e3f34123))
 
-added the automatic download to the data loader
-
 - Add eps factor for PGD attack to SABR.
   ([`3565d15`](https://github.com/ADA-research/CTRAIN/commit/3565d158f6cf187c7b85dd09ce4f29619e453b7a))
-
-According to De Palma et al., this is equivalent to ReLU shrinking.
 
 - Add Loss Fusion for CROWN IBP
   ([`bfbd3cc`](https://github.com/ADA-research/CTRAIN/commit/bfbd3ccd7a2c54512501b93cf4ba33430faafb7e))
 
-Technique was introduced in the auto_LiRPA paper. This reduces memory requirements substantially and
-  can thus scale CROWN IBP to larger models and datasets.
-
 - Add possibility to treat training as deterministic in HPO
   ([`6078f5b`](https://github.com/ADA-research/CTRAIN/commit/6078f5b9690486ccc7eac9569d07d3b73ed8765c))
-
-this leads to only one training run per hyperparameter configuration which may be useful on large
-  datasets and models. However, this gives an inaccurate estimate of the configuration performance.
 
 - Add user-specifiable weights for the components of the HPO loss
   ([`6602f60`](https://github.com/ADA-research/CTRAIN/commit/6602f607b375e47c5aab2f2f43354a988b8b6cb0))
@@ -114,8 +123,6 @@ this leads to only one training run per hyperparameter configuration which may b
 - Add git pull in publish workflow
   ([`3bd02a8`](https://github.com/ADA-research/CTRAIN/commit/3bd02a8016c823802df3d7af4ba081d9681a36d4))
 
-the commit in the previous workflow step was not present during the publish phase
-
 
 ## v0.2.0 (2025-02-19)
 
@@ -123,9 +130,6 @@ the commit in the previous workflow step was not present during the publish phas
 
 - Add checkpoint save interval
   ([`379f30e`](https://github.com/ADA-research/CTRAIN/commit/379f30e18867fbf1f944df09039ee5f54f4fca4b))
-
-Users can now specify an interval of epochs after which a checkpoint is saved. Before that, the
-  checkpoints were saved every epoch which may have been undesirable due to space constraints.
 
 
 ## v0.1.3 (2025-02-17)
@@ -138,16 +142,8 @@ Users can now specify an interval of epochs after which a checkpoint is saved. B
 - Fix resume_from_checkpoint functionality
   ([`015d01e`](https://github.com/ADA-research/CTRAIN/commit/015d01ec9b5fa2747aacfc8bc401f8e71c149e98))
 
-Until now, the start_epoch was not passed correctly to the train function. In addition, we bumped
-  the SMAC dependency
-
 - Make evaluation method in model wrappers configurable
   ([`62a704d`](https://github.com/ADA-research/CTRAIN/commit/62a704da28558a83ff2415007d69762cea9480fc))
-
-Until now, certified robustness evaluation using the `evaluate` method was carried out using the
-  ADAPTIVE method. Now, users may provide a incomplete verification method to use. The default is
-  still `ADAPTIVE`, i.e. the certification methods are carried out sequentially in ascending order
-  of computational complexity.
 
 
 ## v0.1.2 (2025-02-17)
