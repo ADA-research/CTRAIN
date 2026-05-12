@@ -9,6 +9,7 @@ from CTRAIN.train.certified.initialisation import ibp_init_shi
 from CTRAIN.train.certified.regularisers import get_shi_regulariser
 from CTRAIN.util import save_checkpoint
 from CTRAIN.train.certified.regularisers import get_l1_reg
+from CTRAIN.train.certified.progress import progress_bar, update_progress, log_epoch_summary
 
 
 def mtl_ibp_train_model(
@@ -116,14 +117,18 @@ def mtl_ibp_train_model(
         epoch_rob_err = 0
         epoch_nat_err = 0
 
-        print(
-            f"[{epoch + 1}/{num_epochs}]: eps {eps_scheduler.get_cur_eps(normalise=False):.4f}"
-        )
         hardened_model.train()
         original_model.train()
         running_loss = 0.0
 
-        for batch_idx, (data, target) in enumerate(train_loader):
+        progress = progress_bar(
+            train_loader,
+            epoch=epoch,
+            num_epochs=num_epochs,
+            eps=eps_scheduler.get_cur_eps(normalise=False),
+            method="MTL-IBP",
+        )
+        for batch_idx, (data, target) in enumerate(progress):
 
             cur_eps = eps_scheduler.get_cur_eps().reshape(-1, 1, 1)
             data, target = data.to(device), target.to(device)
@@ -221,6 +226,15 @@ def mtl_ibp_train_model(
             optimizer.step()
 
             running_loss += loss.item()
+            completed_batches = batch_idx + 1
+            update_progress(
+                progress,
+                loss=running_loss / completed_batches,
+                nat_acc=1 - epoch_nat_err / completed_batches,
+                adv_acc=1 - epoch_adv_err / completed_batches,
+                cert_acc=1 - epoch_rob_err / completed_batches,
+                lr=optimizer.param_groups[-1]["lr"],
+            )
             eps_scheduler.batch_step()
             no_batches += 1
 
@@ -231,12 +245,14 @@ def mtl_ibp_train_model(
         train_acc_adv = 1 - epoch_adv_err / len(train_loader)
         train_acc_cert = 1 - epoch_rob_err / len(train_loader)
 
-        print(
-            f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {running_loss/len(train_loader):.4f}"
+        log_epoch_summary(
+            epoch=epoch,
+            num_epochs=num_epochs,
+            loss=running_loss / len(train_loader),
+            nat_acc=train_acc_nat,
+            adv_acc=train_acc_adv,
+            cert_acc=train_acc_cert,
         )
-        print(f"\t Natural Acc. Train: {train_acc_nat:.4f}")
-        print(f"\t Adv. Acc. Train: {train_acc_adv:.4f}")
-        print(f"\t Certified Acc. Train: {train_acc_cert:.4f}")
 
         if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
             save_checkpoint(
