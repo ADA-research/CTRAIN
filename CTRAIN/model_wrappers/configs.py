@@ -51,7 +51,7 @@ def build_shi_config_space(epochs, eps, include_base_config=True, defaults=dict(
     shi_config_space = ConfigurationSpace(
         name='shi',
         space={
-            'start_kappa': Float('start_kappa', (0.5, 1), default=defaults.get('start_kappa')),
+            'start_kappa': Float('start_kappa', (0, 1), default=defaults.get('start_kappa')),
             'end_kappa': Float('end_kappa', (0, 1), default=defaults.get('end_kappa')) # we multiply start kappa by this factor to obtain the real end_kappa
         }
     )
@@ -69,7 +69,7 @@ def build_crown_ibp_config_space(epochs, eps, include_base_config=True, defaults
     crown_ibp_config_space = ConfigurationSpace(
         name='crown_ibp',
         space={
-            'start_kappa': Float('start_kappa', (0.5, 1), default=defaults.get('start_kappa')),
+            'start_kappa': Float('start_kappa', (0, 1), default=defaults.get('start_kappa')),
             'end_kappa': Float('end_kappa', (0, 1), default=defaults.get('end_kappa')), # we multiply start kappa by this factor to obtain the real end_kappa
             'start_beta': Constant('start_beta', 1.0),
             'end_beta': Float('end_beta', (0, 1), default=defaults.get('end_beta'))
@@ -95,6 +95,8 @@ def build_sabr_config_space(epochs, eps, include_base_config=True, defaults=dict
             'pgd_restarts': Constant('pgd_restarts', 1), # fixed number since it can get very expensive with more restarts
             'pgd_eps_factor': Float('pgd_eps_factor', (1, 3), default=defaults.get('pgd_eps_factor')),
             # we do not optimise the pgd decay
+            'start_kappa': Constant('start_kappa', 0.0),
+            'end_kappa': Constant('end_kappa', 0.0),
         },
 
     )
@@ -158,6 +160,8 @@ def build_mtl_ibp_config_space(epochs, eps, include_base_config=True, defaults=d
             'pgd_alpha': Float('pgd_alpha', (0.1, 2), default=defaults.get('pgd_alpha')),
             'pgd_restarts': Constant('pgd_restarts', 1), # fixed number since it can get very expensive with more restarts
             'mtl_ibp_eps_factor': Float("mtl_ibp_eps_factor", (1, 3), default=defaults.get('mtl_ibp_eps_factor')),
+            'start_kappa': Constant('start_kappa', 0.0),
+            'end_kappa': Constant('end_kappa', 0.0),
         },
 
     )
@@ -211,4 +215,3 @@ def get_combined_config_space(epoch, eps, defaults=dict(), included_methods=['sh
     
     
     
-

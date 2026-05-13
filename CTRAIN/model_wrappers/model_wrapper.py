@@ -12,6 +12,12 @@ from CTRAIN.eval.eval import eval_acc, eval_model, eval_complete_abcrown
 from CTRAIN.model_wrappers.configs import get_config_space
 
 
+def _constant_value(hyperparameter):
+    if hasattr(hyperparameter, "value"):
+        return hyperparameter.value
+    return hyperparameter.default_value
+
+
 class CTRAINWrapper(nn.Module):
     """
     Wrapper base class for certifiably training models.
@@ -250,9 +256,14 @@ class CTRAINWrapper(nn.Module):
 
         self.train_model(train_loader, val_loader, start_epoch=self.epoch, end_epoch=end_epoch)
 
-    def hpo(self, train_loader, val_loader, budget=5*24*60*60, defaults=dict(), eval_samples=1000, output_dir='./smac_hpo', deterministic=False, seed=42, nat_loss_weight=1., adv_loss_weight=1., cert_loss_weight=1.):
+    def hpo_smac(self, train_loader, val_loader, budget=5*24*60*60, defaults=dict(), eval_samples=1000, output_dir='./smac_hpo', deterministic=False, seed=42, nat_loss_weight=1., adv_loss_weight=1., cert_loss_weight=1.):
         """
-        Perform hyperparameter optimization (HPO) using SMAC3 for the model. After the method returns, the model will have loaded the best hyperparameters found during the optimization and the according trained weights.
+        Perform single-objective hyperparameter optimization using SMAC3.
+
+        After the method returns, the model will have loaded the best
+        hyperparameters found during the optimization and the corresponding
+        trained weights. New code should prefer :meth:`hpo` for multi-objective
+        Optuna HPO.
 
         Args:
             train_loader (DataLoader): DataLoader for the training dataset.
@@ -302,5 +313,340 @@ class CTRAINWrapper(nn.Module):
 
         return inc
 
-    def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000):
+    def hpo(
+        self,
+        train_loader,
+        val_loader,
+        budget_time=5 * 24 * 60 * 60,
+        budget_trials=np.inf,
+        defaults=None,
+        eval_samples=np.inf,
+        output_dir="./optuna_hpo",
+        min_nat_acc=0.0,
+        min_cert_acc=0.0,
+        seed=0,
+        sampler="botorch",
+        complete_verify=False,
+        study_name="moctrain",
+    ):
+        """
+        Perform multi-objective HPO with Optuna and return the Pareto front.
+
+        The objectives are natural and certified validation accuracy. The full
+        Pareto front is stored in the Optuna study database under ``output_dir``.
+        Trial checkpoints are written to ``output_dir/nets``. This method does
+        not load one checkpoint implicitly, because selecting a final model is a
+        downstream decision on the returned Pareto front.
+
+        Args:
+            train_loader (DataLoader): DataLoader for the training dataset.
+            val_loader (DataLoader): DataLoader for validation.
+            budget_time (int): Wall-clock budget in seconds.
+            budget_trials (int or float): Maximum number of trials. ``np.inf`` disables this limit.
+            defaults (dict): Default hyperparameter values for the ConfigSpace.
+            eval_samples (int): Number of validation samples used per trial.
+            output_dir (str): Directory for Optuna DBs and trial checkpoints.
+            min_nat_acc (float): Feasibility threshold for natural accuracy.
+            min_cert_acc (float): Feasibility threshold for certified accuracy.
+            seed (int): Random seed.
+            sampler (str or optuna.samplers.BaseSampler): ``"botorch"``, ``"nsgaii"``, or a sampler instance.
+            complete_verify (bool): Use complete verification for the certified objective.
+            study_name (str): Name of the persisted Optuna study.
+
+        Returns:
+            list[dict]: Pareto-optimal trials with their configs, metrics,
+                feasibility status, and checkpoint paths.
+        """
+        defaults = defaults or {}
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(f"{output_dir}/nets", exist_ok=True)
+
+        try:
+            import optuna
+        except ImportError as exc:
+            raise ImportError(
+                "Optuna is required for hpo. Install CTRAIN with the HPO "
+                "dependencies or install optuna and optuna-integration."
+            ) from exc
+
+        eps_std = self.eps / train_loader.std if train_loader.normalised else torch.tensor(self.eps)
+        config_space = get_config_space(self, self.num_epochs, eps_std, defaults=defaults)
+
+        def constraints(trial):
+            return trial.user_attrs.get("constraints", (0.0, 0.0))
+
+        def objective(trial):
+            config = self._sample_optuna_config(trial, config_space)
+            trial.set_user_attr("config_hash", get_config_hash(config, 32))
+            _, metrics = self._hpo_runner(
+                config=config,
+                seed=seed,
+                epochs=self.num_epochs,
+                train_loader=train_loader,
+                val_loader=val_loader,
+                output_dir=output_dir,
+                cert_eval_samples=eval_samples,
+                complete_verify=complete_verify,
+            )
+            trial.set_user_attr(
+                "constraints",
+                (
+                    min_nat_acc - metrics["nat_acc"],
+                    min_cert_acc - metrics["cert_acc"],
+                ),
+            )
+            trial.set_user_attr("adv_acc", metrics.get("adv_acc"))
+            trial.set_user_attr("metrics", metrics)
+            return metrics["nat_acc"], metrics["cert_acc"]
+
+        optuna_sampler = self._get_optuna_sampler(optuna, sampler, constraints, seed)
+        study = optuna.create_study(
+            directions=["maximize", "maximize"],
+            study_name=study_name,
+            storage=f"sqlite:///{output_dir}/optuna_study.db",
+            load_if_exists=True,
+            sampler=optuna_sampler,
+        )
+
+        n_trials = None if budget_trials == np.inf else max(int(budget_trials) - len(study.trials), 0)
+        if n_trials is None or n_trials > 0:
+            study.optimize(
+                objective,
+                n_trials=n_trials,
+                timeout=budget_time,
+                show_progress_bar=True,
+            )
+
+        pareto_trials = self._constrained_pareto_trials(study.trials)
+        if not pareto_trials:
+            raise RuntimeError("Optuna did not produce any Pareto-optimal trials.")
+
+        return [
+            self._optuna_trial_result(trial, config_space, output_dir)
+            for trial in pareto_trials
+        ]
+
+    def hpo_single_objective(
+        self,
+        train_loader,
+        val_loader,
+        budget_time=5 * 24 * 60 * 60,
+        budget_trials=np.inf,
+        defaults=None,
+        eval_samples=np.inf,
+        output_dir="./optuna_hpo_single_objective",
+        nat_acc_weight=1.0,
+        adv_acc_weight=0.0,
+        cert_acc_weight=1.0,
+        seed=0,
+        sampler="botorch",
+        complete_verify=False,
+        study_name="ctrain_single_objective",
+        load_best=True,
+    ):
+        """
+        Perform scalar Optuna HPO and optionally load the best checkpoint.
+
+        By default, the optimized objective is ``nat_acc + cert_acc``. The
+        objective can be changed with ``nat_acc_weight``, ``adv_acc_weight``,
+        and ``cert_acc_weight``.
+
+        Returns:
+            dict: Best trial with its scalar objective value, config, metrics,
+                and checkpoint path.
+        """
+        defaults = defaults or {}
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(f"{output_dir}/nets", exist_ok=True)
+
+        try:
+            import optuna
+        except ImportError as exc:
+            raise ImportError(
+                "Optuna is required for hpo_single_objective. Install CTRAIN "
+                "with the HPO dependencies or install optuna."
+            ) from exc
+
+        eps_std = self.eps / train_loader.std if train_loader.normalised else torch.tensor(self.eps)
+        config_space = get_config_space(self, self.num_epochs, eps_std, defaults=defaults)
+
+        def objective(trial):
+            config = self._sample_optuna_config(trial, config_space)
+            trial.set_user_attr("config_hash", get_config_hash(config, 32))
+            _, metrics = self._hpo_runner(
+                config=config,
+                seed=seed,
+                epochs=self.num_epochs,
+                train_loader=train_loader,
+                val_loader=val_loader,
+                output_dir=output_dir,
+                cert_eval_samples=eval_samples,
+                complete_verify=complete_verify,
+            )
+            trial.set_user_attr("metrics", metrics)
+            trial.set_user_attr("adv_acc", metrics.get("adv_acc"))
+            return (
+                nat_acc_weight * metrics["nat_acc"]
+                + adv_acc_weight * (metrics.get("adv_acc") or 0.0)
+                + cert_acc_weight * metrics["cert_acc"]
+            )
+
+        optuna_sampler = self._get_optuna_single_objective_sampler(optuna, sampler, seed)
+        study = optuna.create_study(
+            direction="maximize",
+            study_name=study_name,
+            storage=f"sqlite:///{output_dir}/optuna_study.db",
+            load_if_exists=True,
+            sampler=optuna_sampler,
+        )
+
+        n_trials = None if budget_trials == np.inf else max(int(budget_trials) - len(study.trials), 0)
+        if n_trials is None or n_trials > 0:
+            study.optimize(
+                objective,
+                n_trials=n_trials,
+                timeout=budget_time,
+                show_progress_bar=True,
+            )
+
+        try:
+            best_trial = study.best_trial
+        except ValueError as exc:
+            raise RuntimeError("Optuna did not produce a completed trial.") from exc
+        if best_trial is None:
+            raise RuntimeError("Optuna did not produce a completed trial.")
+
+        best = self._optuna_trial_result(best_trial, config_space, output_dir)
+        if load_best:
+            self.load_state_dict(torch.load(best["checkpoint_path"], map_location=self.device))
+        return best
+
+    def _sample_optuna_config(self, trial, config_space):
+        config = {}
+        for hp_name in config_space:
+            hp = config_space[hp_name]
+            if hasattr(hp, "choices"):
+                config[hp_name] = trial.suggest_categorical(hp_name, list(hp.choices))
+            elif hp.__class__.__name__.endswith("IntegerHyperparameter"):
+                config[hp_name] = trial.suggest_int(hp_name, hp.lower, hp.upper, log=getattr(hp, "log", False))
+            elif hp.__class__.__name__.endswith("FloatHyperparameter"):
+                config[hp_name] = trial.suggest_float(hp_name, hp.lower, hp.upper, log=getattr(hp, "log", False))
+            elif hp.__class__.__name__ == "Constant":
+                config[hp_name] = _constant_value(hp)
+            else:
+                raise ValueError(f"Unsupported hyperparameter type for {hp_name}: {type(hp)}")
+        return config
+
+    def _config_from_optuna_trial(self, trial, config_space):
+        config = {}
+        for hp_name in config_space:
+            hp = config_space[hp_name]
+            if hp.__class__.__name__ == "Constant":
+                config[hp_name] = _constant_value(hp)
+            else:
+                config[hp_name] = trial.params[hp_name]
+        return config
+
+    def _get_optuna_sampler(self, optuna, sampler, constraints_func, seed):
+        if not isinstance(sampler, str):
+            return sampler
+        if sampler == "nsgaii":
+            return optuna.samplers.NSGAIISampler(constraints_func=constraints_func, seed=seed)
+        if sampler != "botorch":
+            raise ValueError("sampler must be 'botorch', 'nsgaii', or an Optuna sampler instance")
+        try:
+            from optuna.integration import BoTorchSampler
+        except (ImportError, ModuleNotFoundError) as exc:
+            raise ImportError(
+                "The BoTorch sampler requires optuna-integration with BoTorch support. "
+                "Install optuna-integration[botorch] or use sampler='nsgaii'."
+            ) from exc
+        return BoTorchSampler(constraints_func=constraints_func, seed=seed, device=str(self.device))
+
+    def _get_optuna_single_objective_sampler(self, optuna, sampler, seed):
+        if not isinstance(sampler, str):
+            return sampler
+        if sampler == "tpe":
+            return optuna.samplers.TPESampler(seed=seed)
+        if sampler == "random":
+            return optuna.samplers.RandomSampler(seed=seed)
+        if sampler == "nsgaii":
+            return optuna.samplers.NSGAIISampler(seed=seed)
+        raise ValueError("sampler must be 'tpe', 'random', 'nsgaii', or an Optuna sampler instance")
+
+    def _constrained_pareto_trials(self, trials):
+        completed_trials = [
+            trial for trial in trials
+            if trial.values is not None and len(trial.values) == 2
+        ]
+        feasible_trials = [
+            trial for trial in completed_trials
+            if all(constraint <= 0 for constraint in trial.user_attrs.get("constraints", (0.0, 0.0)))
+        ]
+        candidates = feasible_trials if feasible_trials else completed_trials
+        return [
+            trial for trial in candidates
+            if not any(self._dominates(other.values, trial.values) for other in candidates if other.number != trial.number)
+        ]
+
+    def _dominates(self, values, other_values):
+        return all(value >= other for value, other in zip(values, other_values)) and any(
+            value > other for value, other in zip(values, other_values)
+        )
+
+    def _optuna_trial_result(self, trial, config_space, output_dir):
+        config = self._config_from_optuna_trial(trial, config_space)
+        config_hash = trial.user_attrs.get("config_hash", get_config_hash(config, 32))
+        constraints = trial.user_attrs.get("constraints")
+        metrics = trial.user_attrs.get("metrics", {})
+        if trial.values and len(trial.values) >= 2:
+            metrics = {
+                "nat_acc": trial.values[0],
+                "cert_acc": trial.values[1],
+                "adv_acc": trial.user_attrs.get("adv_acc"),
+                **metrics,
+            }
+        return {
+            "trial_number": trial.number,
+            "values": tuple(trial.values) if trial.values is not None else None,
+            "objective_value": trial.values[0] if trial.values is not None and len(trial.values) == 1 else None,
+            "metrics": metrics,
+            "config": config,
+            "config_hash": config_hash,
+            "checkpoint_path": f"{output_dir}/nets/{config_hash}.pt",
+            "constraints": constraints,
+            "feasible": None if constraints is None else all(constraint <= 0 for constraint in constraints),
+        }
+
+    def _optimizer_from_config(self, config):
+        optimizer_name = config["optimizer_func"]
+        if optimizer_name == "adam":
+            return torch.optim.Adam
+        if optimizer_name == "adamw":
+            return torch.optim.AdamW
+        if optimizer_name == "radam":
+            return torch.optim.RAdam
+        raise ValueError(f"Unknown optimizer_func: {optimizer_name}")
+
+    def _lr_decay_kwargs_from_config(self, config, epochs):
+        lr_decay_milestones = [
+            config["warm_up_epochs"] + config["ramp_up_epochs"] + config["lr_decay_epoch_1"],
+            config["warm_up_epochs"] + config["ramp_up_epochs"] + config["lr_decay_epoch_1"] + config["lr_decay_epoch_2"],
+        ]
+        return {
+            "milestones": [epoch for epoch in lr_decay_milestones if epoch <= epochs],
+            "gamma": config["lr_decay_factor"],
+        }
+
+    def _evaluate_hpo_model(self, model_wrapper, val_loader, cert_eval_samples, output_dir, config_hash, complete_verify):
+        if complete_verify:
+            return model_wrapper.evaluate_complete(
+                test_loader=val_loader,
+                test_samples=cert_eval_samples,
+                timeout=60,
+                results_path=f"{output_dir}/complete_verify/{config_hash}",
+            )
+        return model_wrapper.evaluate(test_loader=val_loader, test_samples=cert_eval_samples)
+
+    def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, complete_verify=False):
         raise NotImplementedError('HPO can only be run on the concrete Wrappers!')

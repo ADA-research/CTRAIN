@@ -148,7 +148,7 @@ class TAPSModelWrapper(CTRAINWrapper):
         
         return trained_model
     
-    def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1, adv_loss_weight=1, cert_loss_weight=1):
+    def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1, adv_loss_weight=1, cert_loss_weight=1, complete_verify=False):
         """
         Function called during hyperparameter optimization (HPO) using SMAC3, returns the loss.
 
@@ -170,17 +170,7 @@ class TAPSModelWrapper(CTRAINWrapper):
         config_hash = get_config_hash(config, 32)
         seed_ctrain(seed)
 
-        if config['optimizer_func'] == 'adam':
-            optimizer_func = torch.optim.Adam
-        elif config['optimizer_func'] == 'radam':
-            optimizer_func = torch.optim.RAdam
-        if config['optimizer_func'] == 'adamw':
-            optimizer_func = torch.optim.AdamW
-
-        lr_decay_milestones = [
-            config['warm_up_epochs'] + config['ramp_up_epochs'] + config['lr_decay_epoch_1'],
-            config['warm_up_epochs'] + config['ramp_up_epochs'] + config['lr_decay_epoch_1'] + config['lr_decay_epoch_2']
-        ]
+        optimizer_func = self._optimizer_from_config(config)
 
         no_layers = len(self.original_model.layers)
         feature_extractor_size = math.ceil(config['taps:block_split_point'] * no_layers)
@@ -198,11 +188,11 @@ class TAPSModelWrapper(CTRAINWrapper):
             train_eps_factor=config['train_eps_factor'],
             optimizer_func=optimizer_func,
             lr=config['learning_rate'],
+            lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR,
             warm_up_epochs=config['warm_up_epochs'],
             ramp_up_epochs=config['ramp_up_epochs'],
             gradient_clip=10,
-            lr_decay_factor=config['lr_decay_factor'],
-            lr_decay_milestones=[epoch for epoch in lr_decay_milestones if epoch <= epochs],
+            lr_decay_kwargs=self._lr_decay_kwargs_from_config(config, epochs),
             l1_reg_weight=config['l1_reg_weight'],
             shi_reg_weight=config['shi_reg_weight'],
             shi_reg_decay=config['shi_reg_decay'],
@@ -218,11 +208,13 @@ class TAPSModelWrapper(CTRAINWrapper):
         model_wrapper.train_model(train_loader=train_loader)
         torch.save(model_wrapper.state_dict(), f'{output_dir}/nets/{config_hash}.pt')
         model_wrapper.eval()
-        std_acc, cert_acc, adv_acc = model_wrapper.evaluate(test_loader=val_loader, test_samples=cert_eval_samples)
+        std_acc, cert_acc, adv_acc = self._evaluate_hpo_model(
+            model_wrapper, val_loader, cert_eval_samples, output_dir, config_hash, complete_verify
+        )
 
         loss = 0
         loss -= nat_loss_weight * std_acc
         loss -= adv_loss_weight * adv_acc
         loss -= cert_loss_weight * cert_acc
 
-        return loss, {'nat_acc': std_acc, 'adv_acc': adv_acc, 'cert_acc': cert_acc} 
+        return loss, {'nat_acc': std_acc, 'adv_acc': adv_acc, 'cert_acc': cert_acc}

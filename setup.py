@@ -6,6 +6,8 @@ INSTALL_REQUIRES = [
     "numpy>=1.20,<2",
     "tqdm>=4",
     "smac>=2.3",
+    "optuna>=4.5",
+    "optuna-integration[botorch]>=4.5",
     "pandas>=2",
     "matplotlib>=3",
     "seaborn",
@@ -30,7 +32,7 @@ INSTALL_REQUIRES = [
 setup(
     name="CTRAIN",
     version="0.4.3",
-    packages=find_packages(),
+    packages=find_packages(include=["CTRAIN", "CTRAIN.*"]),
     install_requires=INSTALL_REQUIRES,
     package_data={
         "CTRAIN": ["verification_systems/abCROWN/**/*"],

@@ -17,6 +17,8 @@ dependencies = [
     "numpy>=1.20,<2",
     "tqdm>=4",
     "smac>=2.3",
+    "optuna>=4.5",
+    "optuna-integration[botorch]>=4.5",
     "pandas>=2",
     "matplotlib>=3",
     "seaborn",
@@ -42,6 +44,9 @@ keywords = ["certified training", "robustness", "machine learning", "verificatio
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["CTRAIN*"]
 
 [tool.setuptools.package-data]
 "CTRAIN" = ["verification_systems/abCROWN/**/*"]
