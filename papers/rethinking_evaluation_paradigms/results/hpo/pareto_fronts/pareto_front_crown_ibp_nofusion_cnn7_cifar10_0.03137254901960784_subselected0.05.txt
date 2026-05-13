@@ -1,0 +1,24 @@
+Trial 61: (0.6001, 0.25920000672340393)
+Config: {'crown_ibp:end_beta': 0.05795260913647431, 'crown_ibp:end_kappa': 0.8613086646926796, 'crown_ibp:start_kappa': 0.8320742782322853, 'l1_reg_weight': 2.1520999664314745e-07, 'learning_rate': 0.002465311544841815, 'lr_decay_epoch_1': 73, 'lr_decay_epoch_2': 46, 'lr_decay_factor': 0.001296947810597216, 'optimizer_func': 'adam', 'ramp_up_epochs': 101, 'shi_reg_weight': 0.7422471432727646, 'train_eps_factor': 1.0637639265745424, 'warm_up_epochs': 3}
+Config hash: af125add93a380f49c6a2dfcd10a9f3e
+Trial 75: (0.5511, 0.32170000672340393)
+Config: {'crown_ibp:end_beta': 0.009121247243044417, 'crown_ibp:end_kappa': 0.6343452673108012, 'crown_ibp:start_kappa': 0.7446370523528566, 'l1_reg_weight': 8.121004965778104e-08, 'learning_rate': 0.001979655789361746, 'lr_decay_epoch_1': 68, 'lr_decay_epoch_2': 24, 'lr_decay_factor': 0.0024524224422003346, 'optimizer_func': 'adam', 'ramp_up_epochs': 111, 'shi_reg_weight': 0.60577984850879, 'train_eps_factor': 1.0, 'warm_up_epochs': 2}
+Config hash: 75451754f2390da7d85641dfc1c84e2b
+Trial 84: (0.5889, 0.29009997844696045)
+Config: {'crown_ibp:end_beta': 0.027214047770485948, 'crown_ibp:end_kappa': 0.7355579979873137, 'crown_ibp:start_kappa': 0.8487160082491273, 'l1_reg_weight': 1.2926019207107304e-07, 'learning_rate': 0.001833250931244006, 'lr_decay_epoch_1': 77, 'lr_decay_epoch_2': 45, 'lr_decay_factor': 0.0013454063631778744, 'optimizer_func': 'adam', 'ramp_up_epochs': 119, 'shi_reg_weight': 0.6985185853532802, 'train_eps_factor': 1.0, 'warm_up_epochs': 2}
+Config hash: 0843555d2b29d622c7a9c97a99ae1771
+Trial 92: (0.568, 0.31039997935295105)
+Config: {'crown_ibp:end_beta': 0.03754809163751622, 'crown_ibp:end_kappa': 0.6524191271823346, 'crown_ibp:start_kappa': 0.8174613346142833, 'l1_reg_weight': 9.00358261695043e-08, 'learning_rate': 0.001862042543503612, 'lr_decay_epoch_1': 73, 'lr_decay_epoch_2': 39, 'lr_decay_factor': 0.007427967841210332, 'optimizer_func': 'adam', 'ramp_up_epochs': 123, 'shi_reg_weight': 0.6119445552787199, 'train_eps_factor': 1.0, 'warm_up_epochs': 2}
+Config hash: 3cfe7494ae7683695cb0ba8646c48139
+Trial 156: (0.6143, 0.25459998846054077)
+Config: {'crown_ibp:end_beta': 0.05812469297023374, 'crown_ibp:end_kappa': 0.8366485593446968, 'crown_ibp:start_kappa': 0.9999999999999999, 'l1_reg_weight': 2.709955453607296e-07, 'learning_rate': 0.002367386903527997, 'lr_decay_epoch_1': 50, 'lr_decay_epoch_2': 46, 'lr_decay_factor': 0.11111172550047693, 'optimizer_func': 'radam', 'ramp_up_epochs': 162, 'shi_reg_weight': 0.2932461638150115, 'train_eps_factor': 1.5541233940942694, 'warm_up_epochs': 0}
+Config hash: 627cc6cc951246fc02bdf13ad22e6331
+Trial 171: (0.4973, 0.3450999855995178)
+Config: {'crown_ibp:end_beta': 0.0, 'crown_ibp:end_kappa': 0.6007285258260907, 'crown_ibp:start_kappa': 0.9355786295057815, 'l1_reg_weight': 3.36799718019184e-07, 'learning_rate': 0.0024681188648487083, 'lr_decay_epoch_1': 47, 'lr_decay_epoch_2': 44, 'lr_decay_factor': 0.06416031258911768, 'optimizer_func': 'radam', 'ramp_up_epochs': 123, 'shi_reg_weight': 0.21457344299535164, 'train_eps_factor': 1.6754213599546004, 'warm_up_epochs': 0}
+Config hash: 598b78f01edd492cfc9f05b2937c708b
+Trial 175: (0.5247, 0.33980000019073486)
+Config: {'crown_ibp:end_beta': 0.0, 'crown_ibp:end_kappa': 0.6292910626884491, 'crown_ibp:start_kappa': 0.9885026987884314, 'l1_reg_weight': 2.595315630478362e-07, 'learning_rate': 0.0021922483577653026, 'lr_decay_epoch_1': 55, 'lr_decay_epoch_2': 46, 'lr_decay_factor': 0.09639150788851271, 'optimizer_func': 'radam', 'ramp_up_epochs': 148, 'shi_reg_weight': 0.24812075731291083, 'train_eps_factor': 1.633400790011668, 'warm_up_epochs': 0}
+Config hash: ed81533e115fbf75cc91e3c4d29b26f2
+Trial 192: (0.5263, 0.33399999141693115)
+Config: {'crown_ibp:end_beta': 0.0, 'crown_ibp:end_kappa': 0.6436834988608476, 'crown_ibp:start_kappa': 0.9980211502282544, 'l1_reg_weight': 1.1894648984892433e-07, 'learning_rate': 0.00238904852283844, 'lr_decay_epoch_1': 60, 'lr_decay_epoch_2': 46, 'lr_decay_factor': 0.07199468701167765, 'optimizer_func': 'radam', 'ramp_up_epochs': 149, 'shi_reg_weight': 0.19282979816066198, 'train_eps_factor': 1.661034962281204, 'warm_up_epochs': 0}
+Config hash: c50489120e4e56b93d9e75b8c84939e8

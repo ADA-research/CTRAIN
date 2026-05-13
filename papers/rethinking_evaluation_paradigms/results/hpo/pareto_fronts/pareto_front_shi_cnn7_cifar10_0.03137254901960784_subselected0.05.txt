@@ -1,0 +1,39 @@
+Trial 31: (0.5355, 0.34059998393058777)
+Config: {'l1_reg_weight': 3.727924524600645e-07, 'learning_rate': 0.0008581990405283512, 'lr_decay_epoch_1': 108, 'lr_decay_epoch_2': 27, 'lr_decay_factor': 0.09457168159391503, 'optimizer_func': 'adamw', 'ramp_up_epochs': 142, 'shi:end_kappa': 0.546259639309528, 'shi:start_kappa': 0.9535118822361704, 'shi_reg_weight': 0.7349066700129792, 'train_eps_factor': 1.2937279868105802, 'warm_up_epochs': 3}
+Config hash: c92bc629cc6e57af363eb2de37c8a3e0
+Trial 35: (0.5539, 0.3337000012397766)
+Config: {'l1_reg_weight': 1.5928319657072403e-07, 'learning_rate': 0.000605492691894573, 'lr_decay_epoch_1': 51, 'lr_decay_epoch_2': 39, 'lr_decay_factor': 0.21027789402232452, 'optimizer_func': 'adamw', 'ramp_up_epochs': 166, 'shi:end_kappa': 0.4944034847504657, 'shi:start_kappa': 0.8832222018997452, 'shi_reg_weight': 0.20722413151127686, 'train_eps_factor': 1.0880124332041676, 'warm_up_epochs': 2}
+Config hash: e685649a01c06b4a1aadc094fbaf85d0
+Trial 38: (0.5742, 0.30869999527931213)
+Config: {'l1_reg_weight': 1.789944108621597e-07, 'learning_rate': 0.0011487569165602133, 'lr_decay_epoch_1': 47, 'lr_decay_epoch_2': 37, 'lr_decay_factor': 0.20800094654398463, 'optimizer_func': 'adamw', 'ramp_up_epochs': 162, 'shi:end_kappa': 0.585872542488385, 'shi:start_kappa': 0.9265244156837158, 'shi_reg_weight': 0.3129494799216286, 'train_eps_factor': 1.0775580221982093, 'warm_up_epochs': 3}
+Config hash: bdb813d3202747d05ef12590095056f0
+Trial 40: (0.5597, 0.32189998030662537)
+Config: {'l1_reg_weight': 1.373125801414379e-07, 'learning_rate': 0.0009758653369850845, 'lr_decay_epoch_1': 63, 'lr_decay_epoch_2': 35, 'lr_decay_factor': 0.1790392092259308, 'optimizer_func': 'adamw', 'ramp_up_epochs': 154, 'shi:end_kappa': 0.473363489291408, 'shi:start_kappa': 0.9784726461449662, 'shi_reg_weight': 0.36876892643899734, 'train_eps_factor': 1.0637696628107645, 'warm_up_epochs': 3}
+Config hash: e4b51c6dcc7e43f1876f10e253d72480
+Trial 45: (0.5673, 0.321399986743927)
+Config: {'l1_reg_weight': 6.321213858008897e-08, 'learning_rate': 0.0007875428923950099, 'lr_decay_epoch_1': 39, 'lr_decay_epoch_2': 30, 'lr_decay_factor': 0.15956855635507572, 'optimizer_func': 'adamw', 'ramp_up_epochs': 156, 'shi:end_kappa': 0.5871760491566664, 'shi:start_kappa': 0.9175806026594577, 'shi_reg_weight': 0.444962254172266, 'train_eps_factor': 1.123779199370913, 'warm_up_epochs': 3}
+Config hash: 4e75bbc1f4c28342423469660945bd87
+Trial 48: (0.5843, 0.3043999969959259)
+Config: {'l1_reg_weight': 1.0513348634655754e-07, 'learning_rate': 0.0006990343152057422, 'lr_decay_epoch_1': 58, 'lr_decay_epoch_2': 36, 'lr_decay_factor': 0.18371285453208103, 'optimizer_func': 'adamw', 'ramp_up_epochs': 146, 'shi:end_kappa': 0.6299142794197166, 'shi:start_kappa': 0.9313197988139544, 'shi_reg_weight': 0.4888651331780132, 'train_eps_factor': 1.078122798085409, 'warm_up_epochs': 3}
+Config hash: 7d240f8f521d7f8c7b50d9e3c4383d5e
+Trial 58: (0.6123, 0.2728999853134155)
+Config: {'l1_reg_weight': 8.6616879556651e-08, 'learning_rate': 0.0009305516681635332, 'lr_decay_epoch_1': 54, 'lr_decay_epoch_2': 31, 'lr_decay_factor': 0.060513705707973986, 'optimizer_func': 'adamw', 'ramp_up_epochs': 151, 'shi:end_kappa': 0.7648208072473502, 'shi:start_kappa': 0.945488325230085, 'shi_reg_weight': 0.4441580168458221, 'train_eps_factor': 1.1269658635304358, 'warm_up_epochs': 4}
+Config hash: f8a469632c34dbdeb3fa84a7268d3eed
+Trial 71: (0.619, 0.2599000036716461)
+Config: {'l1_reg_weight': 7.885694328642509e-08, 'learning_rate': 0.000835806858725984, 'lr_decay_epoch_1': 53, 'lr_decay_epoch_2': 31, 'lr_decay_factor': 0.11237031780495493, 'optimizer_func': 'adamw', 'ramp_up_epochs': 147, 'shi:end_kappa': 0.7566831380677707, 'shi:start_kappa': 0.9451537833642236, 'shi_reg_weight': 0.42120315681063514, 'train_eps_factor': 1.0268580457359273, 'warm_up_epochs': 3}
+Config hash: c731b05d6139a1b035f095361f6657e3
+Trial 78: (0.622, 0.25439998507499695)
+Config: {'l1_reg_weight': 8.61054252348035e-08, 'learning_rate': 0.0008454578906792072, 'lr_decay_epoch_1': 53, 'lr_decay_epoch_2': 33, 'lr_decay_factor': 0.13565910602995274, 'optimizer_func': 'adamw', 'ramp_up_epochs': 148, 'shi:end_kappa': 0.7589765279045214, 'shi:start_kappa': 0.9546929695007375, 'shi_reg_weight': 0.42658835263917, 'train_eps_factor': 1.0077355891524493, 'warm_up_epochs': 3}
+Config hash: 450170d9b72b0b2c95f112eef56f3012
+Trial 87: (0.5098, 0.3495999872684479)
+Config: {'l1_reg_weight': 9.513014326740135e-08, 'learning_rate': 0.0010713688236177919, 'lr_decay_epoch_1': 48, 'lr_decay_epoch_2': 18, 'lr_decay_factor': 0.06508465008878475, 'optimizer_func': 'adamw', 'ramp_up_epochs': 163, 'shi:end_kappa': 0.6406876007259116, 'shi:start_kappa': 0.710955035667078, 'shi_reg_weight': 0.4290177291031681, 'train_eps_factor': 1.4667517474714562, 'warm_up_epochs': 4}
+Config hash: e421b5d069bd00a89d428f0a3260163f
+Trial 233: (0.5994, 0.2915000021457672)
+Config: {'l1_reg_weight': 3.023093881962415e-07, 'learning_rate': 0.0009903185237786745, 'lr_decay_epoch_1': 69, 'lr_decay_epoch_2': 30, 'lr_decay_factor': 0.1180817666976843, 'optimizer_func': 'adamw', 'ramp_up_epochs': 133, 'shi:end_kappa': 0.7880014146830189, 'shi:start_kappa': 0.7776653310299204, 'shi_reg_weight': 0.08372190092498105, 'train_eps_factor': 1.0, 'warm_up_epochs': 2}
+Config hash: 940ce2f2c924944208604db0fa389f38
+Trial 261: (0.5687, 0.3158999979496002)
+Config: {'l1_reg_weight': 1.9739350726391766e-07, 'learning_rate': 0.0007648750419444392, 'lr_decay_epoch_1': 65, 'lr_decay_epoch_2': 30, 'lr_decay_factor': 0.14796906820040756, 'optimizer_func': 'adamw', 'ramp_up_epochs': 129, 'shi:end_kappa': 0.7153744738842067, 'shi:start_kappa': 0.6985588496051427, 'shi_reg_weight': 0.12966232895454657, 'train_eps_factor': 1.0, 'warm_up_epochs': 2}
+Config hash: b743e93c5f49390357ff2769b3ea1e5e
+Trial 277: (0.5259, 0.34599998593330383)
+Config: {'l1_reg_weight': 1.0460971086615318e-06, 'learning_rate': 0.0005694451596800925, 'lr_decay_epoch_1': 65, 'lr_decay_epoch_2': 39, 'lr_decay_factor': 0.05856576775230281, 'optimizer_func': 'adamw', 'ramp_up_epochs': 136, 'shi:end_kappa': 0.6552005740098442, 'shi:start_kappa': 0.40538925758999433, 'shi_reg_weight': 0.25738310408022275, 'train_eps_factor': 1.000111507866399, 'warm_up_epochs': 3}
+Config hash: b1c5cbd6c96eb47fc3d0befd029dd3f4
