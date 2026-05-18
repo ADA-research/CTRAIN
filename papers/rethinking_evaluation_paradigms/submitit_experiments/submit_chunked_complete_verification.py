@@ -21,6 +21,14 @@ from pathlib import Path
 import optuna
 import submitit
 import torch
+from smac.utils.configspace import get_config_hash
+
+from CTRAIN.model_wrappers.configs import (
+    build_crown_ibp_config_space,
+    build_mtl_ibp_config_space,
+    build_sabr_config_space,
+    build_shi_config_space,
+)
 
 THIS_FILE = Path(__file__).resolve()
 PAPER_ROOT = THIS_FILE.parents[1]
@@ -52,6 +60,10 @@ SEEDS = []  # Example: [0, 1, 2]
 # - "pareto": Optuna's full Pareto front.
 # - "all_complete": every completed trial with a matching checkpoint.
 TRIAL_SELECTION = "pareto_feasible"
+
+# Mirrors submitit_experiments/calculate_fronts.py for publication studies.
+CONFIG_HASH_EPOCHS_FOR_2_255 = 160
+CONFIG_HASH_EPOCHS_OTHER = 260
 
 # ---------------------------------------------------------------------------
 # Verification arguments
@@ -102,8 +114,9 @@ def _float_enabled(value, allowed_values):
 
 def parse_study_dir_name(study_dir):
     """
-    Parse directories produced by mo_hpo/run_hpo.py:
+    Parse directories produced by mo_hpo/run_hpo.py and submitit variants:
     {dataset}_{network}_{method}_{eps}_{seed}
+    {dataset}_{network}_{method}_{eps}_{seed}_complete_{True|False}
     """
     name = study_dir.name
     for dataset in sorted(DATASETS or ["cifar10", "mnist", "gtsrb", "tinyimagenet"], key=len, reverse=True):
@@ -120,8 +133,8 @@ def parse_study_dir_name(study_dir):
                 method_prefix = f"{method}_"
                 if not rest_after_network.startswith(method_prefix):
                     continue
-                eps_seed = rest_after_network[len(method_prefix):]
-                match = re.fullmatch(r"(.+)_([0-9]+)", eps_seed)
+                suffix = rest_after_network[len(method_prefix):]
+                match = re.fullmatch(r"(.+)_([0-9]+)(?:_complete_(True|False))?", suffix)
                 if match is None:
                     continue
                 return {
@@ -130,6 +143,7 @@ def parse_study_dir_name(study_dir):
                     "method": method,
                     "eps": float(match.group(1)),
                     "seed": int(match.group(2)),
+                    "complete_verify": None if match.group(3) is None else match.group(3) == "True",
                 }
     raise ValueError(f"Could not parse study directory name: {study_dir}")
 
@@ -164,6 +178,49 @@ def selected_trials(study):
     raise ValueError(f"Unknown TRIAL_SELECTION: {TRIAL_SELECTION}")
 
 
+def config_hash_epochs(eps):
+    return CONFIG_HASH_EPOCHS_FOR_2_255 if abs(eps - 2 / 255) < 1e-12 else CONFIG_HASH_EPOCHS_OTHER
+
+
+def config_space_for_hash(method, eps):
+    epochs = config_hash_epochs(eps)
+    if method in {"crown_ibp", "crown_ibp_nofusion"}:
+        return build_crown_ibp_config_space(epochs=epochs, eps=eps)
+    if method == "sabr":
+        return build_sabr_config_space(epochs=epochs, eps=eps)
+    if method == "mtl_ibp":
+        return build_mtl_ibp_config_space(epochs=epochs, eps=eps)
+    if method == "shi":
+        return build_shi_config_space(epochs=epochs, eps=eps)
+    raise ValueError(f"Cannot build ConfigSpace for method: {method}")
+
+
+def constant_value(hyperparameter):
+    if hasattr(hyperparameter, "value"):
+        return hyperparameter.value
+    return hyperparameter.default_value
+
+
+def config_from_trial_for_hash(trial, method, eps):
+    config = {}
+    config_space = config_space_for_hash(method, eps)
+    for hp_name in config_space:
+        hp = config_space[hp_name]
+        if hp.__class__.__name__ == "Constant":
+            config[hp_name] = constant_value(hp)
+        else:
+            config[hp_name] = trial.params[hp_name]
+    return config
+
+
+def trial_config_hash(trial, method, eps):
+    config_hash = trial.user_attrs.get("config_hash")
+    if config_hash is not None:
+        return config_hash
+    config = config_from_trial_for_hash(trial, method, eps)
+    return get_config_hash(config, chars=32)
+
+
 def load_study(study_db):
     storage = f"sqlite:///{study_db}"
     summaries = optuna.get_all_study_summaries(storage=storage)
@@ -195,9 +252,10 @@ def discover_jobs():
 
         study = load_study(study_db)
         for trial in selected_trials(study):
-            config_hash = trial.user_attrs.get("config_hash")
-            if config_hash is None:
-                print(f"Skipping trial {trial.number} in {study_dir}: missing config_hash")
+            try:
+                config_hash = trial_config_hash(trial, metadata["method"], metadata["eps"])
+            except KeyError as exc:
+                print(f"Skipping trial {trial.number} in {study_dir}: cannot reconstruct config hash, missing {exc}")
                 continue
             checkpoint_path = nets_dir / f"{config_hash}.pt"
             if not checkpoint_path.exists():
