@@ -286,6 +286,20 @@ for spec in \
 done
 ```
 
+For cluster runs, the submitit helper
+`papers/rethinking_evaluation_paradigms/submitit_experiments/submit_chunked_complete_verification.py`
+submits complete verification in dataset-index chunks. Edit the constants at
+the top of the file to set the HPO results root, verification output root,
+chunk size, SLURM partition/resources, and abCROWN arguments. The script
+discovers `optuna_study.db` files with sibling `nets/` checkpoint directories
+and writes one result JSON per chunk to avoid concurrent writes to the same
+file. It defaults to `DRY_RUN=True`; set it to `False` after inspecting the
+printed job list.
+
+```bash
+python papers/rethinking_evaluation_paradigms/submitit_experiments/submit_chunked_complete_verification.py
+```
+
 Batch command for MNIST and the architecture appendix:
 
 ```bash
