@@ -214,8 +214,8 @@ Tool paper:
 ```bibtex
 @inproceedings{KauHoo25,
 	title        = {{CTRAIN} - A Training Library for Certifiably Robust Neural Networks},
-	author       = {Kaulen, Konstantin and Hoos, Holger},
-	year         = 2025,
+	author       = {Kaulen, Konstantin and Hoos, Holger H},
+	year         = {2025},
 	booktitle    = {Proceedings of the 8th International Symposium on AI Verification (SAIV 2025)},
 	pages        = {1--12}
 }
