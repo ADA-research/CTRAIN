@@ -1,0 +1,22 @@
+\begin{tabular}{llllcc}
+\toprule
+\multicolumn{6}{c}{1000s Timeout Verification Times} \\
+\midrule
+Dataset & Architecture & Epsilon & Method & Avg. Time (s) & Total Time (h) \\
+\midrule
+cifar10 & cnn7 & 0.0078 & crown\_ibp\_nofusion & 27.03 & 749.92 \\
+cifar10 & cnn7 & 0.0078 & mtl\_ibp & 47.22 & 1311.36 \\
+cifar10 & cnn7 & 0.0078 & sabr & 51.88 & 1585.20 \\
+cifar10 & cnn7 & 0.0078 & shi & 7.38 & 225.38 \\
+cifar10 & cnn7 & 0.0314 & crown\_ibp\_nofusion & 9.06 & 201.33 \\
+cifar10 & cnn7 & 0.0314 & mtl\_ibp & 11.69 & 389.68 \\
+cifar10 & cnn7 & 0.0314 & sabr & 15.48 & 516.03 \\
+cifar10 & cnn7 & 0.0314 & shi & 13.64 & 492.50 \\
+mnist & cnn7 & 0.3000 & crown\_ibp\_nofusion & 2.33 & 6.47 \\
+mnist & cnn7 & 0.3000 & mtl\_ibp & 6.53 & 18.15 \\
+tinyimagenet & cnn7 & 0.0039 & crown\_ibp\_nofusion & 15.12 & 209.92 \\
+tinyimagenet & cnn7 & 0.0039 & mtl\_ibp & 37.42 & 207.88 \\
+tinyimagenet & cnn7 & 0.0039 & sabr & 45.66 & 887.92 \\
+tinyimagenet & cnn7 & 0.0039 & shi & 16.34 & 407.99 \\
+\bottomrule
+\end{tabular}

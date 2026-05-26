@@ -1,0 +1,23 @@
+\begin{table}[htbp]
+\centering
+\caption{Spearman Rank Correlation: Incomplete vs Complete Verification}
+\label{tab:verification_correlation}
+\begin{tabular}{llll|rrr}
+\toprule
+Dataset & Network & Method & $\epsilon$ & $\rho$ & $p$-value & $n$ \\
+\midrule
+CIFAR-10 & CNN7 & SHI & 2/255 & 0.7364 & 9.7595e-03 & 11 \\
+CIFAR-10 & CNN7 & CROWN_IBP_NOFUSION & 2/255 & 0.8545 & 1.6368e-03 & 10 \\
+CIFAR-10 & CNN7 & SABR & 2/255 & 0.6727 & 2.3313e-02 & 11 \\
+CIFAR-10 & CNN7 & MTL_IBP & 2/255 & 0.3333 & 3.4659e-01 & 10 \\
+CIFAR-10 & CNN7 & SHI & 8/255 & 1.0000 & 0.0000e+00 & 13 \\
+CIFAR-10 & CNN7 & CROWN_IBP_NOFUSION & 8/255 & 1.0000 & 0.0000e+00 & 8 \\
+CIFAR-10 & CNN7 & SABR & 8/255 & 0.8371 & 6.8200e-04 & 12 \\
+CIFAR-10 & CNN7 & MTL_IBP & 8/255 & 0.9790 & 3.0898e-08 & 12 \\
+Tiny-ImageNet & CNN7 & SHI & 1/255 & 0.6167 & 7.6929e-02 & 9 \\
+Tiny-ImageNet & CNN7 & CROWN_IBP_NOFUSION & 1/255 & 0.7000 & 1.8812e-01 & 5 \\
+Tiny-ImageNet & CNN7 & SABR & 1/255 & 0.3929 & 3.8332e-01 & 7 \\
+Tiny-ImageNet & CNN7 & MTL_IBP & 1/255 & 1.0000 & 1.0000e+00 & 2 \\
+\bottomrule
+\end{tabular}
+\end{table}

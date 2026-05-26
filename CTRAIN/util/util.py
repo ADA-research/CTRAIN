@@ -3,6 +3,7 @@ import os
 import random
 import numpy as np
 import onnx
+import inspect
 
 def export_onnx(model, file_name, batch_size, input_shape):
     """
@@ -26,20 +27,21 @@ def export_onnx(model, file_name, batch_size, input_shape):
     x = torch.randn(batch_size, *input_shape, requires_grad=False).to(device)
     torch_out = model(x)
 
+    export_kwargs = {
+        "export_params": True,
+        "opset_version": 18,
+        "do_constant_folding": True,
+        "input_names": ["input"],
+        "output_names": ["output"],
+        "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        "training": torch.onnx.TrainingMode.EVAL,
+        "verbose": False,
+    }
+    if "dynamo" in inspect.signature(torch.onnx.export).parameters:
+        export_kwargs["dynamo"] = False
+
     # Export the model
-    torch.onnx.export(model,               # model being run
-                    x,                         # model input (or a tuple for multiple inputs)
-                    file_name,   # where to save the model (can be a file or file-like object)
-                    export_params=True,        # store the trained parameter weights inside the model file
-                    opset_version=18,          # the ONNX version to export the model to
-                    do_constant_folding=True,  # whether to execute constant folding for optimization
-                    input_names = ['input'],   # the model's input names
-                    output_names = ['output'], # the model's output names
-                    dynamic_axes={'input' : {0 : 'batch_size'},    # variable length axes
-                                    'output' : {0 : 'batch_size'}},
-                    training=torch.onnx.TrainingMode.EVAL,
-                    dynamo=False,
-                    verbose=False)
+    torch.onnx.export(model, x, file_name, **export_kwargs)
     remove_training_mode_attr(file_name, file_name)
     print(f"Model exported to {file_name}")
     

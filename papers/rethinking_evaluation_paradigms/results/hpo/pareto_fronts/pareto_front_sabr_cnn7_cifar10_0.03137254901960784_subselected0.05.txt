@@ -1,0 +1,36 @@
+Trial 18: (0.4973, 0.33079999685287476)
+Config: {'l1_reg_weight': 3.2399753334891654e-06, 'learning_rate': 0.0004210573657138991, 'lr_decay_epoch_1': 81, 'lr_decay_epoch_2': 28, 'lr_decay_factor': 0.11181717082418954, 'optimizer_func': 'radam', 'ramp_up_epochs': 126, 'sabr:pgd_alpha': 1.4141110386845788, 'sabr:pgd_eps_factor': 2.272140504557428, 'sabr:pgd_steps': 5, 'sabr:subselection_ratio': 0.49999999999999994, 'shi_reg_weight': 0.31846664446162354, 'train_eps_factor': 1.2091361244133703, 'warm_up_epochs': 5}
+Config hash: cb24eff906079db363549fb3d12aa3f3
+Trial 45: (0.5493, 0.31859999895095825)
+Config: {'l1_reg_weight': 7.865000457856672e-08, 'learning_rate': 0.0004976069431180032, 'lr_decay_epoch_1': 94, 'lr_decay_epoch_2': 39, 'lr_decay_factor': 0.20861237363888976, 'optimizer_func': 'radam', 'ramp_up_epochs': 147, 'sabr:pgd_alpha': 1.9999999999999998, 'sabr:pgd_eps_factor': 1.3453264357058896, 'sabr:pgd_steps': 5, 'sabr:subselection_ratio': 0.49999999999999994, 'shi_reg_weight': 0.7690091635597673, 'train_eps_factor': 1.0, 'warm_up_epochs': 5}
+Config hash: 5e84a8f8b0aecc4a720240747f10fe58
+Trial 60: (0.5365, 0.32889997959136963)
+Config: {'l1_reg_weight': 2.2889689707357577e-06, 'learning_rate': 0.0005282980553399014, 'lr_decay_epoch_1': 98, 'lr_decay_epoch_2': 38, 'lr_decay_factor': 0.0328565782008812, 'optimizer_func': 'radam', 'ramp_up_epochs': 127, 'sabr:pgd_alpha': 1.9999999999999998, 'sabr:pgd_eps_factor': 1.9552328738245002, 'sabr:pgd_steps': 5, 'sabr:subselection_ratio': 0.49999999999999994, 'shi_reg_weight': 0.9352797643718761, 'train_eps_factor': 1.0, 'warm_up_epochs': 5}
+Config hash: ad55dbbb4968b9381f53dc810e500079
+Trial 62: (0.5566, 0.3125)
+Config: {'l1_reg_weight': 6.627725513321336e-08, 'learning_rate': 0.0007837671607523495, 'lr_decay_epoch_1': 90, 'lr_decay_epoch_2': 36, 'lr_decay_factor': 0.06867793645660147, 'optimizer_func': 'radam', 'ramp_up_epochs': 137, 'sabr:pgd_alpha': 1.7161151461837025, 'sabr:pgd_eps_factor': 1.731699292479364, 'sabr:pgd_steps': 5, 'sabr:subselection_ratio': 0.49999999999999994, 'shi_reg_weight': 0.699634122282875, 'train_eps_factor': 1.0, 'warm_up_epochs': 5}
+Config hash: 58eb633088f93b948e8f700aaa34bb68
+Trial 74: (0.5439, 0.32029998302459717)
+Config: {'l1_reg_weight': 4.950159553733187e-07, 'learning_rate': 0.0006172172422237646, 'lr_decay_epoch_1': 90, 'lr_decay_epoch_2': 38, 'lr_decay_factor': 0.05102077791701907, 'optimizer_func': 'radam', 'ramp_up_epochs': 125, 'sabr:pgd_alpha': 1.9669384098462805, 'sabr:pgd_eps_factor': 1.8141867774122298, 'sabr:pgd_steps': 5, 'sabr:subselection_ratio': 0.49999999999999994, 'shi_reg_weight': 0.9078548466593788, 'train_eps_factor': 1.0, 'warm_up_epochs': 5}
+Config hash: d3709288c76f05261b3e954f704ca074
+Trial 80: (0.5602, 0.30959999561309814)
+Config: {'l1_reg_weight': 8.030406304704767e-08, 'learning_rate': 0.0009183648256374893, 'lr_decay_epoch_1': 84, 'lr_decay_epoch_2': 35, 'lr_decay_factor': 0.18448568251017605, 'optimizer_func': 'radam', 'ramp_up_epochs': 132, 'sabr:pgd_alpha': 1.6888023569513084, 'sabr:pgd_eps_factor': 1.6696238974804065, 'sabr:pgd_steps': 5, 'sabr:subselection_ratio': 0.49999999999999994, 'shi_reg_weight': 0.5769126291231381, 'train_eps_factor': 1.0, 'warm_up_epochs': 5}
+Config hash: 7fbd28eb7a45715532fb70c5d5a1a20c
+Trial 176: (0.562, 0.2971999943256378)
+Config: {'l1_reg_weight': 4.0891681082372885e-07, 'learning_rate': 0.0011202502880662138, 'lr_decay_epoch_1': 97, 'lr_decay_epoch_2': 0, 'lr_decay_factor': 0.03475497059032269, 'optimizer_func': 'adamw', 'ramp_up_epochs': 88, 'sabr:pgd_alpha': 1.3394827606423623, 'sabr:pgd_eps_factor': 2.553375631238678, 'sabr:pgd_steps': 1, 'sabr:subselection_ratio': 0.3266868445592704, 'shi_reg_weight': 0.5262918453331701, 'train_eps_factor': 1.6481047996478444, 'warm_up_epochs': 4}
+Config hash: 7387611cd22e29537aa0574225dd1606
+Trial 184: (0.5721, 0.2929999828338623)
+Config: {'l1_reg_weight': 5.42681398774918e-07, 'learning_rate': 0.0005678336701841397, 'lr_decay_epoch_1': 97, 'lr_decay_epoch_2': 0, 'lr_decay_factor': 0.012647802698057157, 'optimizer_func': 'adamw', 'ramp_up_epochs': 110, 'sabr:pgd_alpha': 1.2288758804855626, 'sabr:pgd_eps_factor': 2.616410687993509, 'sabr:pgd_steps': 1, 'sabr:subselection_ratio': 0.33489399191112745, 'shi_reg_weight': 0.4299004138101213, 'train_eps_factor': 1.521785994146195, 'warm_up_epochs': 3}
+Config hash: f3432d73ba5c4dc42e861fe628fe8d3a
+Trial 191: (0.5849, 0.2590999901294708)
+Config: {'l1_reg_weight': 6.615908027165018e-07, 'learning_rate': 0.0008370068724402377, 'lr_decay_epoch_1': 94, 'lr_decay_epoch_2': 0, 'lr_decay_factor': 0.022937765600313683, 'optimizer_func': 'adamw', 'ramp_up_epochs': 103, 'sabr:pgd_alpha': 1.36777639757033, 'sabr:pgd_eps_factor': 2.7190690493698066, 'sabr:pgd_steps': 1, 'sabr:subselection_ratio': 0.30433746127963496, 'shi_reg_weight': 0.3803422400461873, 'train_eps_factor': 1.4565854314673512, 'warm_up_epochs': 4}
+Config hash: 5fd64c120c73f5b6d82db8af8a96bdc8
+Trial 192: (0.5912, 0.25119999051094055)
+Config: {'l1_reg_weight': 6.373746754204053e-07, 'learning_rate': 0.0008224570564362235, 'lr_decay_epoch_1': 95, 'lr_decay_epoch_2': 0, 'lr_decay_factor': 0.022883467529741994, 'optimizer_func': 'adamw', 'ramp_up_epochs': 102, 'sabr:pgd_alpha': 1.361859818618909, 'sabr:pgd_eps_factor': 2.7102098052578167, 'sabr:pgd_steps': 1, 'sabr:subselection_ratio': 0.3045632575060991, 'shi_reg_weight': 0.37807347536147345, 'train_eps_factor': 1.457018566588367, 'warm_up_epochs': 4}
+Config hash: b20b81c6000cdee65ee5b61671c0d5b9
+Trial 195: (0.5812, 0.28610000014305115)
+Config: {'l1_reg_weight': 6.559594135376052e-07, 'learning_rate': 0.0009060351617099403, 'lr_decay_epoch_1': 91, 'lr_decay_epoch_2': 0, 'lr_decay_factor': 0.01800245130301388, 'optimizer_func': 'adamw', 'ramp_up_epochs': 106, 'sabr:pgd_alpha': 1.3730717563715957, 'sabr:pgd_eps_factor': 2.7357545979903968, 'sabr:pgd_steps': 1, 'sabr:subselection_ratio': 0.3364253082261459, 'shi_reg_weight': 0.4067704636198191, 'train_eps_factor': 1.4805347760935763, 'warm_up_epochs': 4}
+Config hash: aa1212ab76f0f32f7acd5e08a68a416c
+Trial 199: (0.582, 0.27809998393058777)
+Config: {'l1_reg_weight': 6.649610901255547e-07, 'learning_rate': 0.0007383177376316874, 'lr_decay_epoch_1': 94, 'lr_decay_epoch_2': 0, 'lr_decay_factor': 0.012804153561164771, 'optimizer_func': 'adamw', 'ramp_up_epochs': 104, 'sabr:pgd_alpha': 1.3843242958412854, 'sabr:pgd_eps_factor': 2.8250456826608787, 'sabr:pgd_steps': 1, 'sabr:subselection_ratio': 0.3249796855106914, 'shi_reg_weight': 0.38227696754313223, 'train_eps_factor': 1.4845136708216444, 'warm_up_epochs': 4}
+Config hash: a21fa0693834b3e3ec6f80db0d1d75cc
