@@ -18,6 +18,13 @@ import re
 import sys
 from pathlib import Path
 
+THIS_FILE = Path(__file__).resolve()
+PAPER_ROOT = THIS_FILE.parents[1]
+REPO_ROOT = PAPER_ROOT.parents[1]
+MO_HPO_DIR = PAPER_ROOT / "mo_hpo"
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(PAPER_ROOT))
+
 import optuna
 import submitit
 import torch
@@ -30,12 +37,6 @@ from CTRAIN.model_wrappers.configs import (
     build_shi_config_space,
 )
 
-THIS_FILE = Path(__file__).resolve()
-PAPER_ROOT = THIS_FILE.parents[1]
-REPO_ROOT = PAPER_ROOT.parents[1]
-MO_HPO_DIR = PAPER_ROOT / "mo_hpo"
-sys.path.insert(0, str(PAPER_ROOT))
-
 from mo_hpo.run_hpo import build_loaders, build_model, build_wrapper  # noqa: E402
 
 # Mirrors submitit_experiments/calculate_fronts.py for publication studies.
@@ -46,7 +47,7 @@ CONFIG_HASH_EPOCHS_OTHER = 260
 # Paths
 # ---------------------------------------------------------------------------
 DATA_ROOT = os.environ.get("CTRAIN_DATA_ROOT", str(REPO_ROOT / "data"))
-HPO_RESULTS_ROOT = "/hpcwork/rwth1939/hpo_val/hpo_val"
+HPO_RESULTS_ROOT = "/storage/work/robust_nas/hpo_val"
 VERIFICATION_RESULTS_ROOT = PAPER_ROOT / "results" / "verification_chunked"
 SUBMITIT_LOG_ROOT = PAPER_ROOT / "submitit_logs" / "complete_verification_chunked"
 
@@ -68,7 +69,7 @@ TRIAL_SELECTION = "pareto_feasible"
 # Verification arguments
 # ---------------------------------------------------------------------------
 TEST_SAMPLES = 10_000
-INSTANCES_PER_CHUNK = 500
+INSTANCES_PER_CHUNK = 5000
 DATA_LOADER_BATCH_SIZE = 512
 DEFAULT_NUM_EPOCHS_FOR_WRAPPER = 1
 DEVICE = "cuda"
@@ -76,7 +77,7 @@ WARM_START = True
 
 TIMEOUT = 1000
 ABCROWN_BATCH_SIZE = 512
-NO_CORES = 24
+NO_CORES = 14
 ABCROWN_CONFIG_DICT = None
 
 # Optional per-dataset/network overrides.
@@ -94,24 +95,24 @@ ABCROWN_BATCH_SIZE_OVERRIDES = {
 DRY_RUN = False
 # Limit how many unfinished chunk jobs this invocation submits. Set to None to
 # submit every unfinished chunk discovered by the script.
-MAX_JOBS_TO_SUBMIT = 100  # Example: 100
-SLURM_PARTITION = "c23g"
+MAX_JOBS_TO_SUBMIT = None  # Example: 100
+SLURM_PARTITION = "KathleenG"
 SLURM_JOB_NAME = "CTRAIN_CHUNKED_VERIFY"
 SLURM_ARRAY_PARALLELISM = 1
-TIMEOUT_MIN = 60 * 24
+TIMEOUT_MIN = 60 * 24 * 50
 GPUS_PER_NODE = 1
-CPUS_PER_TASK = 24
-MEM_GB = 120
-# SLURM_ADDITIONAL_PARAMETERS = {"qos": "gpu"}
-SLURM_ADDITIONAL_PARAMETERS = {}
+CPUS_PER_TASK = 14
+MEM_GB = 15.7 * CPUS_PER_TASK
+SLURM_ADDITIONAL_PARAMETERS = {"qos": "gpu"}
+# SLURM_ADDITIONAL_PARAMETERS = {}
 SLURM_SETUP = [
     "module load GCCcore/.13.2.0",
     "module load Python/3.11.5",
     f"export PYTHONPATH={PAPER_ROOT}:{REPO_ROOT}:${{PYTHONPATH}}",
 ]
 # SLURM_SETUP = []
-SLURM_ACCOUNT = "rwth1939"  # Set to your SLURM account name, or None to not specify an account
-
+# SLURM_ACCOUNT = "rwth1939"  # Set to your SLURM account name, or None to not specify an account
+SLURM_ACCOUNT = None
 
 def chunk_results_path(dataset, network, eps, method, config_hash):
     return Path(VERIFICATION_RESULTS_ROOT) / dataset / network / str(eps) / method / config_hash
