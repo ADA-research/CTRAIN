@@ -34,16 +34,19 @@ THIS_FILE = Path(__file__).resolve()
 PAPER_ROOT = THIS_FILE.parents[1]
 REPO_ROOT = PAPER_ROOT.parents[1]
 MO_HPO_DIR = PAPER_ROOT / "mo_hpo"
-sys.path.insert(0, str(MO_HPO_DIR))
+sys.path.insert(0, str(PAPER_ROOT))
 
-from run_hpo import build_loaders, build_model, build_wrapper  # noqa: E402
+from mo_hpo.run_hpo import build_loaders, build_model, build_wrapper  # noqa: E402
 
+# Mirrors submitit_experiments/calculate_fronts.py for publication studies.
+CONFIG_HASH_EPOCHS_FOR_2_255 = 160
+CONFIG_HASH_EPOCHS_OTHER = 260
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 DATA_ROOT = os.environ.get("CTRAIN_DATA_ROOT", str(REPO_ROOT / "data"))
-HPO_RESULTS_ROOT = PAPER_ROOT / "results" / "mo_hpo"
+HPO_RESULTS_ROOT = "/hpcwork/rwth1939/hpo_val/hpo_val"
 VERIFICATION_RESULTS_ROOT = PAPER_ROOT / "results" / "verification_chunked"
 SUBMITIT_LOG_ROOT = PAPER_ROOT / "submitit_logs" / "complete_verification_chunked"
 
@@ -61,10 +64,6 @@ SEEDS = []  # Example: [0, 1, 2]
 # - "all_complete": every completed trial with a matching checkpoint.
 TRIAL_SELECTION = "pareto_feasible"
 
-# Mirrors submitit_experiments/calculate_fronts.py for publication studies.
-CONFIG_HASH_EPOCHS_FOR_2_255 = 160
-CONFIG_HASH_EPOCHS_OTHER = 260
-
 # ---------------------------------------------------------------------------
 # Verification arguments
 # ---------------------------------------------------------------------------
@@ -77,7 +76,7 @@ WARM_START = True
 
 TIMEOUT = 1000
 ABCROWN_BATCH_SIZE = 512
-NO_CORES = 14
+NO_CORES = 24
 ABCROWN_CONFIG_DICT = None
 
 # Optional per-dataset/network overrides.
@@ -92,16 +91,34 @@ ABCROWN_BATCH_SIZE_OVERRIDES = {
 # ---------------------------------------------------------------------------
 # submitit / SLURM resources
 # ---------------------------------------------------------------------------
-DRY_RUN = True
-SLURM_PARTITION = "CLUSTER"
+DRY_RUN = False
+# Limit how many unfinished chunk jobs this invocation submits. Set to None to
+# submit every unfinished chunk discovered by the script.
+MAX_JOBS_TO_SUBMIT = 100  # Example: 100
+SLURM_PARTITION = "c23g"
 SLURM_JOB_NAME = "CTRAIN_CHUNKED_VERIFY"
-SLURM_ARRAY_PARALLELISM = 16
-TIMEOUT_MIN = 60 * 24 * 7
+SLURM_ARRAY_PARALLELISM = 1
+TIMEOUT_MIN = 60 * 24
 GPUS_PER_NODE = 1
-CPUS_PER_TASK = 14
-MEM_GB = 15.7 * 14
-SLURM_ADDITIONAL_PARAMETERS = {"qos": "gpu"}
-SLURM_SETUP = ["module load CUDA/12.1.1", "module load Python/3.11"]
+CPUS_PER_TASK = 24
+MEM_GB = 120
+# SLURM_ADDITIONAL_PARAMETERS = {"qos": "gpu"}
+SLURM_ADDITIONAL_PARAMETERS = {}
+SLURM_SETUP = [
+    "module load GCCcore/.13.2.0",
+    "module load Python/3.11.5",
+    f"export PYTHONPATH={PAPER_ROOT}:{REPO_ROOT}:${{PYTHONPATH}}",
+]
+# SLURM_SETUP = []
+SLURM_ACCOUNT = "rwth1939"  # Set to your SLURM account name, or None to not specify an account
+
+
+def chunk_results_path(dataset, network, eps, method, config_hash):
+    return Path(VERIFICATION_RESULTS_ROOT) / dataset / network / str(eps) / method / config_hash
+
+
+def chunk_results_filename(start_idx, end_idx):
+    return f"results_{start_idx:05d}_{end_idx:05d}.json"
 
 
 def _enabled(value, allowed_values):
@@ -229,8 +246,37 @@ def load_study(study_db):
     return optuna.load_study(study_name=summaries[0].study_name, storage=storage)
 
 
+def result_chunk_complete(results_path, results_filename, start_idx, end_idx):
+    results_file = Path(results_path) / results_filename
+    if not results_file.exists():
+        return False
+    try:
+        with open(results_file, "r") as handle:
+            results = json.load(handle)
+    except (json.JSONDecodeError, OSError):
+        return False
+    for idx in range(start_idx, end_idx):
+        item = results.get(str(idx)) or results.get(idx)
+        if item is None or item.get("result") is None:
+            return False
+    return True
+
+
+def job_finished(job):
+    results_path = chunk_results_path(
+        job["dataset"],
+        job["network"],
+        job["eps"],
+        job["method"],
+        job["config_hash"],
+    )
+    results_filename = chunk_results_filename(job["start_idx"], job["end_idx"])
+    return result_chunk_complete(results_path, results_filename, job["start_idx"], job["end_idx"])
+
+
 def discover_jobs():
     jobs = []
+    finished_chunks = 0
     for study_db in sorted(Path(HPO_RESULTS_ROOT).rglob("optuna_study.db")):
         study_dir = study_db.parent
         nets_dir = study_dir / "nets"
@@ -263,30 +309,19 @@ def discover_jobs():
                 continue
             for start_idx in range(0, TEST_SAMPLES, INSTANCES_PER_CHUNK):
                 end_idx = min(TEST_SAMPLES, start_idx + INSTANCES_PER_CHUNK)
-                jobs.append(
-                    {
-                        **metadata,
-                        "study_dir": str(study_dir),
-                        "config_hash": config_hash,
-                        "checkpoint_path": str(checkpoint_path),
-                        "start_idx": start_idx,
-                        "end_idx": end_idx,
-                    }
-                )
-    return jobs
-
-
-def result_chunk_complete(results_path, results_filename, start_idx, end_idx):
-    results_file = Path(results_path) / results_filename
-    if not results_file.exists():
-        return False
-    with open(results_file, "r") as handle:
-        results = json.load(handle)
-    for idx in range(start_idx, end_idx):
-        item = results.get(str(idx)) or results.get(idx)
-        if item is None or item.get("result") is None:
-            return False
-    return True
+                job = {
+                    **metadata,
+                    "study_dir": str(study_dir),
+                    "config_hash": config_hash,
+                    "checkpoint_path": str(checkpoint_path),
+                    "start_idx": start_idx,
+                    "end_idx": end_idx,
+                }
+                if job_finished(job):
+                    finished_chunks += 1
+                    continue
+                jobs.append(job)
+    return jobs, finished_chunks
 
 
 def verification_parameters(dataset, network):
@@ -307,8 +342,8 @@ def run_chunk(job):
     end_idx = job["end_idx"]
     config_hash = job["config_hash"]
 
-    results_path = Path(VERIFICATION_RESULTS_ROOT) / dataset / network / str(eps) / method / config_hash
-    results_filename = f"results_{start_idx:05d}_{end_idx:05d}.json"
+    results_path = chunk_results_path(dataset, network, eps, method, config_hash)
+    results_filename = chunk_results_filename(start_idx, end_idx)
     if WARM_START and result_chunk_complete(results_path, results_filename, start_idx, end_idx):
         print(f"Chunk already complete: {results_path / results_filename}")
         return
@@ -356,8 +391,16 @@ def run_chunk(job):
 
 
 def main():
-    jobs = discover_jobs()
-    print(f"Discovered {len(jobs)} chunk jobs.")
+    jobs, finished_chunks = discover_jobs()
+    pending_jobs = len(jobs)
+    print(f"Discovered {pending_jobs} unfinished chunk jobs.")
+    if finished_chunks:
+        print(f"Skipped {finished_chunks} finished chunk jobs.")
+    if MAX_JOBS_TO_SUBMIT is not None:
+        if MAX_JOBS_TO_SUBMIT < 0:
+            raise ValueError("MAX_JOBS_TO_SUBMIT must be None or a non-negative integer")
+        jobs = jobs[:MAX_JOBS_TO_SUBMIT]
+        print(f"Submitting at most {MAX_JOBS_TO_SUBMIT} jobs from this invocation.")
     if DRY_RUN:
         for job in jobs[:20]:
             print(job)
@@ -367,21 +410,24 @@ def main():
         return
 
     executor = submitit.AutoExecutor(folder=str(SUBMITIT_LOG_ROOT))
-    executor.update_parameters(
-        timeout_min=TIMEOUT_MIN,
-        slurm_partition=SLURM_PARTITION,
-        gpus_per_node=GPUS_PER_NODE,
-        slurm_array_parallelism=SLURM_ARRAY_PARALLELISM,
-        cpus_per_task=CPUS_PER_TASK,
-        mem_gb=MEM_GB,
-        slurm_additional_parameters=SLURM_ADDITIONAL_PARAMETERS,
-        slurm_job_name=SLURM_JOB_NAME,
-        slurm_setup=SLURM_SETUP,
-    )
+    submitit_parameters = {
+        "timeout_min": TIMEOUT_MIN,
+        "slurm_partition": SLURM_PARTITION,
+        "gpus_per_node": GPUS_PER_NODE,
+        "slurm_array_parallelism": SLURM_ARRAY_PARALLELISM,
+        "cpus_per_task": CPUS_PER_TASK,
+        "mem_gb": MEM_GB,
+        "slurm_additional_parameters": SLURM_ADDITIONAL_PARAMETERS,
+        "slurm_job_name": SLURM_JOB_NAME,
+        "slurm_setup": SLURM_SETUP,
+    }
+    if SLURM_ACCOUNT is not None:
+        submitit_parameters["slurm_account"] = SLURM_ACCOUNT
+    executor.update_parameters(**submitit_parameters)
 
     with executor.batch():
         submitted = [executor.submit(run_chunk, job) for job in jobs]
-    print(f"Submitted {len(submitted)} jobs.")
+    print(f"Submitted {len(submitted)} jobs out of {pending_jobs} unfinished chunks.")
 
 
 if __name__ == "__main__":
