@@ -13,3 +13,5 @@ smac
 build
 CTRAIN.egg-info
 dist
+papers/rethinking_evaluation_paradigms/submitit_experiments/out.txt
+out.txt

@@ -1,5 +1,9 @@
 import argparse
+import sys
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT))
 
 import numpy as np
 import torch
@@ -7,12 +11,6 @@ from torchvision.models import resnet18
 
 from CTRAIN.data_loaders import load_cifar10, load_gtsrb, load_mnist, load_tinyimagenet
 from CTRAIN.model_definitions import CNN3_Mao, CNN5_Mao, CNN7_Shi, CNN9_Mao, CNN11_Mao
-from CTRAIN.model_wrappers import (
-    CrownIBPModelWrapper,
-    MTLIBPModelWrapper,
-    SABRModelWrapper,
-    ShiIBPModelWrapper,
-)
 from CTRAIN.util import seed_ctrain
 
 
@@ -52,6 +50,13 @@ def build_model(network, input_shape, n_classes):
 
 
 def build_wrapper(method, model, input_shape, eps, epochs, device):
+    from CTRAIN.model_wrappers import (
+        CrownIBPModelWrapper,
+        MTLIBPModelWrapper,
+        SABRModelWrapper,
+        ShiIBPModelWrapper,
+    )
+
     kwargs = {
         "model": model,
         "input_shape": input_shape,
@@ -90,7 +95,10 @@ def main():
     parser.add_argument("--complete-verify", action="store_true")
     parser.add_argument("--val-split", action="store_true", help="Use a train/validation split for HPO instead of the test loader.")
     parser.add_argument("--data-root", default="data")
-    parser.add_argument("--output-root", default="papers/rethinking_evaluation_paradigms/results/mo_hpo")
+    parser.add_argument(
+        "--output-root",
+        default="papers/rethinking_evaluation_paradigms/results/hpo/main/optuna_studies",
+    )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
 

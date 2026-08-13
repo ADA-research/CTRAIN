@@ -1,187 +1,208 @@
+"""Submit one complete-verification job per final-front checkpoint.
+
+Edit the scheduler constants below, then run this file from the repository root.
+The launcher uses the same final-front loader as the chunked launcher, but
+verifies the full evaluation set in one job per checkpoint and writes one
+results.json file. Main-paper fronts are used by default; pass --fronts-root
+to select another front directory.
+"""
+
+import argparse
 import json
-import os
-import submitit
+from pathlib import Path
+
 import torch
-import numpy as np
-from CTRAIN.model_definitions import CNN7_Shi, CNN5_Mao, CNN9_Mao
-from torchvision.models import resnet18
-from CTRAIN.model_wrappers import *
-from CTRAIN.data_loaders import load_cifar10
-from CTRAIN.util import seed_ctrain
 
-PAPER_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DATA_ROOT = os.environ.get("CTRAIN_DATA_ROOT", os.path.abspath(os.path.join(PAPER_ROOT, "..", "data")))
-RESULTS_ROOT = os.environ.get("CTRAIN_PAPER_RESULTS_ROOT", os.path.join(PAPER_ROOT, "results"))
-
-def parse_results_file(file_path):
-    hashes = []
-    
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
-    
-    for line in lines:
-        if not "Config hash" in line:
-            continue
-    
-        hash = line.split("Config hash: ")[1].strip()
-        print(f"Config hash: {hash}") 
-    
-        hashes.append(hash)
-    
-    return hashes
+import submit_chunked_complete_verification as shared
 
 
-def get_networks(nets_folder_prefix, hashes):
-    networks = {}
-    
-    for hash in hashes:
-        if os.path.exists(f"{nets_folder_prefix}/{hash}.pt"):            
-            network_path = f"{nets_folder_prefix}/{hash}.pt"
-            print(f"Found network at: {network_path}")
-            networks[hash] = network_path
-            
-    return networks
+PAPER_ROOT = Path(__file__).resolve().parents[1]
+VERIFICATION_RESULTS_ROOT = PAPER_ROOT / "results" / "verification" / "main"
+SUBMITIT_LOG_ROOT = PAPER_ROOT / "logs" / "submitit" / "complete_verification"
 
-def get_model_wrapper(method):
-    if method == "shi":
-        from CTRAIN.model_wrappers import ShiIBPModelWrapper
-        return ShiIBPModelWrapper
-    elif method == "mtl_ibp":
-        from CTRAIN.model_wrappers import MTLIBPModelWrapper
-        return MTLIBPModelWrapper
-    elif method == "sabr":
-        from CTRAIN.model_wrappers import SABRModelWrapper
-        return SABRModelWrapper
-    elif method in ['crown_ibp', 'crown_ibp_nofusion']:
-        from CTRAIN.model_wrappers import CrownIBPModelWrapper
-        return CrownIBPModelWrapper
-    else:
-        raise ValueError(f"Unknown certification method: {method}")
+DRY_RUN = True
+MAX_JOBS_TO_SUBMIT = None
+SLURM_PARTITION = shared.SLURM_PARTITION
+SLURM_JOB_NAME = "CTRAIN_COMPLETE_VERIFY"
+SLURM_ARRAY_PARALLELISM = 13
+TIMEOUT_MIN = shared.TIMEOUT_MIN
+GPUS_PER_NODE = shared.GPUS_PER_NODE
+CPUS_PER_TASK = shared.CPUS_PER_TASK
+MEM_GB = shared.MEM_GB
+SLURM_ADDITIONAL_PARAMETERS = shared.SLURM_ADDITIONAL_PARAMETERS
+SLURM_SETUP = shared.SLURM_SETUP
+SLURM_ACCOUNT = shared.SLURM_ACCOUNT
 
-def eval_complete(results_path, model_path, cert_train_method, eps, dataset="cifar10", architecture='cnn7'):
-    seed_ctrain(seed=42)
 
-    if dataset == "cifar10":
-        train_loader, test_loader = load_cifar10(
-            batch_size=512, val_split=False, data_root=DATA_ROOT
-        )
-        in_shape = [3, 32, 32]
-        n_classes = 10
-    elif dataset == "mnist":
-        from CTRAIN.data_loaders import load_mnist
-        train_loader, test_loader = load_mnist(
-            batch_size=512, val_split=False, data_root=DATA_ROOT
-        )
-        in_shape = [1, 28, 28]
-        n_classes = 10
-    elif dataset == 'tinyimagenet':
-        from CTRAIN.data_loaders import load_tinyimagenet
-        train_loader, test_loader = load_tinyimagenet(
-            batch_size=64, val_split=False, data_root=DATA_ROOT
-        )
-        in_shape = [3, 64, 64]
-        n_classes = 200
-    else:
-        raise ValueError(f"Unknown dataset: {dataset}")
+def results_path(job):
+    return (
+        VERIFICATION_RESULTS_ROOT
+        / job["dataset"]
+        / job["network"]
+        / str(job["eps"])
+        / job["method"]
+        / job["config_hash"]
+    )
 
-    
-    if architecture == "cnn7":
-        model = CNN7_Shi(in_shape=in_shape, n_classes=n_classes)
-        abcrown_batch_size = 1024
-    elif architecture == "wide_cnn7":
-        model = CNN7_Shi(in_shape=in_shape, n_classes=n_classes, width=128)
-        abcrown_batch_size = 512
-    elif architecture == "narrow_cnn7":
-        model = CNN7_Shi(in_shape=in_shape, n_classes=n_classes, width=32)
-        abcrown_batch_size = 1024
-    elif architecture == "cnn5":
-        model = CNN5_Mao(in_shape=in_shape, n_classes=n_classes)
-        abcrown_batch_size = 1024
-    elif architecture == "cnn9":
-        model = CNN9_Mao(in_shape=in_shape, n_classes=n_classes)
-        abcrown_batch_size = 512
-    elif architecture == "resnet18":
-        model = resnet18(num_classes=n_classes)
-        model.conv1 = torch.nn.Conv2d(
-            in_shape[0], 64, kernel_size=3, stride=1, padding=1, bias=False
-        )
-        model.maxpool = torch.nn.Identity()
-        abcrown_batch_size = 256
-    else:
-        raise ValueError(f"Unknown architecture: {architecture}")
-    
-    if architecture == 'cnn7' and dataset in ['cifar10', 'tinyimagenet']:
-        timeout = 1000
-    else:
-        timeout = 300
 
-    wrapped_model = get_model_wrapper(cert_train_method)(
+def result_complete(job):
+    path = results_path(job) / "results.json"
+    if not path.exists():
+        return False
+    try:
+        with path.open() as handle:
+            results = json.load(handle)
+    except (json.JSONDecodeError, OSError):
+        return False
+    if not isinstance(results, dict):
+        return False
+    return all(
+        isinstance(results.get(str(index)), dict)
+        and results[str(index)].get("result") is not None
+        for index in range(shared.TEST_SAMPLES)
+    )
+
+
+def discover_jobs():
+    checkpoints = shared.discover_selected_checkpoints()
+    jobs = [job for job in checkpoints if not result_complete(job)]
+    return jobs, len(checkpoints) - len(jobs)
+
+
+def run_complete(job):
+    if shared.WARM_START and result_complete(job):
+        print(f"Result already complete: {results_path(job) / 'results.json'}")
+        return
+
+    loaders, input_shape, n_classes = shared.build_loaders(
+        job["dataset"],
+        job["network"],
+        shared.DATA_LOADER_BATCH_SIZE,
+        shared.DATA_ROOT,
+        val_split=False,
+    )
+    _, test_loader = loaders
+
+    device = torch.device(
+        shared.DEVICE
+        if torch.cuda.is_available() or shared.DEVICE == "cpu"
+        else "cpu"
+    )
+    model = shared.build_model(job["network"], input_shape, n_classes)
+    wrapper = shared.build_wrapper(
+        job["method"],
         model=model,
-        input_shape=in_shape,
-        device=torch.device("cuda"),
-        eps=eps,
-        num_epochs=160,
+        input_shape=input_shape,
+        eps=job["eps"],
+        epochs=shared.DEFAULT_NUM_EPOCHS_FOR_WRAPPER,
+        device=device,
+    )
+    wrapper.load_state_dict(
+        torch.load(job["checkpoint_path"], map_location=device)
+    )
+    wrapper.eval()
+
+    timeout, abcrown_batch_size = shared.verification_parameters(
+        job["dataset"], job["network"]
+    )
+    print(
+        f"Verifying {job['dataset']}/{job['network']}/{job['method']}/"
+        f"eps={job['eps']}/{job['config_hash']} in one job"
+    )
+    return wrapper.evaluate_complete(
+        test_loader,
+        test_samples=shared.TEST_SAMPLES,
+        timeout=timeout,
+        no_cores=shared.NO_CORES,
+        abcrown_batch_size=abcrown_batch_size,
+        abcrown_config_dict=shared.ABCROWN_CONFIG_DICT,
+        results_path=str(results_path(job)),
+        warm_start=shared.WARM_START,
     )
 
-    wrapped_model.load_state_dict(
-        torch.load(
-            model_path
-        ) 
-    )
-    wrapped_model.eval()
+
+def main():
+    jobs, finished = discover_jobs()
+    pending_jobs = len(jobs)
     print(
-        wrapped_model.evaluate_complete(test_loader, timeout=timeout, abcrown_batch_size=abcrown_batch_size, test_samples=10_000, results_path=results_path, warm_start=True)
+        f"Discovered {pending_jobs} unfinished final-front checkpoints; "
+        f"skipped {finished} complete checkpoints."
     )
+    if MAX_JOBS_TO_SUBMIT is not None:
+        if MAX_JOBS_TO_SUBMIT < 0:
+            raise ValueError(
+                "MAX_JOBS_TO_SUBMIT must be None or a non-negative integer"
+            )
+        jobs = jobs[:MAX_JOBS_TO_SUBMIT]
+        print(f"Submitting at most {MAX_JOBS_TO_SUBMIT} jobs from this invocation.")
+    if DRY_RUN:
+        for job in jobs[:20]:
+            print(job)
+        if len(jobs) > 20:
+            print(f"... {len(jobs) - 20} more jobs")
+        print("Dry run only; pass --submit to submit these jobs.")
+        return
+
+    try:
+        import submitit
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "Submitting cluster jobs requires the optional 'submitit' package."
+        ) from exc
+
+    executor = submitit.AutoExecutor(folder=str(SUBMITIT_LOG_ROOT))
+    submitit_parameters = {
+        "timeout_min": TIMEOUT_MIN,
+        "slurm_partition": SLURM_PARTITION,
+        "gpus_per_node": GPUS_PER_NODE,
+        "slurm_array_parallelism": SLURM_ARRAY_PARALLELISM,
+        "cpus_per_task": CPUS_PER_TASK,
+        "mem_gb": MEM_GB,
+        "slurm_additional_parameters": SLURM_ADDITIONAL_PARAMETERS,
+        "slurm_job_name": SLURM_JOB_NAME,
+        "slurm_setup": SLURM_SETUP,
+    }
+    if SLURM_ACCOUNT is not None:
+        submitit_parameters["slurm_account"] = SLURM_ACCOUNT
+    executor.update_parameters(**submitit_parameters)
+
+    with executor.batch():
+        submitted = [executor.submit(run_complete, job) for job in jobs]
+    print(f"Submitted {len(submitted)} of {pending_jobs} unfinished checkpoints.")
+
 
 if __name__ == "__main__":
-    executor = submitit.AutoExecutor(folder="./submitit_logs")
-    executor.update_parameters(
-        timeout_min=60 * 24 * 50,
-        slurm_partition="CLUSTER",
-        gpus_per_node=1,
-        slurm_array_parallelism=13,
-        cpus_per_task=14,
-        mem_gb=15.7 * 14,
-        slurm_additional_parameters={"qos": "gpu", },
-        slurm_job_name="MOCTRAIN",
-        slurm_setup=['module load CUDA/12.1.1', 'module load Python/3.11']
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fronts-root",
+        type=Path,
+        default=shared.PARETO_FRONTS_ROOT,
+        help=(
+            "Directory containing final Pareto-front CSVs or exact "
+            "_subselected0.05.txt artifacts (default: main-paper fronts)."
+        ),
     )
-    
-    with executor.batch():
-        for method in ["mtl_ibp", "sabr", "shi", "crown_ibp_nofusion", "crown_ibp"]:
-            datasets = ['cifar10', 'tinyimagenet', 'mnist']
-            for network in [
-                "cnn7",
-                "wide_cnn7",
-                "cnn5",
-                "cnn9",
-                "narrow_cnn7",
-            ]:
-                for dataset in datasets:
-                    for eps in [1 / 255, 2 / 255, 8 / 255, 0.3]:
-                            if os.path.exists(f'{RESULTS_ROOT}/hpo/pareto_fronts/pareto_front_{method}_{network}_{dataset}_{eps}_subselected0.05.txt'):
-                                results_path_subselected = f'{RESULTS_ROOT}/hpo/pareto_fronts/pareto_front_{method}_{network}_{dataset}_{eps}_subselected0.05.txt'
-                            elif os.path.exists(f'{RESULTS_ROOT}/hpo/pareto_fronts/pareto_front_{method}_{network}_{dataset}_{eps}.txt'):
-                                results_path_subselected = f'{RESULTS_ROOT}/hpo/pareto_fronts/pareto_front_{method}_{network}_{dataset}_{eps}.txt'
-                            else:
-                                print(f"File for {method}_{network}_{dataset}_{eps} not found, skipping.")
-                                continue
-                            print("Processing file:", results_path_subselected)
-                            hashes = parse_results_file(results_path_subselected)
-                            print(f"Found {len(hashes)} hashes for {method} on {network} with eps {eps} on {dataset}")
-                            
-                            nets_folder_prefix = f"{RESULTS_ROOT}/hpo/{dataset}_{network}_{method}{eps}"
-                            
-                            networks = get_networks(nets_folder_prefix, hashes)
-                            print(f"Found {len(networks)} networks for {method} on {network} with eps {eps} on {dataset}")
-                            for hash, model_path in networks.items():
-                                print(f"Evaluating {method} on {network} with hash {hash} and eps {eps}")
-                                results_path = f'{RESULTS_ROOT}/verification/{dataset}/{network}/{eps}/{method}/{hash}'
-                                if os.path.exists(f"{results_path}/results.json"):
-                                    with open(f"{results_path}/results.json", "r") as f:
-                                        results = json.load(f)
-                                    if len([i for i in results if results[i]['result'] is None]) == 0:
-                                        print(f"Results already exist at {results_path}, skipping.")
-                                        continue
-                                # executor.submit(eval_complete, results_path, model_path, method, eps, dataset, network)
-                                print("THIS WOULD BE A SUBMITIT JOB, BUT WE ARE NOT SUBMITTING IT NOW")
+    parser.add_argument(
+        "--hpo-root",
+        type=Path,
+        default=shared.HPO_RESULTS_ROOT,
+        help="Directory containing study folders and their nets/ checkpoints.",
+    )
+    parser.add_argument(
+        "--results-root",
+        type=Path,
+        default=VERIFICATION_RESULTS_ROOT,
+        help="Directory for complete-verification results.",
+    )
+    parser.add_argument(
+        "--submit",
+        action="store_true",
+        help="Submit the displayed jobs instead of performing a dry run.",
+    )
+    cli_args = parser.parse_args()
+    shared.PARETO_FRONTS_ROOT = cli_args.fronts_root.resolve()
+    shared.HPO_RESULTS_ROOT = cli_args.hpo_root.resolve()
+    VERIFICATION_RESULTS_ROOT = cli_args.results_root.resolve()
+    if cli_args.submit:
+        DRY_RUN = False
+    main()

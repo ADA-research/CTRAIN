@@ -1,150 +1,275 @@
-import glob
+import argparse
 import json
-import os
+from pathlib import Path
+
 import numpy as np
 
-TEST_SAMPLES = 1000
-# TEST_SAMPLES = 2500
-ARTIFICIAL_TIMEOUT = 1000
-# for results in appendix that investigate differences across networks
-# ARTIFICIAL_TIMEOUT = 300
 
-# Set random seed for reproducible sampling of test indices
-RANDOM_SEED = 42
-np.random.seed(RANDOM_SEED)
+PAPER_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_VERIFICATION_ROOT = PAPER_ROOT / "results" / "verification" / "main"
+DEFAULT_CLEAN_ROOT = PAPER_ROOT / "results" / "verification" / "clean_accuracy"
+CRASHED_RUNNING_TIME = 10_000_000_000
 
-def parse_results():
+
+def summary_filename(test_samples, artificial_timeout):
+    name = "summary_results"
+    if artificial_timeout != 1000:
+        timeout_label = f"{artificial_timeout:g}"
+        name += f"_timeout{timeout_label}"
+    if test_samples != 10_000:
+        name += f"_testsamples{test_samples}"
+    return f"{name}.json"
+
+
+def selected_indices(data, test_samples, selection, random_seed):
+    available = sorted(int(index) for index in data)
+    sample_count = min(test_samples, len(available))
+    if selection == "first":
+        return set(available[:sample_count])
+    # RandomState preserves the selection produced by the publication script.
+    rng = np.random.RandomState(random_seed)
+    return set(rng.choice(available, size=sample_count, replace=False).tolist())
+
+
+def parse_result_location(file_path, verification_root):
+    try:
+        relative_parts = file_path.relative_to(verification_root).parts
+    except ValueError as exc:
+        raise ValueError(
+            f"Result file is outside verification root: {file_path}"
+        ) from exc
+    if len(relative_parts) != 6:
+        raise ValueError(
+            "Expected verification results at "
+            "<dataset>/<architecture>/<eps>/<method>/<hash>/results.json; "
+            f"got {file_path}"
+        )
+    dataset, architecture, eps, method, config_hash, filename = relative_parts
+    if filename != "results.json":
+        raise ValueError(f"Expected results.json, got {filename}")
+    return dataset, architecture, eps, method, config_hash
+
+
+def parse_results(
+    verification_root=DEFAULT_VERIFICATION_ROOT,
+    clean_root=DEFAULT_CLEAN_ROOT,
+    test_samples=10_000,
+    artificial_timeout=1000,
+    selection="first",
+    random_seed=42,
+):
+    verification_root = Path(verification_root).resolve()
+    clean_root = Path(clean_root).resolve()
+    result_files = sorted(verification_root.glob("**/results.json"))
+    if not result_files:
+        raise FileNotFoundError(
+            f"No results.json files found under {verification_root}"
+        )
 
     results = []
-    
-    # Generate random indices for sampling test set (once, used for all results)
-    # We'll sample them once we know the total number of available test samples
     test_indices = None
-    
-    for file in glob.glob("../results/verification/**/results.json", recursive=True):
-        with open(file, "r") as f:
-            data = json.load(f)
-        
-        # Initialize test_indices on first file if needed
+
+    for file_path in result_files:
+        with file_path.open() as handle:
+            data = json.load(handle)
+        if not isinstance(data, dict):
+            print(f"Skipping {file_path}: expected a JSON object keyed by test index")
+            continue
+
         if test_indices is None:
-            total_test_samples = len(data)
-            test_indices = np.random.choice(total_test_samples, size=min(TEST_SAMPLES, total_test_samples), replace=False)
-            test_indices = sorted(test_indices)
-        
-        hash_folder = os.path.basename(os.path.dirname(file))
-            
-        unsat = 0
-        sat = 0
-        unknown = 0
-        misclassified = 0
-        error = 0
-        max_running_time = 0
-        
-        for idx, result in data.items():
-            int_idx = int(idx)
-            # Only process samples in our randomly selected indices
-            if int_idx not in test_indices:
+            available_indices = {
+                int(index)
+                for index in data
+                if str(index).lstrip("-").isdigit()
+            }
+            if len(available_indices) < test_samples:
+                print(
+                    f"Skipping {file_path}: only {len(available_indices)} indices "
+                    f"are present; need {test_samples} to initialise selection."
+                )
                 continue
-            
-            # Track maximum running time for timeout validation
-            if result['running_time'] is not None and result['running_time'] != 10000000000: # this value indicates crashed runs
-                max_running_time = max(max_running_time, result['running_time'])
-            
-            if result['result'] is None:
+            test_indices = selected_indices(
+                data, test_samples, selection, random_seed
+            )
+
+        try:
+            dataset, architecture, eps, method, config_hash = parse_result_location(
+                file_path, verification_root
+            )
+        except ValueError as exc:
+            print(f"Skipping {file_path}: {exc}")
+            continue
+
+        # Timeout evidence must be computed from the complete raw result, not
+        # from a subsample; otherwise changing test_samples can change which
+        # configurations are admitted to the summary.
+        valid_running_times = [
+            item.get("running_time")
+            for item in data.values()
+            if isinstance(item, dict)
+            and item.get("running_time") is not None
+            and item.get("running_time") != CRASHED_RUNNING_TIME
+        ]
+        max_running_time = max(valid_running_times, default=0)
+
+        unsat = sat = unknown = misclassified = error = 0
+        malformed = False
+        for index, item in data.items():
+            try:
+                int_index = int(index)
+            except (TypeError, ValueError):
+                print(f"Skipping {file_path}: non-integer test index {index!r}")
+                malformed = True
+                break
+            if int_index not in test_indices:
+                continue
+            if (
+                not isinstance(item, dict)
+                or "result" not in item
+                or "running_time" not in item
+            ):
+                print(f"Skipping {file_path}: malformed result at test index {index}")
+                malformed = True
+                break
+
+            status = item["result"]
+            running_time = item["running_time"]
+            if (
+                status is None
+                or running_time is None
+                or running_time > artificial_timeout
+            ):
                 unknown += 1
-                continue
-            if result["running_time"] > ARTIFICIAL_TIMEOUT:
-                unknown += 1
-                continue
-            if result['result'] == 'unsat':
+            elif status == "unsat":
                 unsat += 1
-            elif result['result'] == 'sat' and result['method'] == 'clean_classification':
+            elif status == "sat":
                 sat += 1
-                misclassified += 1
-            elif result['result'] == 'sat' and result['method'] != 'clean_classification':
-                sat += 1
-            elif result['result'] == 'timeout':
+                if item.get("method") == "clean_classification":
+                    misclassified += 1
+            elif status == "timeout":
                 unknown += 1
-            elif result['result'] == 'unknown':
+            elif status == "unknown":
                 error += 1
                 unknown += 1
-        
-        total_samples = unsat + sat + unknown
-        print(file)
-        _, _, _, dataset, architecture, eps, cert_train_method, config_hash, _ = file.split('/')
-        
-        # Validate timeout: if ARTIFICIAL_TIMEOUT is set, check that max_running_time is roughly equal to it
-        # This ensures the experiment was run with the correct timeout, not a lower one
-        if ARTIFICIAL_TIMEOUT != np.inf:
-            # Allow 10% tolerance for the timeout check
-            timeout_tolerance = ARTIFICIAL_TIMEOUT * 0.1
-            if max_running_time < ARTIFICIAL_TIMEOUT - timeout_tolerance:
-                print(f"Skipping {file}: max running time ({max_running_time:.2f}s) is lower than expected timeout ({ARTIFICIAL_TIMEOUT}s). Experiment likely ran with a shorter timeout.")
+            else:
+                print(
+                    f"Skipping {file_path}: unknown status {status!r} "
+                    f"at test index {index}"
+                )
+                malformed = True
+                break
+        if malformed:
+            continue
+
+        if np.isfinite(artificial_timeout):
+            tolerance = artificial_timeout * 0.1
+            if max_running_time < artificial_timeout - tolerance:
+                print(
+                    f"Skipping {file_path}: maximum raw running time "
+                    f"({max_running_time:.2f}s) is lower than the requested cap "
+                    f"({artificial_timeout}s); the source run may have used a "
+                    "shorter timeout."
+                )
                 continue
-        
-        if not os.path.exists(f'../results/clean_classification/{dataset}_{architecture}_{cert_train_method}{eps}_{config_hash}_nat_acc.json'):
-            print(f"Clean classification results for {dataset}_{architecture}_{cert_train_method}{eps}_{config_hash} not found, skipping.")
-            continue
-        
-        with open(f'../results/clean_classification/{dataset}_{architecture}_{cert_train_method}{eps}_{config_hash}_nat_acc.json', 'r') as f:
-            clean_classification_results = json.load(f)
-            clean_classification_accuracy = clean_classification_results.get('std_acc', -100) * 100
-        
-        if cert_train_method == "crown_ibp":
-            cert_train_method = "crown_ibp_nofusion"
-        if total_samples < TEST_SAMPLES:
-            print(f"Warning: Only {total_samples} samples verified for {file}, expected at least {TEST_SAMPLES}.")
-            print("We do not include this result in the combined results.")
-            continue
-        results.append({
-            "file": file,
-            "dataset": dataset,
-            "architecture": architecture,
-            "eps": eps,
-            "cert_train_method": cert_train_method,
-            "hash": hash_folder,
-            "total_samples": total_samples,
-            "unsat": unsat,
-            "sat": sat,
-            "unknown": unknown,
-            "misclassified": misclassified,
-            "error": error,
-            "adversarial_accuracy": (total_samples - sat) / total_samples * 100 if total_samples > 0 else 0,
-            "certified_accuracy": unsat / total_samples * 100 if total_samples else 0,
-            "clean_classification_accuracy": clean_classification_accuracy,
-        })
-        
-        # fix numerical precision errors
-        for result in results:
-            result['adversarial_accuracy'] = round(result['adversarial_accuracy'], 2)
-            result['certified_accuracy'] = round(result['certified_accuracy'], 2)
-            result['clean_classification_accuracy'] = round(result['clean_classification_accuracy'], 2)
-    
-    # Sort results by total_samples descending
-    results_sorted = sorted(results, key=lambda x: x["total_samples"], reverse=True)
 
-    for res in results_sorted:
-        print(f"File: {res['file']}")
-        print(f"COMPLETE RESULT:")
-        print(f"\t Total Samples: {res['total_samples']}")
-        print(f"\t Unsat: {res['unsat']}, Sat: {res['sat']}, Unknown: {res['unknown']}, Misclassified: {res['misclassified']}, Verification Errors: {res['error']}")
-        print(f"\t Adversarial Accuracy: {res['adversarial_accuracy']:.2f}%")
-        print(f"\t Certified Accuracy: {res['certified_accuracy']:.2f}%")
-        print(f"\t Clean Classification Accuracy: {res['clean_classification_accuracy']:.2f}%")
+        total_samples = unsat + sat + unknown
+        if total_samples < test_samples:
+            print(
+                f"Skipping {file_path}: only {total_samples} selected samples "
+                "are present; "
+                f"expected {test_samples}."
+            )
+            continue
 
-        print("-" * 40)
-        print()
-    
-    return results_sorted
-        
+        clean_path = clean_root / (
+            f"{dataset}_{architecture}_{method}{eps}_{config_hash}_nat_acc.json"
+        )
+        if not clean_path.exists():
+            print(f"Skipping {file_path}: missing clean-accuracy result {clean_path}")
+            continue
+        with clean_path.open() as handle:
+            clean_data = json.load(handle)
+        if "std_acc" not in clean_data:
+            print(f"Skipping {file_path}: {clean_path} has no std_acc value")
+            continue
+
+        results.append(
+            {
+                "file": str(file_path.relative_to(PAPER_ROOT)),
+                "dataset": dataset,
+                "architecture": architecture,
+                "eps": eps,
+                "cert_train_method": method,
+                "hash": config_hash,
+                "total_samples": total_samples,
+                "unsat": unsat,
+                "sat": sat,
+                "unknown": unknown,
+                "misclassified": misclassified,
+                "error": error,
+                "adversarial_accuracy": round(
+                    (total_samples - sat) / total_samples * 100, 2
+                ),
+                "certified_accuracy": round(unsat / total_samples * 100, 2),
+                "clean_classification_accuracy": round(clean_data["std_acc"] * 100, 2),
+            }
+        )
+
+    return sorted(
+        results,
+        key=lambda item: (
+            item["dataset"],
+            item["architecture"],
+            float(item["eps"]),
+            item["cert_train_method"],
+            item["hash"],
+        ),
+    )
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Combine raw complete-verification and clean-accuracy results."
+    )
+    parser.add_argument(
+        "--verification-root", type=Path, default=DEFAULT_VERIFICATION_ROOT
+    )
+    parser.add_argument("--clean-root", type=Path, default=DEFAULT_CLEAN_ROOT)
+    parser.add_argument("--test-samples", type=int, default=10_000)
+    parser.add_argument("--artificial-timeout", type=float, default=1000)
+    parser.add_argument(
+        "--sample-selection", choices=["first", "random"], default="first"
+    )
+    parser.add_argument("--random-seed", type=int, default=42)
+    parser.add_argument("--output", type=Path)
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    if args.test_samples <= 0:
+        raise ValueError("--test-samples must be positive")
+    if args.artificial_timeout <= 0:
+        raise ValueError("--artificial-timeout must be positive")
+
+    results = parse_results(
+        verification_root=args.verification_root,
+        clean_root=args.clean_root,
+        test_samples=args.test_samples,
+        artificial_timeout=args.artificial_timeout,
+        selection=args.sample_selection,
+        random_seed=args.random_seed,
+    )
+    output_path = args.output or (
+        args.verification_root
+        / summary_filename(args.test_samples, args.artificial_timeout)
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w") as handle:
+        json.dump(results, handle, indent=4)
+        handle.write("\n")
+    print(f"Wrote {len(results)} configurations to {output_path}")
+
+
 if __name__ == "__main__":
-    results = parse_results()
-    file_name = "summary_results"
-    if ARTIFICIAL_TIMEOUT != 1000:
-        file_name += f"_timeout{ARTIFICIAL_TIMEOUT}"
-    if TEST_SAMPLES != 10_000:
-        file_name += f"_testsamples{TEST_SAMPLES}"
-    file_name += ".json"
-    print(f"Saving summary results to ../results/verification/{file_name}")
-    with open(f"../results/verification/{file_name}", "w") as f:
-        json.dump(results, f, indent=4)
+    main()

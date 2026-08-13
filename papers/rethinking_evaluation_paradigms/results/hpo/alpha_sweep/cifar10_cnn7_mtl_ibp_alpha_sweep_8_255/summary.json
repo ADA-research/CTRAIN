@@ -1,0 +1,40 @@
+{
+  "eps": 0.03137254901960784,
+  "epochs": 260,
+  "seeds": [
+    42
+  ],
+  "alphas": [
+    1e-06,
+    4.297529725877133e-06,
+    1.846876174479759e-05,
+    7.937005259840992e-05,
+    0.00034109516038609826,
+    0.0014658665911120856,
+    0.006299605249474363,
+    0.027072740820907683,
+    0.11634590843881808,
+    0.5,
+    0.5358867312681466,
+    0.5743491774985174,
+    0.6155722066724582,
+    0.6597539553864471,
+    0.7071067811865476,
+    0.7578582832551991,
+    0.8122523963562356,
+    0.8705505632961241,
+    0.9330329915368074,
+    1.0
+  ],
+  "default_mtl_ibp_alpha": 0.5,
+  "num_points": 20,
+  "num_expected_points": 20,
+  "num_pareto_points": 11,
+  "reference_point": [
+    0.0,
+    0.0
+  ],
+  "hypervolume": 0.20984671362507942,
+  "alpha_sweep_csv": "papers/rethinking_evaluation_paradigms/results/hpo/alpha_sweep/cifar10_cnn7_mtl_ibp_alpha_sweep_8_255/alpha_sweep.csv",
+  "pareto_front_csv": "papers/rethinking_evaluation_paradigms/results/hpo/alpha_sweep/cifar10_cnn7_mtl_ibp_alpha_sweep_8_255/pareto_front.csv"
+}

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -9,6 +10,11 @@ import pickle
 import optuna
 import pandas as pd
 from scipy.spatial import ConvexHull
+
+PAPER_ROOT = Path(__file__).resolve().parents[1]
+HPO_ROOT = PAPER_ROOT / "results" / "hpo" / "main" / "optuna_studies"
+PLOTS_DIR = PAPER_ROOT / "plots" / "hpo" / "front_development"
+TABLES_DIR = PAPER_ROOT / "tables" / "hpo"
 
 renames = {
     "Objective0": "Clean Accuracy",
@@ -43,55 +49,56 @@ def calculate_hypervolume(pareto_points, reference_point=None):
     """
     Calculate hypervolume indicator for a set of 2D Pareto points.
     Uses the WFG algorithm for 2D case (which is simple polygon area).
-    
+
     Args:
         pareto_points: List of (x, y) tuples or array of shape (n, 2)
         reference_point: Reference point for hypervolume (default: (0, 0))
-    
+
     Returns:
         Hypervolume value
     """
     if reference_point is None:
         reference_point = (0, 0)
-    
+
     if len(pareto_points) == 0:
         return 0.0
-    
+
     if len(pareto_points) == 1:
         # Single point: rectangle from origin to point
         return pareto_points[0][0] * pareto_points[0][1]
-    
+
     # Sort points by x coordinate
     points = sorted(pareto_points, key=lambda p: p[0])
-    
+
     # Calculate hypervolume as sum of rectangles
     hypervolume = 0.0
     prev_y = reference_point[1]
-    
+
     for i, (x, y) in enumerate(points):
         # Width of rectangle
         if i == 0:
             width = x - reference_point[0]
         else:
             width = x - points[i-1][0]
-        
+
         # Height is the maximum y from this point onwards
         height = max(p[1] for p in points[i:]) - reference_point[1]
-        
+
         hypervolume += width * height
-    
+
     return hypervolume
 
 if __name__ == "__main__":
-    os.makedirs("importance_analysis/", exist_ok=True)
-    
+    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+    TABLES_DIR.mkdir(parents=True, exist_ok=True)
+
     # Dictionary to collect all hypervolume data
     all_hypervolume_data = {}
-    
+
     for method in ["mtl_ibp", "sabr", "shi", "crown_ibp_nofusion", "crown_ibp"]:
         for dataset in ["cifar10", "tinyimagenet"]:
             if dataset == "tinyimagenet" and method in ["crown_ibp_nofusion"]:
-                continue    
+                continue
             if dataset == "cifar10" and method in ["crown_ibp"]:
                 continue
             for network in [
@@ -103,9 +110,9 @@ if __name__ == "__main__":
                         # Plot Pareto front after specific trial counts and collect for combined figure
                         trial_counts = [10, 20, 50, 75, 100]
                         pareto_map = {}
-                        out_dir = "fronts_development"
+                        out_dir = PLOTS_DIR
                         os.makedirs(out_dir, exist_ok=True)
-                        
+
                         for n in trial_counts:
                             # Create a new mega_study for this trial count
                             mega_study = optuna.create_study(
@@ -113,15 +120,15 @@ if __name__ == "__main__":
                             )
                             for seed in range(3):
                                 print(
-                                    f"sqlite:///../results/hpo/optuna_results/{dataset}_{network}_{method}_{eps}_{seed}_optuna_study.db"
+                                    f"sqlite:///{HPO_ROOT / f'{dataset}_{network}_{method}_{eps}_{seed}_optuna_study.db'}"
                                 )
                                 study = optuna.load_study(
                                     study_name="moctrain",
-                                    storage=f"sqlite:///../results/hpo/optuna_results/{dataset}_{network}_{method}_{eps}_{seed}_optuna_study.db",
+                                    storage=f"sqlite:///{HPO_ROOT / f'{dataset}_{network}_{method}_{eps}_{seed}_optuna_study.db'}",
                                 )
                                 # Add only the first n trials from this seed
                                 mega_study.add_trials(study.trials[:n])
-                            
+
                             # Extract data from mega_study
                             trial_data = []
                             for trial in mega_study.trials:
@@ -146,7 +153,7 @@ if __name__ == "__main__":
                                     ):
                                         df.drop(id, inplace=True)
                                         break
-                            
+
                             if df.shape[0] == 0:
                                 continue
 
@@ -211,15 +218,15 @@ if __name__ == "__main__":
                             # Prepare data for plotting
                             sns.set_style("darkgrid")
                             fig, ax = plt.subplots(figsize=(10, 10))
-                            
+
                             # Color palette for trial counts
                             palette = sns.color_palette("Set2", len(pareto_map))
                             colors_map = {n: palette[idx] for idx, n in enumerate(sorted(pareto_map.keys()))}
-                            
+
                             # Marker styles for different trial counts
                             markers = ['o', 's', '^', 'D', '*']  # circle, square, triangle, diamond, star
                             markers_map = {n: markers[idx % len(markers)] for idx, n in enumerate(sorted(pareto_map.keys()))}
-                            
+
                             # Get all data points for axis limits
                             all_x = []
                             all_y = []
@@ -227,29 +234,29 @@ if __name__ == "__main__":
                                 ps = pareto_map[n]
                                 all_x.extend(ps["Objective1"].values)
                                 all_y.extend(ps["Objective0"].values)
-                            
+
                             # Plot Pareto fronts for each trial count
                             for n in sorted(pareto_map.keys()):
                                 ps = pareto_map[n]
                                 x = ps["Objective1"].values
                                 y = ps["Objective0"].values
-                                
+
                                 # Scatter plot for points with different markers
                                 ax.scatter(x, y, s=200, c=[colors_map[n]], marker=markers_map[n],
                                           edgecolor='black', linewidth=2.5, alpha=0.95, zorder=2)
-                                
+
                                 # Line connecting Pareto points (sorted by x)
                                 if len(ps) > 1:
                                     points = sorted(zip(x, y))
                                     px, py = zip(*points)
                                     ax.plot(px, py, color=colors_map[n], linewidth=10, alpha=0.5, zorder=1)
-                            
+
                             # Styling
                             ax.set_xlabel('Certified Accuracy', fontsize=35, fontweight='bold', labelpad=16)
                             ax.set_ylabel('Natural Accuracy', fontsize=35, fontweight='bold', labelpad=16)
                             ax.tick_params(axis='both', which='major', labelsize=25, colors='black', length=8, width=2)
                             sns.despine(ax=ax, top=True, right=True, left=False, bottom=False)
-                            
+
                             # Set axis limits with padding
                             if all_x and all_y:
                                 min_x = min(all_x)
@@ -260,40 +267,40 @@ if __name__ == "__main__":
                                 y_range = max_y - min_y if max_y > min_y else 0.1
                                 ax.set_xlim(max(0, min_x - 0.05 * x_range), min(1, max_x + 0.05 * x_range))
                                 ax.set_ylim(max(0, min_y - 0.05 * y_range), min(1, max_y + 0.05 * y_range))
-                            
+
                             # Save with and without legend
                             for show_legend in [False, True]:
                                 if show_legend:
                                     legend_elements = [
-                                        Line2D([0], [0], marker=markers_map[n], color='w', label=f"{n} trials", 
-                                               markerfacecolor=colors_map[n], markersize=20, 
-                                               markeredgecolor='black', linewidth=0) 
+                                        Line2D([0], [0], marker=markers_map[n], color='w', label=f"{n} trials",
+                                               markerfacecolor=colors_map[n], markersize=20,
+                                               markeredgecolor='black', linewidth=0)
                                         for n in sorted(pareto_map.keys())
                                     ]
                                     ax.legend(handles=legend_elements, fontsize=30, frameon=True)
-                                
+
                                 plt.tight_layout()
                                 suffix = '' if show_legend else '_nolegend'
                                 out_path = f"{out_dir}/{dataset}_{network}_{method}_{eps}_{obj}_all_fronts{suffix}.pdf"
                                 plt.savefig(out_path, dpi=300, bbox_inches='tight', transparent=False)
-                            
+
                             plt.close()
-                            
+
                             # Calculate hypervolumes and generate table
                             hypervolumes = {}
                             for n in sorted(pareto_map.keys()):
                                 ps = pareto_map[n]
                                 points = list(zip(ps["Objective1"].values, ps["Objective0"].values))
                                 hypervolumes[n] = calculate_hypervolume(points)
-                            
+
                             # Store hypervolume data for combined table
                             row_key = (dataset, network, method, eps)
                             all_hypervolume_data[row_key] = hypervolumes
-    
+
     # Generate combined TeX table with all results
     if all_hypervolume_data:
         trial_counts = [10, 20, 50, 75, 100]
-        
+
         tex_content = "\\begin{table}[htbp]\n"
         tex_content += "\\centering\n"
         tex_content += "\\caption{Hypervolume Indicator for Different Trial Counts}\n"
@@ -302,30 +309,30 @@ if __name__ == "__main__":
         tex_content += "\\toprule\n"
         tex_content += "Dataset & Method & $\\epsilon$ & " + " & ".join([f"{n}" for n in trial_counts]) + " \\\\\n"
         tex_content += "\\midrule\n"
-        
+
         # Sort the keys for consistent output: Dataset -> Epsilon -> Method
         # Method order: SHI (0) -> CROWN_IBP (1) -> SABR (2) -> MTL_IBP (3)
         method_order = {'shi': 0, 'crown_ibp_nofusion': 1, 'crown_ibp': 2, 'sabr': 3, 'mtl_ibp': 4}
         eps_order = {2/255: 0, 8/255: 1, 1/255: 2}
-        
+
         def sort_key(x):
             dataset, network, method, eps = x
             dataset_priority = 0 if dataset == 'cifar10' else 1
             eps_priority = eps_order.get(eps, 999)
             method_priority = method_order.get(method, 999)
             return (dataset_priority, eps_priority, method_priority)
-        
+
         sorted_keys = sorted(all_hypervolume_data.keys(), key=sort_key)
-        
+
         for dataset, network, method, eps in sorted_keys:
             hypervolumes = all_hypervolume_data[(dataset, network, method, eps)]
-            
+
             # Format dataset name
             dataset_str = "CIFAR-10" if dataset == "cifar10" else "Tiny-ImageNet"
-            
+
             # Format method name
             method_str = method.upper().replace("_", "-")
-            
+
             # Format epsilon
             if eps == 2/255:
                 eps_str = "2/255"
@@ -335,15 +342,15 @@ if __name__ == "__main__":
                 eps_str = "1/255"
             else:
                 eps_str = f"{eps:.4f}"
-            
+
             # Build row
             tex_content += f"{dataset_str} & {method_str} & {eps_str}"
-        
+
             for idx, n in enumerate(trial_counts):
                 if n in hypervolumes:
                     hv = hypervolumes[n]
                     hv_str = f"{hv:.4f}"
-                    
+
                     # Add improvement percentage for non-first trials
                     if idx > 0:
                         prev_n = trial_counts[idx - 1]
@@ -352,23 +359,22 @@ if __name__ == "__main__":
                             if prev_hv > 0:
                                 improvement = ((hv - prev_hv) / prev_hv * 100)
                                 hv_str += f" ({improvement:+.2f}\\%)"
-                    
+
                     tex_content += f" & {hv_str}"
                 else:
                     tex_content += " & ---"
-            
+
             tex_content += " \\\\\n"
-        
+
         tex_content += "\\bottomrule\n"
         tex_content += "\\end{tabular}\n"
         tex_content += "\\end{table}\n"
-        
+
         # Save combined TeX table
-        out_dir = "fronts_development"
-        combined_tex_path = f"{out_dir}/hypervolume_summary.tex"
+        combined_tex_path = TABLES_DIR / "hypervolume_summary.tex"
         with open(combined_tex_path, 'w') as f:
             f.write(tex_content)
-        
+
         print(f"\\nGenerated combined hypervolume table: {combined_tex_path}")
 
-                        
+

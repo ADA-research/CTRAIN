@@ -1,18 +1,10 @@
-# TEST_SAMPLES = np.inf
-# for results in appendix that investigate differences across networks
+import argparse
 import json
-import os
-import numpy as np
+from pathlib import Path
 
 from util import get_pareto_front
 
-TEST_SAMPLES = np.inf
-# TEST_SAMPLES = 1000
-ARTIFICIAL_TIMEOUT = np.inf
-# for results in appendix that investigate differences across networks
-# ARTIFICIAL_TIMEOUT = 300
-
-TEX_PATH = './tables'
+PAPER_ROOT = Path(__file__).resolve().parents[1]
 
 
 LITERATURE_RESULTS = {
@@ -33,7 +25,7 @@ LITERATURE_RESULTS = {
                     "tinyimagenet": {
                         "0.00392156862745098": [
                             (25.92, 17.87, 'shi'),
-                            (25.62, 17.93, 'crown_ibp_nofusion'),
+                            (25.62, 17.93, 'crown_ibp'),
                             (28.85, 20.46, 'sabr'),
                             (37.56, 26.09, 'mtl_ibp'),
                         ],
@@ -109,8 +101,7 @@ def generate_latex_table_with_literature_columns(results_sorted, literature_resu
     )
     rows = []
     for res in results_sorted:
-        # if res['total_samples'] != 10_000:
-        if res['total_samples'] == 1: # TODO: REMOVE THIS HACK!
+        if res['total_samples'] <= 1:
             continue
         method = res['cert_train_method']
         method_tex = method.replace('_', '\\_')  # Escape underscores for LaTeX
@@ -119,8 +110,12 @@ def generate_latex_table_with_literature_columns(results_sorted, literature_resu
         ours_clean = f"{res['clean_classification_accuracy']:.2f}"
         ours_cert = f"{res['certified_accuracy']:.2f}"
         ours_adv = f"{res['adversarial_accuracy']:.2f}"
-        lit_clean = [lit for lit in LITERATURE_RESULTS[res['dataset']][eps] if lit[2] == method][0][0]
-        lit_cert = [lit for lit in LITERATURE_RESULTS[res['dataset']][eps] if lit[2] == method][0][1]
+        literature_match = [
+            lit for lit in literature_results[res['dataset']][eps] if lit[2] == method
+        ]
+        if not literature_match:
+            continue
+        lit_clean, lit_cert, _ = literature_match[0]
 
         ours_clean_disp = bold_if_better(ours_clean, lit_clean, higher_is_better=True) if lit_clean is not None else ours_clean
         ours_cert_disp = bold_if_better(ours_cert, lit_cert, higher_is_better=True) if lit_cert is not None else ours_cert
@@ -144,31 +139,41 @@ def generate_latex_table_with_literature_columns(results_sorted, literature_resu
     return table
 
     
-if __name__ == "__main__":
-    results_file_name = "summary_results"
-    if ARTIFICIAL_TIMEOUT != np.inf:
-        results_file_name += f"_timeout{ARTIFICIAL_TIMEOUT}"
-        TEX_PATH += f"_timeout{ARTIFICIAL_TIMEOUT}"
-    if TEST_SAMPLES != np.inf:
-        results_file_name += f"_testsamples{TEST_SAMPLES}"
-        TEX_PATH += f"_testsamples{TEST_SAMPLES}"
-    results_file_name += ".json"
-    RESULTS_SUMMARY_PATH = f'../results/verification/{results_file_name}'
-    
-    with open(RESULTS_SUMMARY_PATH, 'r') as f:
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate LaTeX result tables from a verification summary."
+    )
+    parser.add_argument(
+        "--summary",
+        type=Path,
+        default=PAPER_ROOT / "results" / "verification" / "main" / "summary_results.json",
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=PAPER_ROOT / "tables" / "main"
+    )
+    args = parser.parse_args()
+
+    with args.summary.open() as f:
         results_sorted = json.load(f)
     
     pareto_results_sorted = get_pareto_front(results_sorted)
         
-    os.makedirs(TEX_PATH, exist_ok=True)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
     
     all_results_table = generate_latex_table(pareto_results_sorted)
-    with open(f"{TEX_PATH}/all_results.tex", 'w') as f:
+    with (args.output_dir / "all_results.tex").open('w') as f:
         f.write(all_results_table)
 
     for dataset in LITERATURE_RESULTS.keys():
         for eps in LITERATURE_RESULTS[dataset].keys():
-            for architecture in set(res['architecture'] for res in pareto_results_sorted if res['dataset'] == dataset and res['eps'] == eps):
+            architectures = sorted(
+                {
+                    res['architecture']
+                    for res in pareto_results_sorted
+                    if res['dataset'] == dataset and res['eps'] == eps
+                }
+            )
+            for architecture in architectures:
                 filtered_results = [
                     res for res in pareto_results_sorted
                     if res['total_samples'] > 1 and res['eps'] == eps and res['dataset'] == dataset and res['architecture'] == architecture
@@ -180,6 +185,10 @@ if __name__ == "__main__":
                     print("Please set TEST_SAMPLES to a fixed value and re-generate the tables.")
                     continue
                 
-                with open(f"{TEX_PATH}/results_{dataset}_{architecture}_eps{float(eps):.4f}.tex", 'w') as f:
+                output_path = args.output_dir / f"results_{dataset}_{architecture}_eps{float(eps):.4f}.tex"
+                with output_path.open('w') as f:
                     f.write(table)
-            
+
+
+if __name__ == "__main__":
+    main()

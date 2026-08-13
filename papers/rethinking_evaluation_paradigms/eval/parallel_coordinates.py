@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from deepcave.plugins.hyperparameter.parallel_coordinates import ParallelCoordinates
 from deepcave.runs.converters.optuna import OptunaRun
 from ConfigSpace.hyperparameters import NumericalHyperparameter
@@ -12,6 +13,10 @@ import pickle
 import optuna
 
 from deepcave.constants import VALUE_RANGE
+
+PAPER_ROOT = Path(__file__).resolve().parents[1]
+HPO_ROOT = PAPER_ROOT / "results" / "hpo" / "main" / "optuna_studies"
+OUTPUT_DIR = PAPER_ROOT / "plots" / "hpo" / "importance"
 
 renames = {
     "Objective0": "Clean Accuracy",
@@ -43,7 +48,7 @@ renames = {
 }
 
 if __name__ == "__main__":
-    os.makedirs("importance_analysis/", exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     for method in ["mtl_ibp", "sabr", "shi", "crown_ibp_nofusion", "crown_ibp"]:
         for dataset in ["cifar10", "tinyimagenet"]:
             if dataset == "tinyimagenet" and method in ["crown_ibp_nofusion"]:
@@ -60,11 +65,11 @@ if __name__ == "__main__":
                         )
                         for seed in range(3):
                             print(
-                                f"sqlite:///../results/hpo/optuna_results/{dataset}_{network}_{method}_{eps}_{seed}_optuna_study.db"
+                                f"sqlite:///{HPO_ROOT / f'{dataset}_{network}_{method}_{eps}_{seed}_optuna_study.db'}"
                             )
                             study = optuna.load_study(
                                 study_name="moctrain",
-                                storage=f"sqlite:///../results/hpo/optuna_results/{dataset}_{network}_{method}_{eps}_{seed}_optuna_study.db",
+                                storage=f"sqlite:///{HPO_ROOT / f'{dataset}_{network}_{method}_{eps}_{seed}_optuna_study.db'}",
                             )
                             mega_study.add_trials(study.trials[:100])
                         os.makedirs("/tmp/mega_study", exist_ok=True)
@@ -196,5 +201,5 @@ if __name__ == "__main__":
                         )
 
                         figure.write_image(
-                            f"importance_analysis/{dataset}_{network}_{method}_{eps}_{obj}.pdf"
+                            OUTPUT_DIR / f"{dataset}_{network}_{method}_{eps}_{obj}.pdf"
                         )

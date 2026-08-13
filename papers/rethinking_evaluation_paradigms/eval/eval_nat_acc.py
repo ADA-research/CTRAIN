@@ -1,13 +1,26 @@
+import csv
 import os
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT))
+
 from CTRAIN.model_definitions import CNN7_Shi, CNN5_Mao, CNN9_Mao
 from CTRAIN.data_loaders import load_cifar10, load_mnist, load_tinyimagenet
 from CTRAIN.model_wrappers import ShiIBPModelWrapper, SABRModelWrapper, CrownIBPModelWrapper, MTLIBPModelWrapper
 
 import torch
 
-HPO_RESULTS_PATH = "../results/hpo"
-VERIFICATION_RESULTS_PATH = "../results/verification"
-NAT_ACC_RESULTS_PATH = "../results/clean_classification"
+PAPER_ROOT = Path(__file__).resolve().parents[1]
+PARETO_FRONTS_PATH = PAPER_ROOT / "results" / "hpo" / "validation" / "pareto_fronts"
+HPO_STUDY_ROOT = Path(
+    os.environ.get(
+        "CTRAIN_PAPER_HPO_ROOT",
+        PAPER_ROOT / "results" / "hpo" / "validation" / "optuna_studies",
+    )
+)
+NAT_ACC_RESULTS_PATH = PAPER_ROOT / "results" / "verification" / "clean_accuracy"
 DATA_ROOT = os.environ.get(
     "CTRAIN_DATA_ROOT",
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data")),
@@ -35,33 +48,19 @@ METHODS = [
     "mtl_ibp"
 ]
 
-def parse_results_file(file_path):
-    hashes = []
-    
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
-    
-    for line in lines:
-        if not "Config hash" in line:
-            continue
-    
-        hash = line.split("Config hash: ")[1].strip()
-        print(f"Config hash: {hash}") 
-    
-        hashes.append(hash)
-    
-    return hashes
-
-def get_networks(nets_folder_prefix, hashes):
+def parse_front(file_path):
     networks = {}
-    
-    for hash in hashes:
-        if os.path.exists(f"{nets_folder_prefix}/{hash}.pt"):            
-            network_path = f"{nets_folder_prefix}/{hash}.pt"
-            print(f"Found network at: {network_path}")
-            networks[hash] = network_path
-            continue
-            
+    with file_path.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row.get("subselected", "true").lower() not in {"true", "1"}:
+                continue
+            config_hash = row["config_hash"]
+            network_path = HPO_STUDY_ROOT / row["source_study"] / "nets" / f"{config_hash}.pt"
+            if network_path.exists():
+                print(f"Found network at: {network_path}")
+                networks[config_hash] = network_path
+            else:
+                print(f"Checkpoint not found: {network_path}")
     return networks
 
 def wrap_model(model, method, in_shape, eps):
@@ -120,16 +119,14 @@ def get_nat_acc(model, data_loader):
 
 
 def eval_nat_acc():
-    os.makedirs(NAT_ACC_RESULTS_PATH, exist_ok=True)
+    NAT_ACC_RESULTS_PATH.mkdir(parents=True, exist_ok=True)
     for architecture, dataset, eps in EXPERIMENTS:
         for method in METHODS:
-            pareto_front_file =   f"{HPO_RESULTS_PATH}/pareto_fronts/pareto_front_{method}_{architecture}_{dataset}_{eps}.txt"
-            if not os.path.exists(pareto_front_file):
+            pareto_front_file = PARETO_FRONTS_PATH / f"pareto_front_{method}_{architecture}_{dataset}_{eps}.csv"
+            if not pareto_front_file.exists():
                 print(f"Pareto front file not found: {pareto_front_file}, skipping.")
                 continue
-            hashes = parse_results_file(pareto_front_file)
-            nets_folder_prefix = f"{HPO_RESULTS_PATH}/{dataset}_{architecture}_{method}{eps}"
-            networks = get_networks(nets_folder_prefix, hashes)
+            networks = parse_front(pareto_front_file)
             print(f"Evaluating natural accuracy for {method}_{architecture}_{dataset}_{eps}")
             if dataset == "cifar10":
                 _, test_loader = load_cifar10(batch_size=1024, data_root=DATA_ROOT, val_split=False)
@@ -149,12 +146,13 @@ def eval_nat_acc():
             for hash, network_path in networks.items():
                 model = get_model(architecture, in_shape, n_classes)
                 model = wrap_model(model, method, in_shape, eps)
-                model.load_state_dict(torch.load(network_path))
+                model.load_state_dict(torch.load(network_path, map_location=DEVICE))
                 model.eval()
                 nat_acc, results_json = get_nat_acc(model, test_loader)
                 print(f"Hash: {hash}, Natural Accuracy: {nat_acc}")
                 
-                with open(f'{NAT_ACC_RESULTS_PATH}/{dataset}_{architecture}_{method}{eps}_{hash}_nat_acc.json', 'w') as f:
+                output_path = NAT_ACC_RESULTS_PATH / f'{dataset}_{architecture}_{method}{eps}_{hash}_nat_acc.json'
+                with output_path.open('w') as f:
                     import json
                     json.dump({
                         "std_acc": nat_acc,

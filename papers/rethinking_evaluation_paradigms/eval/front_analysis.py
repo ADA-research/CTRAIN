@@ -1,131 +1,122 @@
-import numpy as np
+import argparse
 import json
-from util import get_pareto_front
+from pathlib import Path
 
-# TEST_SAMPLES = 10_000
-TEST_SAMPLES = 1000
-# ARTIFICIAL_TIMEOUT = np.inf
-# for results in appendix that investigate differences across networks
-ARTIFICIAL_TIMEOUT = 300
+from util import pareto_front
 
-def count_pareto_front_methods(results_sorted):
+
+PAPER_ROOT = Path(__file__).resolve().parents[1]
+
+
+def common_sample_count(group_results):
+    sample_counts = {result["total_samples"] for result in group_results}
+    if len(sample_counts) != 1:
+        print("Warning: different total_samples in this group; skipping analysis.")
+        return False
+    return True
+
+
+def count_pareto_front_methods(results):
     groups = {}
-    for result in results_sorted:
-        key = (result['dataset'], result['architecture'], result['eps'])
-        if key not in groups:
-            groups[key] = []
-        groups[key].append(result)
-        
-    # Find pareto front for each group
-    for key, group_results in groups.items():
-        dataset, architecture, eps = key
-        print(f"\nPareto Front Analysis for {dataset}, {architecture}, eps={eps}:")
-        
-        if not len(set(r['total_samples'] for r in group_results)) == 1:
-            print("Warning: Different total_samples in this group, skipping analysis.")
-            print("Please set TEST_SAMPLES to a smaller value.")
+    for result in results:
+        key = (result["dataset"], result["architecture"], result["eps"])
+        groups.setdefault(key, []).append(result)
+
+    for (dataset, architecture, eps), group_results in sorted(groups.items()):
+        print(f"\nPareto front for {dataset}, {architecture}, eps={eps}:")
+        if not common_sample_count(group_results):
             continue
-        
-        # Create pareto front for this group
-        pareto_front = []
-        for result in group_results:
-            is_dominated = False
-            for other in group_results:
-                if (other['certified_accuracy'] >= result['certified_accuracy'] and 
-                    other['clean_classification_accuracy'] >= result['clean_classification_accuracy'] and
-                    (other['certified_accuracy'] > result['certified_accuracy'] or 
-                    other['clean_classification_accuracy'] > result['clean_classification_accuracy'])):
-                    is_dominated = True
-                    break
-            if not is_dominated:
-                pareto_front.append(result)
-        
-        # Count methods in pareto front
+
+        group_front = pareto_front(group_results)
         method_counts = {}
-        for result in pareto_front:
-            method = result['cert_train_method']
+        for result in group_front:
+            method = result["cert_train_method"]
             method_counts[method] = method_counts.get(method, 0) + 1
-        
-        print("Method counts in Pareto front:")
-        for method, count in method_counts.items():
-            print(f"{method}: {count} configurations")
-            
-        print("\nDetailed Pareto front configurations:")
-        for result in pareto_front:
-            print(f"\nMethod: {result['cert_train_method']}")
-            print(f"Clean Classification Accuracy: {result['clean_classification_accuracy']:.2f}%")
-            print(f"Certified Accuracy: {result['certified_accuracy']:.2f}%")
-            print(f"Adversarial Accuracy: {result['adversarial_accuracy']:.2f}%")
 
-def analyze_network_contributions(results_sorted):
-    """Analyze which network architectures contribute to the combined Pareto front for each method."""
-    
-    # Group results by dataset, method and epsilon
+        print("Method contributions:")
+        for method, count in sorted(method_counts.items()):
+            print(f"{method}: {count} configurations")
+
+        print("Detailed configurations:")
+        for result in sorted(
+            group_front,
+            key=lambda item: (
+                -item["clean_classification_accuracy"],
+                -item["certified_accuracy"],
+            ),
+        ):
+            print(
+                f"{result['cert_train_method']}: clean="
+                f"{result['clean_classification_accuracy']:.2f}%, certified="
+                f"{result['certified_accuracy']:.2f}%, adversarial="
+                f"{result['adversarial_accuracy']:.2f}%"
+            )
+
+
+def analyze_network_contributions(results):
     groups = {}
-    for result in results_sorted:
-        key = (result['dataset'], result['cert_train_method'], result['eps'])
-        if key not in groups:
-            groups[key] = []
-        groups[key].append(result)
-        
-    # Find pareto front for each group
-    for key, group_results in groups.items():
-        dataset, method, eps = key
-        print(f"\nPareto Front Analysis for {dataset}, {method}, eps={eps}:")
-        
-        if not len(set(r['total_samples'] for r in group_results)) == 1:
-            print("Warning: Different total_samples in this group, skipping analysis.")
-            print("Please set TEST_SAMPLES to a smaller value.")
+    for result in results:
+        key = (result["dataset"], result["cert_train_method"], result["eps"])
+        groups.setdefault(key, []).append(result)
+
+    for (dataset, method, eps), group_results in sorted(groups.items()):
+        architectures = {result["architecture"] for result in group_results}
+        if len(architectures) == 1:
             continue
-        if len(set(r['architecture'] for r in group_results)) == 1:
-            print("Only one architecture in this group, skipping analysis.")
+
+        print(f"\nArchitecture front for {dataset}, {method}, eps={eps}:")
+        if not common_sample_count(group_results):
             continue
-        
-        # Create pareto front for this method (combining all architectures)
-        pareto_front = []
-        for result in group_results:
-            is_dominated = False
-            for other in group_results:
-                if (other['certified_accuracy'] >= result['certified_accuracy'] and 
-                    other['clean_classification_accuracy'] >= result['clean_classification_accuracy'] and
-                    (other['certified_accuracy'] > result['certified_accuracy'] or 
-                    other['clean_classification_accuracy'] > result['clean_classification_accuracy'])):
-                    is_dominated = True
-                    break
-            if not is_dominated:
-                pareto_front.append(result)
-        
-        # Count architectures in pareto front
-        arch_counts = {}
-        for result in pareto_front:
-            arch = result['architecture']
-            arch_counts[arch] = arch_counts.get(arch, 0) + 1
-        
-        print("\nNetwork architecture contributions to Pareto front:")
-        for arch, count in sorted(arch_counts.items()):
-            print(f"{arch}: {count} configurations ({count/len(pareto_front)*100:.1f}% of Pareto front)")
-            
-        print("\nDetailed Pareto front configurations:")
-        for result in sorted(pareto_front, key=lambda x: (-x['clean_classification_accuracy'], -x['certified_accuracy'])):
-            print(f"\nArchitecture: {result['architecture']}")
-            print(f"Clean Classification Accuracy: {result['clean_classification_accuracy']:.2f}%")
-            print(f"Certified Accuracy: {result['certified_accuracy']:.2f}%")
-            print(f"Adversarial Accuracy: {result['adversarial_accuracy']:.2f}%")
+
+        group_front = pareto_front(group_results)
+        architecture_counts = {}
+        for result in group_front:
+            architecture = result["architecture"]
+            architecture_counts[architecture] = (
+                architecture_counts.get(architecture, 0) + 1
+            )
+
+        for architecture, count in sorted(architecture_counts.items()):
+            print(
+                f"{architecture}: {count} configurations "
+                f"({count / len(group_front) * 100:.1f}% of Pareto front)"
+            )
+
+        print("Detailed configurations:")
+        for result in sorted(
+            group_front,
+            key=lambda item: (
+                -item["clean_classification_accuracy"],
+                -item["certified_accuracy"],
+            ),
+        ):
+            print(
+                f"{result['architecture']}: clean="
+                f"{result['clean_classification_accuracy']:.2f}%, certified="
+                f"{result['certified_accuracy']:.2f}%, adversarial="
+                f"{result['adversarial_accuracy']:.2f}%"
+            )
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Report method and architecture contributions to combined Pareto fronts."
+        )
+    )
+    parser.add_argument(
+        "--summary",
+        type=Path,
+        default=PAPER_ROOT / "results" / "verification" / "main" / "summary_results.json",
+    )
+    args = parser.parse_args()
+    with args.summary.open() as handle:
+        results = json.load(handle)
+
+    count_pareto_front_methods(results)
+    print("\n" + "=" * 80)
+    analyze_network_contributions(results)
 
 
 if __name__ == "__main__":
-    results_file_name = "summary_results"
-    if ARTIFICIAL_TIMEOUT != np.inf:
-        results_file_name += f"_timeout{ARTIFICIAL_TIMEOUT}"
-    if TEST_SAMPLES not in [10_000, np.inf]:
-        results_file_name += f"_testsamples{TEST_SAMPLES}"
-    results_file_name += ".json"
-    RESULTS_SUMMARY_PATH = f'../results/verification/{results_file_name}'
-    
-    with open(RESULTS_SUMMARY_PATH, 'r') as f:
-        results_sorted = json.load(f)
-    
-    pareto_results_sorted = get_pareto_front(results_sorted)
-    count_pareto_front_methods(results_sorted)
-    print("\n" + "="*80 + "\n")
-    analyze_network_contributions(results_sorted)
+    main()

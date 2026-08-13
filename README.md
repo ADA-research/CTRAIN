@@ -235,7 +235,7 @@ For the multi-objective HPO workflow or the artifacts in
 @inproceedings{KauEtAl26,
   title = {Rethinking Evaluation Paradigms in IBP-based Certified Training},
   author = {Kaulen, Konstantin and Shavit, Hadar and Hoos, Holger H},
-  booktitle={To appear in: Proceedings of the 43rd International Conference on Machine Learning (ICML 2026)},
+  booktitle={Proceedings of the 43rd International Conference on Machine Learning (ICML 2026)},
   year="2026"
 }
 ```

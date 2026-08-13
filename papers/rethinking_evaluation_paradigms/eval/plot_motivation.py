@@ -5,15 +5,17 @@ Create motivating plot for introduction:
 - Annotated points showing improvement and method used
 """
 
-import os
+import argparse
 import json
+from pathlib import Path
+
 import numpy as np
-import pandas as pd
-import optuna
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.lines import Line2D
-from matplotlib.patches import FancyArrowPatch
+
+
+PAPER_ROOT = Path(__file__).resolve().parents[1]
 
 # Set up plotting style
 sns.set_style("darkgrid")
@@ -24,12 +26,9 @@ plt.rcParams['ytick.labelsize'] = 25
 plt.rcParams['axes.labelsize'] = 35
 plt.rcParams['legend.fontsize'] = 30
 
-def load_combined_front():
+def load_combined_front(summary_path):
     """Load Pareto front for MTL-IBP and SABR methods on CIFAR-10 with eps=2/255"""
-    import json
-    
-    # Load complete verification results
-    with open('../results/verification/summary_results.json', 'r') as f:
+    with summary_path.open() as f:
         results = json.load(f)
     
     # Filter for CIFAR-10 with eps=2/255
@@ -82,7 +81,7 @@ def load_combined_front():
     return mtl_ibp_front, sabr_front
 
 
-def create_motivation_plot():
+def create_motivation_plot(summary_path, output_dir, formats):
     """Create the motivating plot"""
     
     # Literature results from plot.py: (cert_acc, nat_acc, name)
@@ -97,7 +96,7 @@ def create_motivation_plot():
     ]
     
     # Load our discovered fronts (all points for each method)
-    mtl_ibp_points, sabr_points = load_combined_front()
+    mtl_ibp_points, sabr_points = load_combined_front(summary_path)
     
     if not mtl_ibp_points and not sabr_points:
         print("Could not load Pareto fronts!")
@@ -119,6 +118,7 @@ def create_motivation_plot():
         mtl_front_array = np.array(mtl_ibp_points)
         mtl_x = mtl_front_array[:, 1]  # certified accuracy
         mtl_y = mtl_front_array[:, 0]  # natural accuracy
+        points_sorted = sorted(zip(mtl_x, mtl_y))
         
         # Scatter plot for MTL-IBP front
         ax.scatter(mtl_x, mtl_y, s=500, color=mtl_color, edgecolor='black', 
@@ -126,7 +126,6 @@ def create_motivation_plot():
         
         # Connect MTL-IBP points
         if len(mtl_ibp_points) > 1:
-            points_sorted = sorted(zip(mtl_x, mtl_y))
             mtl_x_sorted, mtl_y_sorted = zip(*points_sorted)
             ax.plot(mtl_x_sorted, mtl_y_sorted, color=mtl_color, linewidth=3.5, alpha=0.6, zorder=1)
         
@@ -150,6 +149,7 @@ def create_motivation_plot():
         sabr_front_array = np.array(sabr_points)
         sabr_x = sabr_front_array[:, 1]  # certified accuracy
         sabr_y = sabr_front_array[:, 0]  # natural accuracy
+        points_sorted = sorted(zip(sabr_x, sabr_y))
         
         # Scatter plot for SABR front
         ax.scatter(sabr_x, sabr_y, s=500, color=sabr_color, edgecolor='black', 
@@ -157,7 +157,6 @@ def create_motivation_plot():
         
         # Connect SABR points
         if len(sabr_points) > 1:
-            points_sorted = sorted(zip(sabr_x, sabr_y))
             sabr_x_sorted, sabr_y_sorted = zip(*points_sorted)
             ax.plot(sabr_x_sorted, sabr_y_sorted, color=sabr_color, linewidth=3.5, alpha=0.6, zorder=1)
         
@@ -217,20 +216,30 @@ def create_motivation_plot():
     # Tight layout and save
     plt.tight_layout()
     
-    # Save figure
-    os.makedirs('plots', exist_ok=True)
-    output_path = 'plots/motivation_sabr_cifar10.pdf'
-    plt.savefig(output_path, dpi=300, bbox_inches='tight', transparent=False)
-    print(f"\nSaved motivation plot to: {output_path}")
-    
-    # Also save as PNG
-    output_path_png = 'plots/motivation_sabr_cifar10.png'
-    plt.savefig(output_path_png, dpi=300, bbox_inches='tight', transparent=False)
-    print(f"Also saved as PNG: {output_path_png}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for file_format in formats:
+        output_path = output_dir / f"motivation_sabr_cifar10.{file_format}"
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', transparent=False)
+        print(f"Saved motivation plot to {output_path}")
     
     plt.close()
 
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser(description="Generate the paper motivation plot.")
+    parser.add_argument(
+        "--summary",
+        type=Path,
+        default=PAPER_ROOT / "results" / "verification" / "main" / "summary_results.json",
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=PAPER_ROOT / "plots" / "main"
+    )
+    parser.add_argument("--formats", nargs="+", choices=["pdf", "png"], default=["pdf"])
+    args = parser.parse_args()
     print("Creating motivation plot for introduction...")
-    create_motivation_plot()
+    create_motivation_plot(args.summary, args.output_dir, args.formats)
+
+
+if __name__ == "__main__":
+    main()

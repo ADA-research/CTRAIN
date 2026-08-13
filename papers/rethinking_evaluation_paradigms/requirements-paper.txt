@@ -11,7 +11,7 @@ coloredlogs==15.0.1
 colorlog==6.9.0
 ConfigSpace==1.2.1
 contourpy==1.3.3
-CTRAIN @ ./MOCTRAIN
+# CTRAIN @ ./MOCTRAIN
 cycler==0.12.1
 dask==2025.9.1
 dask-jobqueue==0.9.0

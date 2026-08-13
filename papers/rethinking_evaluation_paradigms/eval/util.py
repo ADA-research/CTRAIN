@@ -1,34 +1,71 @@
-def get_pareto_front(results_sorted):
-    # filter pareto optimal configurations per dataset, architecture, eps and method
-    pareto_optimal = []
+GROUPING_KEYS = ("dataset", "architecture", "eps", "cert_train_method")
+OBJECTIVE_KEYS = ("certified_accuracy", "clean_classification_accuracy")
 
-    # Group by these dimensions
-    grouping_keys = ['dataset', 'architecture', 'eps', 'cert_train_method']
-    result_groups = {}
-    for r in results_sorted:
-        key = tuple(r[k] for k in grouping_keys)
-        if key not in result_groups:
-            result_groups[key] = []
-        result_groups[key].append(r)
 
-    # Find pareto optimal points within each group
-    for group_results in result_groups.values():
-        # For each result, check if any other result dominates it
-        for result in group_results:
-            is_dominated = False
-            for other in group_results:
-                if (other['certified_accuracy'] >= result['certified_accuracy'] and 
-                    other['clean_classification_accuracy'] >= result['clean_classification_accuracy'] and
-                    (other['certified_accuracy'] > result['certified_accuracy'] or 
-                    other['clean_classification_accuracy'] > result['clean_classification_accuracy'])):
-                    is_dominated = True
-                    break
-            
-            if not is_dominated:
-                pareto_optimal.append(result)
+def dominates(left, right):
+    """Return whether ``left`` strictly Pareto-dominates ``right``."""
+    return all(a >= b for a, b in zip(left, right)) and any(
+        a > b for a, b in zip(left, right)
+    )
 
-    # Replace results_sorted with pareto optimal results
-    pareto_results_sorted = sorted(pareto_optimal, key=lambda x: (x['dataset'], x['architecture'], x['eps'], x['cert_train_method'], x['certified_accuracy']))
-    print(f"Pareto Optimal Results ({len(pareto_results_sorted)} points)")
-    
-    return pareto_results_sorted
+
+def pareto_front(results, objective_values=None):
+    """Return nondominated items when every supplied objective is maximised."""
+    if objective_values is None:
+        objective_values = lambda result: tuple(
+            result[key] for key in OBJECTIVE_KEYS
+        )
+    return [
+        result
+        for result in results
+        if not any(
+            other is not result
+            and dominates(objective_values(other), objective_values(result))
+            for other in results
+        )
+    ]
+
+
+def hypervolume_2d(items, objective_values, reference_point=(0.0, 0.0)):
+    """Return dominated hypervolume for a two-objective maximisation front."""
+    ref_x, ref_y = reference_point
+    points = sorted(
+        {
+            (max(float(x), ref_x), max(float(y), ref_y))
+            for x, y in map(objective_values, items)
+            if x > ref_x and y > ref_y
+        },
+        reverse=True,
+    )
+    volume = 0.0
+    best_y = ref_y
+    for x, y in points:
+        if y > best_y:
+            volume += (x - ref_x) * (y - best_y)
+            best_y = y
+    return volume
+
+
+def get_pareto_front(results):
+    """Filter Pareto-optimal configurations within each experimental group."""
+    groups = {}
+    for result in results:
+        key = tuple(result[name] for name in GROUPING_KEYS)
+        groups.setdefault(key, []).append(result)
+
+    pareto_results = []
+    for group_results in groups.values():
+        pareto_results.extend(pareto_front(group_results))
+
+    pareto_results.sort(
+        key=lambda item: (
+            item["dataset"],
+            item["architecture"],
+            float(item["eps"]),
+            item["cert_train_method"],
+            item["certified_accuracy"],
+            item.get("hash", ""),
+        )
+    )
+    print(f"Pareto Optimal Results ({len(pareto_results)} points)")
+    return pareto_results

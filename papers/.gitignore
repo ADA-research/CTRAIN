@@ -1,2 +1,13 @@
-submitit_logs
-verification_chunked
+rethinking_evaluation_paradigms/logs/submitit/
+rethinking_evaluation_paradigms/results/verification/validation/**/results_[0-9]*_[0-9]*.json
+rethinking_evaluation_paradigms/results/verification/validation/**/abCROWN_logs/
+rethinking_evaluation_paradigms/eval/papers/
+
+# Reproducible local intermediates; retain aggregate CSV/JSON/PDF artifacts.
+rethinking_evaluation_paradigms/results/hpo/alpha_sweep/**/nets/
+rethinking_evaluation_paradigms/results/hpo/alpha_sweep/**/records/
+rethinking_evaluation_paradigms/results/hpo/alpha_sweep/**/resume_state.json
+rethinking_evaluation_paradigms/results/hpo/validation/pareto_fronts/*.txt
+rethinking_evaluation_paradigms/results/hpo/validation/pareto_fronts/*.pdf
+rethinking_evaluation_paradigms/plots/expressive_losses/**/*.png
+rethinking_evaluation_paradigms/plots/validation_vs_test/**/*.png
