@@ -1,6 +1,43 @@
 # CHANGELOG
 
 
+## v0.5.0 (2026-05-26)
+
+### Bug Fixes
+
+- Disable dynamo engine for ONNX export
+  ([`fa6e9ec`](https://github.com/ADA-research/CTRAIN/commit/fa6e9ecd559be5be6f118a76e7a197d252a8e90f))
+
+- Improve gradient calculation in PGD attack
+  ([`c149106`](https://github.com/ADA-research/CTRAIN/commit/c149106c04dd3f3112847fd12b5c9f9c6e7ab7cd))
+
+- Remove without_grad wrapper around pgd calls
+  ([`341cf20`](https://github.com/ADA-research/CTRAIN/commit/341cf20dea1514ba48d84910bf989211b0e37d3c))
+
+### Chores
+
+- Improve device handling in training code
+  ([`ea2770a`](https://github.com/ADA-research/CTRAIN/commit/ea2770a00fb3d3d84b8a5972533d51ba535d5dde))
+
+- Improve logging
+  ([`1c983d1`](https://github.com/ADA-research/CTRAIN/commit/1c983d18d64f4ee12652f23a34be0916ba598dd1))
+
+- Improve tensor handling in epsilon scheduler
+  ([`6304677`](https://github.com/ADA-research/CTRAIN/commit/6304677e03e693e16be4a55010c64324ec6bfe56))
+
+### Features
+
+- Add multi-objective HPO procedure
+  ([`df31b69`](https://github.com/ADA-research/CTRAIN/commit/df31b699afa82b61a43f7d7073c37c15b1723dd0))
+
+- Add paper code for "Rethinking Evaluation Paradigms in IBP-based Certified Training" to appear at
+  ICML 2026
+  ([`bb3f4ae`](https://github.com/ADA-research/CTRAIN/commit/bb3f4aece2c32ebcb52f0047b8de0b27a671ca34))
+
+- Enhance evaluation capabilities
+  ([`852606b`](https://github.com/ADA-research/CTRAIN/commit/852606b5c36aefcb92414f282d6d76ba742566c2))
+
+
 ## v0.4.3 (2026-05-11)
 
 ### Bug Fixes
