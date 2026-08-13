@@ -1,2 +1,11 @@
 graft CTRAIN/verification_systems/abCROWN
 prune papers
+global-exclude __pycache__/*
+global-exclude *.py[cod]
+global-exclude *.pth
+global-exclude *.pt
+global-exclude *.pkl
+global-exclude *.npy
+global-exclude *.npz
+global-exclude *.model
+global-exclude *.onnx

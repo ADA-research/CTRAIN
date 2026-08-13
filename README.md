@@ -95,14 +95,21 @@ Install the package from PyPI:
 pip install CTRAIN
 ```
 
+Some features such as complete verification with alpha-beta-CROWN require upstream packages
+that are not published on PyPI. Install them explicitly when you need those
+features:
+
+```bash
+ctrain-install-git-deps
+```
+
 For development from this repository:
 
 ```bash
 git submodule init
 git submodule update
-pip install --no-deps git+https://github.com/KaidiXu/onnx2pytorch@8447c42c3192dad383e5598edc74dddac5706ee2
-pip install --no-deps git+https://github.com/Verified-Intelligence/auto_LiRPA.git@cf0169ce6bfb4fddd82cfff5c259c162a23ad03c
 pip install -e ".[dev]"
+ctrain-install-git-deps
 ```
 
 ## 🧪 Quick Start

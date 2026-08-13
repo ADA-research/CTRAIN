@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools wheel twine
+          pip install build twine
 
       - name: Install semantic-release
         run: pip install python-semantic-release
@@ -57,14 +57,18 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install setuptools wheel twine
+        pip install build twine
     
     - name: Git Pull for Safety
       run: git pull
 
     - name: Build package
       run: |
-        python setup.py sdist
+        python -m build
+
+    - name: Check package metadata
+      run: |
+        twine check dist/*
 
     - name: Publish package distributions to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
