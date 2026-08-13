@@ -7,7 +7,7 @@ from CTRAIN.bound.ibp import bound_ibp
 from CTRAIN.attacks import pgd_attack
 
 
-def bound_sabr(hardened_model, original_model, data, target, eps, subselection_ratio, device='cuda', n_classes=10, x_L=None, x_U=None, data_min=None, data_max=None, n_steps=8, step_size=.5, restarts=1, early_stopping=True, intermediate_bound_model=None, decay_factor=0.1, decay_checkpoints=(4,7), return_adv_output=False):
+def bound_sabr(hardened_model, original_model, data, target, eps, subselection_ratio, device='cuda', n_classes=10, x_L=None, x_U=None, data_min=None, data_max=None, n_steps=8, step_size=.5, restarts=1, early_stopping=True, intermediate_bound_model=None, decay_factor=0.1, decay_checkpoints=(4,7), return_adv_output=False, pgd_ptb=None):
     """
     Compute the lower and upper bounds of the model's output using the SABR method.
 
@@ -32,6 +32,9 @@ def bound_sabr(hardened_model, original_model, data, target, eps, subselection_r
         decay_factor (float, optional): The decay factor for the attack. Default is 0.1.
         decay_checkpoints (tuple, optional): The decay checkpoints for the attack. Default is (4, 7).
         return_adv_output (bool, optional): Whether to return the adversarial output. Default is False.
+        pgd_ptb (PerturbationLpNorm, optional): Alternate bounds for the PGD
+            center search. The resulting SABR box is still clamped to the
+            nominal region described by ``eps`` or ``x_L``/``x_U``.
 
     Returns:
         (Tuple[Tensor, Tensor, Tensor]): The lower and upper bounds of the model's output, and the adversarial output if return_adv_output is True.
@@ -53,6 +56,8 @@ def bound_sabr(hardened_model, original_model, data, target, eps, subselection_r
         early_stopping=early_stopping,
         x_L=x_L,
         x_U=x_U,
+        pgd_x_L=None if pgd_ptb is None else pgd_ptb.x_L,
+        pgd_x_U=None if pgd_ptb is None else pgd_ptb.x_U,
         decay_checkpoints=decay_checkpoints, 
         decay_factor=decay_factor
     )
@@ -87,7 +92,7 @@ def bound_sabr(hardened_model, original_model, data, target, eps, subselection_r
         return lb, ub, adv_output
     return lb, ub
 
-def get_propagation_region(model, data, target, subselection_ratio, step_size, n_steps, restarts, x_L=None, x_U=None, data_min=None, data_max=None, eps=None, early_stopping=True, decay_factor=.1, decay_checkpoints=(4, 7)):
+def get_propagation_region(model, data, target, subselection_ratio, step_size, n_steps, restarts, x_L=None, x_U=None, data_min=None, data_max=None, eps=None, early_stopping=True, decay_factor=.1, decay_checkpoints=(4, 7), pgd_x_L=None, pgd_x_U=None):
     """
     Get the shrinked propagation region for the SABR method. This is done by performing a PGD attack on the model and taking the resulting adversarial examples as the center of a smaller propagation region.
 
@@ -107,14 +112,21 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
         early_stopping (bool, optional): Whether to use early stopping. Default is True.
         decay_factor (float, optional): The decay factor for the attack. Default is 0.1.
         decay_checkpoints (tuple, optional): The decay checkpoints for the attack. Default is (4, 7).
+        pgd_x_L (Tensor, optional): Alternate lower bound for the PGD search.
+        pgd_x_U (Tensor, optional): Alternate upper bound for the PGD search.
 
     Returns:
         (Tuple[Tensor, float, Tensor]): The propagation inputs, tau value, and adversarial examples.
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    assert (x_L is None and x_U is None and eps is not None) or (x_L is not None and x_U is not None and eps is None), "Please only provide epsilon value OR upper and lower input bounds"
-    tau = None
-    if eps.all() and data is not None:
+    device = data.device if data is not None else x_L.device
+    if not (
+        (x_L is None and x_U is None and eps is not None)
+        or (x_L is not None and x_U is not None and eps is None)
+    ):
+        raise ValueError("Provide either eps or x_L/x_U, but not both")
+    if (pgd_x_L is None) != (pgd_x_U is None):
+        raise ValueError("Provide both PGD bounds or neither")
+    if eps is not None and data is not None:
         x_L=torch.clamp(data - eps, data_min, data_max).to(device)
         x_U=torch.clamp(data + eps, data_min, data_max).to(device)
     else:
@@ -122,13 +134,20 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
         eps = torch.max((x_U - x_L))
     
     tau =  subselection_ratio * eps
+
+    attack_x_L = x_L if pgd_x_L is None else pgd_x_L
+    attack_x_U = x_U if pgd_x_U is None else pgd_x_U
+    if attack_x_L.shape != x_L.shape or attack_x_U.shape != x_U.shape:
+        raise ValueError("PGD bounds must have the same shape as the nominal bounds")
+    if torch.any(attack_x_L > attack_x_U):
+        raise ValueError("PGD lower bounds must not exceed upper bounds")
     
     x_adv = pgd_attack(
         model=model,
         data=data,
         target=target,
-        x_L=x_L,
-        x_U=x_U,
+        x_L=attack_x_L,
+        x_U=attack_x_U,
         n_steps=n_steps,
         step_size=step_size,
         restarts=restarts,
@@ -139,5 +158,5 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
     )
     
     propagation_inputs = torch.clamp(x_adv, x_L + tau, x_U - tau) # called midpoints in SABR code
-    tau = torch.tensor(tau, device=device)
+    tau = torch.as_tensor(tau, device=device)
     return propagation_inputs, tau, x_adv
