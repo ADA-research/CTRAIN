@@ -1,6 +1,9 @@
 # CHANGELOG
 
 
+## v0.6.0 (2026-08-13)
+
+
 ## v0.5.0 (2026-05-26)
 
 ### Bug Fixes
@@ -14,6 +17,9 @@
 - Remove without_grad wrapper around pgd calls
   ([`341cf20`](https://github.com/ADA-research/CTRAIN/commit/341cf20dea1514ba48d84910bf989211b0e37d3c))
 
+- **packaging**: Support installation without Git-hosted dependencies
+  ([`fab2a6b`](https://github.com/ADA-research/CTRAIN/commit/fab2a6b94d2f3c89ed2dac4930de16dfb5455948))
+
 ### Chores
 
 - Improve device handling in training code
@@ -24,6 +30,9 @@
 
 - Improve tensor handling in epsilon scheduler
   ([`6304677`](https://github.com/ADA-research/CTRAIN/commit/6304677e03e693e16be4a55010c64324ec6bfe56))
+
+- **paper**: Finalize ICML 2026 paper code and artifacts
+  ([`1bdd319`](https://github.com/ADA-research/CTRAIN/commit/1bdd3190f68c2577cffa438ddb55f9b5a816a287))
 
 ### Features
 
@@ -36,6 +45,9 @@
 
 - Enhance evaluation capabilities
   ([`852606b`](https://github.com/ADA-research/CTRAIN/commit/852606b5c36aefcb92414f282d6d76ba742566c2))
+
+- **sabr**: Support separate bounds for the PGD center search
+  ([`3b7a523`](https://github.com/ADA-research/CTRAIN/commit/3b7a52340cde9cdb5245ab1289620737783e829d))
 
 
 ## v0.4.3 (2026-05-11)
