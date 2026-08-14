@@ -41,6 +41,89 @@ ctrain-install-git-deps
 
 The frozen paper environment is recorded in `requirements-paper.txt`.
 
+## 🤗 Published Pareto-front checkpoints
+
+The original checkpoints on the final, completely verified Pareto fronts are
+published in the
+[`kkaulen/ctrain_pareto_fronts`](https://huggingface.co/kkaulen/ctrain_pareto_fronts)
+Hugging Face model repository. The checked-in `model_manifest.json` identifies
+all 145 models on the final per-method fronts and records their reported
+accuracies and SHA-256 digests. CIFAR-10 CNN7 and Tiny ImageNet use the main
+10,000-sample/1,000-second results; MNIST and the additional architecture-study
+networks use the paper's 1,000-sample/300-second results. Alternate-budget
+comparison fronts are not mixed into the published model set.
+
+List a subset without downloading its weights:
+
+```bash
+python papers/rethinking_evaluation_paradigms/model_hub.py list \
+  --dataset cifar10 --architecture cnn7 --method sabr --epsilon 0.00784313725490196
+```
+
+Add the same filters to `download --all` to materialize a complete front in a
+local directory while retaining the repository layout:
+
+```bash
+python papers/rethinking_evaluation_paradigms/model_hub.py download --all \
+  --dataset cifar10 --architecture cnn7 --method sabr \
+  --epsilon 0.00784313725490196 --local-dir paper-models
+```
+
+From Python, select and load a model directly into its CTRAIN wrapper:
+
+```python
+from papers.rethinking_evaluation_paradigms.model_hub import (
+    list_models,
+    load_model,
+)
+
+models = list_models(
+    dataset="cifar10",
+    architecture="cnn7",
+    method="sabr",
+    epsilon=2 / 255,
+)
+model = load_model(config_hash=models[0]["config_hash"], device="cuda")
+logits = model(images)
+```
+
+A runnable example prints the MTL-IBP front, selects its highest-certified
+member, downloads it, and evaluates it on CIFAR-10 with CTRAIN:
+
+```bash
+python papers/rethinking_evaluation_paradigms/examples/evaluate_mtl_front.py
+```
+
+The default evaluates all 10,000 test examples using IBP certification and a
+PGD attack. CUDA is strongly recommended because CTRAIN's default attack uses
+30 restarts of 100 steps. Use `--test-samples 100` for a shorter run, `--index`
+or `--config-hash` to select another front member, and `--list-only` to inspect
+the manifest without downloading anything.
+
+`load_model` reconstructs the architecture and certified-training wrapper,
+downloads only the selected checkpoint through the Hugging Face cache, checks
+its SHA-256 digest, loads it with PyTorch's weights-only loader, and returns it
+in evaluation mode. Pass `return_metadata=True` to receive `(model, metadata)`.
+Set `CTRAIN_PAPER_HF_REPO` or pass `repo_id=` if the repository ID is not
+embedded in the manifest.
+
+The publication utility deterministically derives the model set from the two
+paper summaries, requires every source checkpoint to exist, and creates a
+resumable upload directory. It refuses unexpected or conflicting files:
+
+```bash
+python papers/rethinking_evaluation_paradigms/publish_models.py \
+  --checkpoint-root /path/to/cifar10/hpo/results \
+  --checkpoint-root /path/to/mnist-and-tinyimagenet/hpo/results \
+  --repo-id YOUR_NAMESPACE/YOUR_REPOSITORY \
+  --staging-dir papers/rethinking_evaluation_paradigms/.hf-upload \
+  --upload
+```
+
+Uploading requires a Hugging Face token with write access. Without `--upload`,
+the command only rebuilds and audits the manifest; supplying `--staging-dir`
+also prepares the local repository tree.
+
 ## 🔬 Experimental workflow
 
 Each benchmark uses 100 HPO trials for each of three independent seeds. The

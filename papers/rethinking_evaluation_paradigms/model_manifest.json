@@ -1,0 +1,4362 @@
+{
+  "schema_version": 1,
+  "repo_id": "kkaulen/ctrain_pareto_fronts",
+  "paper": {
+    "title": "Rethinking Evaluation Paradigms in IBP-based Certified Training",
+    "venue": "ICML 2026",
+    "code": "https://github.com/ADA-research/CTRAIN"
+  },
+  "selection": "Per-method nondominated fronts under each experiment's canonical complete-verification budget: 10k samples/1000s for CIFAR-10 CNN7 and Tiny ImageNet, and 1k samples/300s for MNIST and the additional architecture-study networks.",
+  "models": [
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/crown_ibp_nofusion/4235fbf72953bb938ca91379db6b9245",
+      "config_hash": "4235fbf72953bb938ca91379db6b9245",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/crown_ibp_nofusion/4235fbf72953bb938ca91379db6b9245.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 77.57,
+          "certified_accuracy": 59.3,
+          "adversarial_accuracy": 61.0
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "71d52c8f80b8c78458e2ca196586a591cd9b9dc967a8434cc728af274ad921c8"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/crown_ibp_nofusion/5615c0bacd137ee99616d999c93f1065",
+      "config_hash": "5615c0bacd137ee99616d999c93f1065",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/crown_ibp_nofusion/5615c0bacd137ee99616d999c93f1065.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.23,
+          "certified_accuracy": 58.0,
+          "adversarial_accuracy": 60.5
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "9eb9b43216bb14a619e5e9e57742e2ed1fd6dcd14eba4eaa0098bb227af2d85f"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/crown_ibp_nofusion/605962d9bba392e210cf68e79cfb06be",
+      "config_hash": "605962d9bba392e210cf68e79cfb06be",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/crown_ibp_nofusion/605962d9bba392e210cf68e79cfb06be.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 79.6,
+          "certified_accuracy": 54.7,
+          "adversarial_accuracy": 58.1
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "6c2f78119ccc3b606acc3449bee9ff32ea1d59950a450e1617a752ed83f70924"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/crown_ibp_nofusion/a810afd6d4daf1d4c29b648c5af84617",
+      "config_hash": "a810afd6d4daf1d4c29b648c5af84617",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/crown_ibp_nofusion/a810afd6d4daf1d4c29b648c5af84617.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.45,
+          "certified_accuracy": 55.4,
+          "adversarial_accuracy": 57.7
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "8ab4e381f5d8440efa6d200f9ab6d7019f682e7217c71eead6c02c1199d88fd9"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/crown_ibp_nofusion/ecafbc640b57a74199bd67ee412f30d8",
+      "config_hash": "ecafbc640b57a74199bd67ee412f30d8",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/crown_ibp_nofusion/ecafbc640b57a74199bd67ee412f30d8.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 75.84,
+          "certified_accuracy": 61.5,
+          "adversarial_accuracy": 62.4
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "22e035206a16c74c2f4cec8dbc19b2ecaf8d33e3c646afbb9dcb5782ea310629"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/mtl_ibp/42944dc9c5055c629d3f2546819b22f3",
+      "config_hash": "42944dc9c5055c629d3f2546819b22f3",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/mtl_ibp/42944dc9c5055c629d3f2546819b22f3.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.74,
+          "certified_accuracy": 65.4,
+          "adversarial_accuracy": 68.6
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "af909e0f8e241d451cdfdc8e313bc2fa89266ca5e68f6d9da2841fe7457e02fd"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/mtl_ibp/4a2b04ce02307e052d7dfabbb75aa523",
+      "config_hash": "4a2b04ce02307e052d7dfabbb75aa523",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/mtl_ibp/4a2b04ce02307e052d7dfabbb75aa523.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 80.47,
+          "certified_accuracy": 59.1,
+          "adversarial_accuracy": 67.4
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "4292cb47639cee0b6d44e6df22eac1d2344aeaaf1412588f81043faddfd30c93"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/mtl_ibp/ceafc5971660a80b67f70d6782e66ac4",
+      "config_hash": "ceafc5971660a80b67f70d6782e66ac4",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/mtl_ibp/ceafc5971660a80b67f70d6782e66ac4.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 77.54,
+          "certified_accuracy": 66.4,
+          "adversarial_accuracy": 68.6
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "79a1266b13fae12550becdb25f1da62c2f1adfe1247185eb4952c0e8c516a0ec"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/mtl_ibp/e425de20f7e57ac7292988e07163e9f4",
+      "config_hash": "e425de20f7e57ac7292988e07163e9f4",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/mtl_ibp/e425de20f7e57ac7292988e07163e9f4.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 80.33,
+          "certified_accuracy": 64.2,
+          "adversarial_accuracy": 68.8
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "5caff59138b2164fb7c34f247cc0d86464576d5f83429edc9e10bae0c371dc23"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/sabr/3114429dae67c502eb8938e8cd37cd83",
+      "config_hash": "3114429dae67c502eb8938e8cd37cd83",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/sabr/3114429dae67c502eb8938e8cd37cd83.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 82.0,
+          "certified_accuracy": 61.8,
+          "adversarial_accuracy": 66.8
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "8bb966d7468bde9062efb38fc944fe8a89ed14dd06b0296c597afacfc87a8654"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/sabr/751ea9bf2616b30ec16fed131f6ae6c9",
+      "config_hash": "751ea9bf2616b30ec16fed131f6ae6c9",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/sabr/751ea9bf2616b30ec16fed131f6ae6c9.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 81.29,
+          "certified_accuracy": 62.8,
+          "adversarial_accuracy": 66.6
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "9e7169cb59ed7a9bc0013d80f0dc80e5d40a8b56b9a6e2f9fe576c2c1ffa9abf"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/sabr/bef5903f54f0e998a7e268b89400462a",
+      "config_hash": "bef5903f54f0e998a7e268b89400462a",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/sabr/bef5903f54f0e998a7e268b89400462a.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 77.75,
+          "certified_accuracy": 64.6,
+          "adversarial_accuracy": 66.2
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "7199b3501176a091b14a4f1b17e7e6542d92fee4940173eb7faa5db90a53704f"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/sabr/f37c3249502b624a924e1c47c448abe0",
+      "config_hash": "f37c3249502b624a924e1c47c448abe0",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/sabr/f37c3249502b624a924e1c47c448abe0.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.72,
+          "certified_accuracy": 64.3,
+          "adversarial_accuracy": 65.6
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "661758a21da506f99cdcd0cbec1cb7e69b81d6408daf4fa2e8e20efa03131cec"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/sabr/fa260bf5bd59091fa53c65bbe509e679",
+      "config_hash": "fa260bf5bd59091fa53c65bbe509e679",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/sabr/fa260bf5bd59091fa53c65bbe509e679.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 79.55,
+          "certified_accuracy": 63.1,
+          "adversarial_accuracy": 65.2
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "e0316799b607a2973229623ebc8ddfce9badc30826aa4bafb121ff382a5c9be5"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/shi/58af7d992ffbbb3e1e9f20e3ac1649a9",
+      "config_hash": "58af7d992ffbbb3e1e9f20e3ac1649a9",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/shi/58af7d992ffbbb3e1e9f20e3ac1649a9.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 72.3,
+          "certified_accuracy": 56.6,
+          "adversarial_accuracy": 57.5
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "ee5f54989f91270dab508970eee979fa5e27d87c66ac4591ab9b963eca3d5c2b"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/shi/719439b84b5fc269a88e55ab7ba45689",
+      "config_hash": "719439b84b5fc269a88e55ab7ba45689",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/shi/719439b84b5fc269a88e55ab7ba45689.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 74.8,
+          "certified_accuracy": 54.1,
+          "adversarial_accuracy": 55.4
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "d0839561c954844d8971c325f929ab41e11bc8b69a72d98a8581dd1a77a06f1a"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/shi/ab45d523f55e228a806f5154dd0391c4",
+      "config_hash": "ab45d523f55e228a806f5154dd0391c4",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/shi/ab45d523f55e228a806f5154dd0391c4.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 73.11,
+          "certified_accuracy": 55.0,
+          "adversarial_accuracy": 55.9
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "6acf307a132c203b132906c3d654aa6eae46daa43963ae8da6aab5ddecc59d19"
+    },
+    {
+      "model_id": "cifar10/cnn5/eps-2-255/shi/b7b2ade9d30b28732dbb7168e366e305",
+      "config_hash": "b7b2ade9d30b28732dbb7168e366e305",
+      "dataset": "cifar10",
+      "architecture": "cnn5",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn5/eps_2_255/shi/b7b2ade9d30b28732dbb7168e366e305.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 70.85,
+          "certified_accuracy": 58.0,
+          "adversarial_accuracy": 58.7
+        }
+      ],
+      "size_bytes": 17616246,
+      "sha256": "a718df81e216c83fbe5c88d8bae604216e681c8949df16255e6fcad7e6eda5d5"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/crown_ibp_nofusion/0912f10ca0ced75ee1aaf888cb02a422",
+      "config_hash": "0912f10ca0ced75ee1aaf888cb02a422",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/crown_ibp_nofusion/0912f10ca0ced75ee1aaf888cb02a422.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 77.44,
+          "certified_accuracy": 58.94,
+          "adversarial_accuracy": 60.99
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "93d43abd1612c16b5797be9de7fa0b40ede7d84ee0e1610976c5b13709bbf4fb"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/crown_ibp_nofusion/146f16243cb2b270b7fd746f3f8d0744",
+      "config_hash": "146f16243cb2b270b7fd746f3f8d0744",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/crown_ibp_nofusion/146f16243cb2b270b7fd746f3f8d0744.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 79.49,
+          "certified_accuracy": 54.13,
+          "adversarial_accuracy": 58.58
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "637684c07f5909403e5797d263bb6b93057b1a99810c29e355c09bab8f20405e"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/crown_ibp_nofusion/29a0cc538578c8fe0c4f51ac6b835c15",
+      "config_hash": "29a0cc538578c8fe0c4f51ac6b835c15",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/crown_ibp_nofusion/29a0cc538578c8fe0c4f51ac6b835c15.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 78.26,
+          "certified_accuracy": 54.57,
+          "adversarial_accuracy": 58.7
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "98984e73e71192e77de2b1dadbbe8502722d4a057b2fa8d174ad1f84428c3b15"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/crown_ibp_nofusion/9cde8264336b2e86af1b73ba70eb8cc2",
+      "config_hash": "9cde8264336b2e86af1b73ba70eb8cc2",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/crown_ibp_nofusion/9cde8264336b2e86af1b73ba70eb8cc2.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 76.33,
+          "certified_accuracy": 60.94,
+          "adversarial_accuracy": 62.88
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "601310f836d1f25d95b9d81429ec9337cd47bb7dbd88924f0ad787a6e93214a3"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/crown_ibp_nofusion/a3b2e16b3d5c462fae6f74535a160f75",
+      "config_hash": "a3b2e16b3d5c462fae6f74535a160f75",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/crown_ibp_nofusion/a3b2e16b3d5c462fae6f74535a160f75.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 76.78,
+          "certified_accuracy": 59.86,
+          "adversarial_accuracy": 61.74
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "f99406824b0d14bae8a39fb9ad35424fdecf4885d75d98729f71baf081c0d367"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/crown_ibp_nofusion/d3113761a372ce10e313c354a93aa057",
+      "config_hash": "d3113761a372ce10e313c354a93aa057",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/crown_ibp_nofusion/d3113761a372ce10e313c354a93aa057.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 78.14,
+          "certified_accuracy": 55.47,
+          "adversarial_accuracy": 59.21
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "4081ce2ffb76256ee5b343b0a748fbaca6a94c8b4d9c036a2222dfc3bb7c7436"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/crown_ibp_nofusion/dc18167f9f9983ce8ff86d3e8955dafa",
+      "config_hash": "dc18167f9f9983ce8ff86d3e8955dafa",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/crown_ibp_nofusion/dc18167f9f9983ce8ff86d3e8955dafa.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 77.69,
+          "certified_accuracy": 57.11,
+          "adversarial_accuracy": 59.94
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "b8b34a4c82311d474294d151e9c3f1bc1a450cd119c52f7aafe422a8ab281d53"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/mtl_ibp/349591858b2fc0dd0c20ce7feb24a693",
+      "config_hash": "349591858b2fc0dd0c20ce7feb24a693",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/mtl_ibp/349591858b2fc0dd0c20ce7feb24a693.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 79.95,
+          "certified_accuracy": 63.99,
+          "adversarial_accuracy": 69.12
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "d835bf714b7b21edf5808c75c429ed0368e6cf7284fbdbf22bc44a9ea03bb685"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/mtl_ibp/8726ba3c7f6a6884b30d2d0025fb1337",
+      "config_hash": "8726ba3c7f6a6884b30d2d0025fb1337",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/mtl_ibp/8726ba3c7f6a6884b30d2d0025fb1337.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 79.1,
+          "certified_accuracy": 64.61,
+          "adversarial_accuracy": 69.01
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "26c57f3cb5eb9cf83edec08ff78accb01878ba89ae42a02849dbfb485d1dcde4"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/mtl_ibp/da5508650a01836b067e42738ad74650",
+      "config_hash": "da5508650a01836b067e42738ad74650",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/mtl_ibp/da5508650a01836b067e42738ad74650.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 79.87,
+          "certified_accuracy": 64.54,
+          "adversarial_accuracy": 69.44
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "f4b44de5f2d8d8210236edeff85d8302a4a4e870c443fb05c19f14d79abfa406"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/mtl_ibp/ee1d0628962269d5816719a980d9b574",
+      "config_hash": "ee1d0628962269d5816719a980d9b574",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/mtl_ibp/ee1d0628962269d5816719a980d9b574.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 81.54,
+          "certified_accuracy": 62.82,
+          "adversarial_accuracy": 69.8
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "3e7fabed6dc1a55164a74d774293af9bd5464cf0d273ea35db480da1eafe8c55"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/sabr/0a09157475e119a3dc248a5f568605c4",
+      "config_hash": "0a09157475e119a3dc248a5f568605c4",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/sabr/0a09157475e119a3dc248a5f568605c4.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 80.15,
+          "certified_accuracy": 64.44,
+          "adversarial_accuracy": 68.01
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "a2bb3886b41b0d86fe91b69f816a0aa393bdd5f8d61098acfdddfb2072bd6a59"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/sabr/2a77178ca9fbc4bc19185637c79e77ce",
+      "config_hash": "2a77178ca9fbc4bc19185637c79e77ce",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/sabr/2a77178ca9fbc4bc19185637c79e77ce.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 82.72,
+          "certified_accuracy": 61.2,
+          "adversarial_accuracy": 67.8
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "54b59380b23e3396eb80912221cc363b98b1829e3b614ebc246b8cd0fa2cfb75"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/sabr/38010d31d747a2bcfba597b595cb132f",
+      "config_hash": "38010d31d747a2bcfba597b595cb132f",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/sabr/38010d31d747a2bcfba597b595cb132f.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 79.9,
+          "certified_accuracy": 64.49,
+          "adversarial_accuracy": 67.62
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "28d7f349c00c0e30b3415debb1bd587d81b9a56561047610395140c1591eb163"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/sabr/8c56c21c68a665caa21a12b49e887c28",
+      "config_hash": "8c56c21c68a665caa21a12b49e887c28",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/sabr/8c56c21c68a665caa21a12b49e887c28.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 81.96,
+          "certified_accuracy": 64.11,
+          "adversarial_accuracy": 69.87
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "e188152d44e82b1f278efc27a043331d5e4b652b19b263974ddfdfa4edd67e4a"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/sabr/ab9294b0eb1d399350ae1fb132098fd5",
+      "config_hash": "ab9294b0eb1d399350ae1fb132098fd5",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/sabr/ab9294b0eb1d399350ae1fb132098fd5.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 83.01,
+          "certified_accuracy": 60.87,
+          "adversarial_accuracy": 67.78
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "0bae08409ead5b713faed55124efed517311b720bf595d9f27615217971733e9"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/sabr/aff9acfdcf114285c88ad359bd92fa45",
+      "config_hash": "aff9acfdcf114285c88ad359bd92fa45",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/sabr/aff9acfdcf114285c88ad359bd92fa45.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 83.1,
+          "certified_accuracy": 60.03,
+          "adversarial_accuracy": 68.33
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "cfb2bfa4ad40d25301f97a33d95e7e57a4d8cd8e57790b50c1ac1995ea6d016b"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/shi/03c58f4b2c5c3a7b5618d3c008f6368c",
+      "config_hash": "03c58f4b2c5c3a7b5618d3c008f6368c",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/shi/03c58f4b2c5c3a7b5618d3c008f6368c.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 75.26,
+          "certified_accuracy": 54.29,
+          "adversarial_accuracy": 55.42
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "ea883de77db71cdc28970948fae9c2319d16600d2e59e3d8d85d021e49b9b838"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/shi/2c2767587ada20d3327995baa5dd20a1",
+      "config_hash": "2c2767587ada20d3327995baa5dd20a1",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/shi/2c2767587ada20d3327995baa5dd20a1.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 69.37,
+          "certified_accuracy": 55.63,
+          "adversarial_accuracy": 55.94
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "086614d434eeb283fbb15d9f06dabb2e60879e3a3cbdfe8083e6199932d7d55b"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/shi/9102bab8d71eae20aeda52b55fbf597e",
+      "config_hash": "9102bab8d71eae20aeda52b55fbf597e",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/shi/9102bab8d71eae20aeda52b55fbf597e.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 69.18,
+          "certified_accuracy": 55.99,
+          "adversarial_accuracy": 56.36
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "0f9d3909e47c5746f70562dc60d7bade752b9a0c986931920db44fa05bd2bfae"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/shi/c5f9d429e25abee31983a3af979e6425",
+      "config_hash": "c5f9d429e25abee31983a3af979e6425",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/shi/c5f9d429e25abee31983a3af979e6425.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 74.01,
+          "certified_accuracy": 55.53,
+          "adversarial_accuracy": 56.32
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "df102078bc86e1e4cfd270569ad747e0c3033e43bc9fe74202dec432ac4473f7"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-2-255/shi/fd3eaacd82afae8b35c71efe4cbdae18",
+      "config_hash": "fd3eaacd82afae8b35c71efe4cbdae18",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_2_255/shi/fd3eaacd82afae8b35c71efe4cbdae18.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 71.4,
+          "certified_accuracy": 55.54,
+          "adversarial_accuracy": 55.97
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "40538282424f9ac7594623567d7095ef55b8d2f5db6b3b7f7c4d4dd95a874dca"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/crown_ibp_nofusion/0843555d2b29d622c7a9c97a99ae1771",
+      "config_hash": "0843555d2b29d622c7a9c97a99ae1771",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/crown_ibp_nofusion/0843555d2b29d622c7a9c97a99ae1771.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 58.89,
+          "certified_accuracy": 31.57,
+          "adversarial_accuracy": 32.7
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "5c7aef29d0ff97951ff812e64c9f17bff024df6d9a6ba862f276c9f6bc304bf9"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/crown_ibp_nofusion/3cfe7494ae7683695cb0ba8646c48139",
+      "config_hash": "3cfe7494ae7683695cb0ba8646c48139",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/crown_ibp_nofusion/3cfe7494ae7683695cb0ba8646c48139.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 56.8,
+          "certified_accuracy": 33.06,
+          "adversarial_accuracy": 34.19
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "72b498296499aa47ea0981fa19c18b17a02bf6c73b46ce2275791de7bd863d7f"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/crown_ibp_nofusion/598b78f01edd492cfc9f05b2937c708b",
+      "config_hash": "598b78f01edd492cfc9f05b2937c708b",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/crown_ibp_nofusion/598b78f01edd492cfc9f05b2937c708b.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 49.73,
+          "certified_accuracy": 34.78,
+          "adversarial_accuracy": 35.02
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "6e3fda2b570bc5f0710ef67ff95074a55cf13d5740da084f38513b031369e09c"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/crown_ibp_nofusion/627cc6cc951246fc02bdf13ad22e6331",
+      "config_hash": "627cc6cc951246fc02bdf13ad22e6331",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/crown_ibp_nofusion/627cc6cc951246fc02bdf13ad22e6331.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 61.43,
+          "certified_accuracy": 28.72,
+          "adversarial_accuracy": 29.94
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "adc0593c23ad66a4756cb5c15db644720b1432d7fa0020efba2c604ede616b30"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/crown_ibp_nofusion/75451754f2390da7d85641dfc1c84e2b",
+      "config_hash": "75451754f2390da7d85641dfc1c84e2b",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/crown_ibp_nofusion/75451754f2390da7d85641dfc1c84e2b.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 55.11,
+          "certified_accuracy": 33.77,
+          "adversarial_accuracy": 34.58
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "d6cad0b728fbf527bfc48fd01dc11faa03570f382901659fb771daf7d59d5701"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/crown_ibp_nofusion/af125add93a380f49c6a2dfcd10a9f3e",
+      "config_hash": "af125add93a380f49c6a2dfcd10a9f3e",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/crown_ibp_nofusion/af125add93a380f49c6a2dfcd10a9f3e.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 60.01,
+          "certified_accuracy": 29.6,
+          "adversarial_accuracy": 30.56
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "7045f2e3ba56f33ddc247cb619f194f40178937827b7f0fe79f1dbba84ad34c8"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/crown_ibp_nofusion/c50489120e4e56b93d9e75b8c84939e8",
+      "config_hash": "c50489120e4e56b93d9e75b8c84939e8",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/crown_ibp_nofusion/c50489120e4e56b93d9e75b8c84939e8.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 52.63,
+          "certified_accuracy": 33.99,
+          "adversarial_accuracy": 34.46
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "1682841abfbdc3a292d05b97146a7e0bc680c202715d8ed7ac0347d6917520e0"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/crown_ibp_nofusion/ed81533e115fbf75cc91e3c4d29b26f2",
+      "config_hash": "ed81533e115fbf75cc91e3c4d29b26f2",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/crown_ibp_nofusion/ed81533e115fbf75cc91e3c4d29b26f2.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 52.47,
+          "certified_accuracy": 34.41,
+          "adversarial_accuracy": 34.87
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "1d1b52c42e70515f64f77b3a0839409a15b452c45dff20e3f049595988156374"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/mtl_ibp/07446fdb454f2aaf8b99db2381ece689",
+      "config_hash": "07446fdb454f2aaf8b99db2381ece689",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/mtl_ibp/07446fdb454f2aaf8b99db2381ece689.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 51.87,
+          "certified_accuracy": 35.74,
+          "adversarial_accuracy": 36.24
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "b31e3abc0eb0e88c7c6b38de888bb3664d766bc8dcdbe5be0d2610a3876de3bd"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/mtl_ibp/3a288aedd3bc2fea85246b7284b3d2c5",
+      "config_hash": "3a288aedd3bc2fea85246b7284b3d2c5",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/mtl_ibp/3a288aedd3bc2fea85246b7284b3d2c5.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 55.03,
+          "certified_accuracy": 34.72,
+          "adversarial_accuracy": 36.0
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "8070f207ed5934c6650d1ac356dd37a58b0ae87c69d12d6b9c900458981eb379"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/mtl_ibp/3ed2ab72210eb8066708eafdaeb32552",
+      "config_hash": "3ed2ab72210eb8066708eafdaeb32552",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/mtl_ibp/3ed2ab72210eb8066708eafdaeb32552.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 55.29,
+          "certified_accuracy": 34.49,
+          "adversarial_accuracy": 35.56
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "0eb08ff095c0faa8975833eb5dc7e2c9c94da550f0b5e4c222d0a1e296b15ded"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/mtl_ibp/967df51b9e7ce5665d1dc60a41ef6570",
+      "config_hash": "967df51b9e7ce5665d1dc60a41ef6570",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/mtl_ibp/967df51b9e7ce5665d1dc60a41ef6570.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 58.82,
+          "certified_accuracy": 32.55,
+          "adversarial_accuracy": 34.09
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "1a40f26938c06d88e40e1db08f6616eba52ceb0ddad28c58a2cc4853d13681f1"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/mtl_ibp/b4d960229e5e5d4c91408b2a7756ddb7",
+      "config_hash": "b4d960229e5e5d4c91408b2a7756ddb7",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/mtl_ibp/b4d960229e5e5d4c91408b2a7756ddb7.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 58.27,
+          "certified_accuracy": 33.41,
+          "adversarial_accuracy": 35.08
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "820d1c428a92b22ba9266b12b5ea7d7998d062b69544c911690293ac39e4fa3a"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/mtl_ibp/cca44dc1b8fd48fdc4cb490cc1b15f12",
+      "config_hash": "cca44dc1b8fd48fdc4cb490cc1b15f12",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/mtl_ibp/cca44dc1b8fd48fdc4cb490cc1b15f12.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 56.93,
+          "certified_accuracy": 33.75,
+          "adversarial_accuracy": 35.05
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "db881795ffb3bbe4056a5e7195684e731589a0f5eb32dc12634593cadac2442f"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/mtl_ibp/d552cfff88853b17015c316891787e08",
+      "config_hash": "d552cfff88853b17015c316891787e08",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/mtl_ibp/d552cfff88853b17015c316891787e08.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 54.18,
+          "certified_accuracy": 35.27,
+          "adversarial_accuracy": 36.21
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "e99a62fa3d8912ee7307d110e254888daf24caa7c6e2bdc31575725aa1fbc9e5"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/mtl_ibp/ec70b277ff83357145aa21879d7767b4",
+      "config_hash": "ec70b277ff83357145aa21879d7767b4",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/mtl_ibp/ec70b277ff83357145aa21879d7767b4.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 52.58,
+          "certified_accuracy": 35.35,
+          "adversarial_accuracy": 36.07
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "e111b8a12eeff06e17b133ff8f9c2db12acfebb16b4b07af839093170b8d4d0f"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/mtl_ibp/ee4201b59c148d310599335d365b7cb2",
+      "config_hash": "ee4201b59c148d310599335d365b7cb2",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/mtl_ibp/ee4201b59c148d310599335d365b7cb2.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 52.33,
+          "certified_accuracy": 35.68,
+          "adversarial_accuracy": 36.04
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "5d921a2e1d429a0390afdc49cb02b2327c75927be10076f5860dda72fd03fcaf"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/sabr/5e84a8f8b0aecc4a720240747f10fe58",
+      "config_hash": "5e84a8f8b0aecc4a720240747f10fe58",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/sabr/5e84a8f8b0aecc4a720240747f10fe58.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 54.93,
+          "certified_accuracy": 34.96,
+          "adversarial_accuracy": 35.91
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "6f943ec7ffca955937efc4a337dafecefa1922a83bd3f8689eb390591b7ce6e7"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/sabr/5fd64c120c73f5b6d82db8af8a96bdc8",
+      "config_hash": "5fd64c120c73f5b6d82db8af8a96bdc8",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/sabr/5fd64c120c73f5b6d82db8af8a96bdc8.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 58.49,
+          "certified_accuracy": 29.27,
+          "adversarial_accuracy": 31.62
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "6febeaa0d721fb876ae994f73fb840631a0a16d542fd2e25b320d13e4e9171d5"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/sabr/7fbd28eb7a45715532fb70c5d5a1a20c",
+      "config_hash": "7fbd28eb7a45715532fb70c5d5a1a20c",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/sabr/7fbd28eb7a45715532fb70c5d5a1a20c.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 56.02,
+          "certified_accuracy": 34.26,
+          "adversarial_accuracy": 35.52
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "47951b7798d74d4ff6ce3767185ae7a3601c3a65d29ea4dc2439773ca156387f"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/sabr/a21fa0693834b3e3ec6f80db0d1d75cc",
+      "config_hash": "a21fa0693834b3e3ec6f80db0d1d75cc",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/sabr/a21fa0693834b3e3ec6f80db0d1d75cc.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 58.2,
+          "certified_accuracy": 30.56,
+          "adversarial_accuracy": 32.48
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "c603c1475624381e5c227e9b5cac6ea8861608c529b9da5a515f81d39b57a13a"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/sabr/aa1212ab76f0f32f7acd5e08a68a416c",
+      "config_hash": "aa1212ab76f0f32f7acd5e08a68a416c",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/sabr/aa1212ab76f0f32f7acd5e08a68a416c.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 58.12,
+          "certified_accuracy": 31.55,
+          "adversarial_accuracy": 33.2
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "523aa50bdf2f904adde8c96dd58b082b0eecf39a42dad2f647a74652ad60f489"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/sabr/b20b81c6000cdee65ee5b61671c0d5b9",
+      "config_hash": "b20b81c6000cdee65ee5b61671c0d5b9",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/sabr/b20b81c6000cdee65ee5b61671c0d5b9.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 59.12,
+          "certified_accuracy": 28.68,
+          "adversarial_accuracy": 30.91
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "09313a6bf318b8dcfc3e8886ecd6bb8ae223f1111cd9a7c0c7b15cfe83a9a4ee"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/450170d9b72b0b2c95f112eef56f3012",
+      "config_hash": "450170d9b72b0b2c95f112eef56f3012",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/450170d9b72b0b2c95f112eef56f3012.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 62.2,
+          "certified_accuracy": 28.33,
+          "adversarial_accuracy": 30.25
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "e76040046831ad575aecd357273e3c099108dbc37f76f3ef081de54f29e5cc0b"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/4e75bbc1f4c28342423469660945bd87",
+      "config_hash": "4e75bbc1f4c28342423469660945bd87",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/4e75bbc1f4c28342423469660945bd87.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 56.73,
+          "certified_accuracy": 33.36,
+          "adversarial_accuracy": 34.54
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "2293ac02fac185350f7822e3ad9d6a6e8ab184a09fecfeafbb708a567becfcde"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/7d240f8f521d7f8c7b50d9e3c4383d5e",
+      "config_hash": "7d240f8f521d7f8c7b50d9e3c4383d5e",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/7d240f8f521d7f8c7b50d9e3c4383d5e.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 58.43,
+          "certified_accuracy": 31.78,
+          "adversarial_accuracy": 33.17
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "6a3464529971c31c1cd917e8c780113c20375f0c345a308cf1b475dc63d09727"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/940ce2f2c924944208604db0fa389f38",
+      "config_hash": "940ce2f2c924944208604db0fa389f38",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/940ce2f2c924944208604db0fa389f38.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 59.94,
+          "certified_accuracy": 31.12,
+          "adversarial_accuracy": 33.03
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "5405d675081a19ace5ea7e0d70bccbcddb111face71d147c2977a370ac7e716a"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/b1c5cbd6c96eb47fc3d0befd029dd3f4",
+      "config_hash": "b1c5cbd6c96eb47fc3d0befd029dd3f4",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/b1c5cbd6c96eb47fc3d0befd029dd3f4.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 52.59,
+          "certified_accuracy": 35.09,
+          "adversarial_accuracy": 35.56
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "b5188921008dbc1298332c6535b6133a5c96de6194f66d9644c2e9995c91a11d"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/b743e93c5f49390357ff2769b3ea1e5e",
+      "config_hash": "b743e93c5f49390357ff2769b3ea1e5e",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/b743e93c5f49390357ff2769b3ea1e5e.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 56.87,
+          "certified_accuracy": 32.83,
+          "adversarial_accuracy": 33.96
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "af22f4a1282f46d083a8ed19ac427281d0cf70f2bb27efa611c687331f5f016c"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/bdb813d3202747d05ef12590095056f0",
+      "config_hash": "bdb813d3202747d05ef12590095056f0",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/bdb813d3202747d05ef12590095056f0.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 57.42,
+          "certified_accuracy": 32.29,
+          "adversarial_accuracy": 33.9
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "30dfa3f399603d9af68a5834546898db625883143b5b7636b0060aaf429d472e"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/c731b05d6139a1b035f095361f6657e3",
+      "config_hash": "c731b05d6139a1b035f095361f6657e3",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/c731b05d6139a1b035f095361f6657e3.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 61.9,
+          "certified_accuracy": 28.37,
+          "adversarial_accuracy": 30.32
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "a922ea3cdf67f9b627328747a3bd924fb809aff37c478f02bd507499bb730525"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/c92bc629cc6e57af363eb2de37c8a3e0",
+      "config_hash": "c92bc629cc6e57af363eb2de37c8a3e0",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/c92bc629cc6e57af363eb2de37c8a3e0.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 53.55,
+          "certified_accuracy": 34.66,
+          "adversarial_accuracy": 35.25
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "b91fb890586bc4ddddfe6fc9ba3135b9e8e3e0b3436ba29dc8e315ce50127116"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/e421b5d069bd00a89d428f0a3260163f",
+      "config_hash": "e421b5d069bd00a89d428f0a3260163f",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/e421b5d069bd00a89d428f0a3260163f.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 50.98,
+          "certified_accuracy": 35.35,
+          "adversarial_accuracy": 35.92
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "49db42405989307dd4746dab0e4ff57cf245f8ccdbaffd69e94fd6d07631c724"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/e4b51c6dcc7e43f1876f10e253d72480",
+      "config_hash": "e4b51c6dcc7e43f1876f10e253d72480",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/e4b51c6dcc7e43f1876f10e253d72480.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 55.97,
+          "certified_accuracy": 33.42,
+          "adversarial_accuracy": 34.43
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "3ed7a205ef082d07ed91911b8be2c0fb75726d87da75e6ef4dde18a5ca1dc5a8"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/e685649a01c06b4a1aadc094fbaf85d0",
+      "config_hash": "e685649a01c06b4a1aadc094fbaf85d0",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/e685649a01c06b4a1aadc094fbaf85d0.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 55.39,
+          "certified_accuracy": 34.25,
+          "adversarial_accuracy": 35.14
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "1d7350e21f8e070ed59f05549f9fbc4c2596c85a8092e0f199a34910d881fa65"
+    },
+    {
+      "model_id": "cifar10/cnn7/eps-8-255/shi/f8a469632c34dbdeb3fa84a7268d3eed",
+      "config_hash": "f8a469632c34dbdeb3fa84a7268d3eed",
+      "dataset": "cifar10",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.03137254901960784,
+      "epsilon_label": "8/255",
+      "training_epochs": 260,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn7/eps_8_255/shi/f8a469632c34dbdeb3fa84a7268d3eed.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 61.23,
+          "certified_accuracy": 29.63,
+          "adversarial_accuracy": 31.33
+        }
+      ],
+      "size_bytes": 68793150,
+      "sha256": "4da408f34059e0f3d44a9e82ce7190948c0d06a8305b7e08b05f38236d24250a"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/crown_ibp_nofusion/5acd265ae26af0a38b865e26ce809804",
+      "config_hash": "5acd265ae26af0a38b865e26ce809804",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/crown_ibp_nofusion/5acd265ae26af0a38b865e26ce809804.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 75.79,
+          "certified_accuracy": 61.2,
+          "adversarial_accuracy": 61.7
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "caa310ae12e796266baab2ee182460bfacf5dceb1e1dd5d266f1f3306819b4a5"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/crown_ibp_nofusion/5b655e9e587477514972ee8047543f1c",
+      "config_hash": "5b655e9e587477514972ee8047543f1c",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/crown_ibp_nofusion/5b655e9e587477514972ee8047543f1c.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.38,
+          "certified_accuracy": 59.7,
+          "adversarial_accuracy": 61.8
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "1376651fa354014ed5e98f4d6cd90a4c8ef1b4212c8b4baf98978df34b3e2f02"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/crown_ibp_nofusion/9166319acdc80ef8d39fb04409ef0dbe",
+      "config_hash": "9166319acdc80ef8d39fb04409ef0dbe",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/crown_ibp_nofusion/9166319acdc80ef8d39fb04409ef0dbe.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.68,
+          "certified_accuracy": 55.9,
+          "adversarial_accuracy": 58.6
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "e3fd25c4f1fcdd067b17f394d2bbe96c3f96a771ab32a84de9ba01dd15fe44ab"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/crown_ibp_nofusion/9b899eb520228e5054d228740c6732e6",
+      "config_hash": "9b899eb520228e5054d228740c6732e6",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/crown_ibp_nofusion/9b899eb520228e5054d228740c6732e6.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 77.66,
+          "certified_accuracy": 61.0,
+          "adversarial_accuracy": 63.3
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "a5cf826345fb15e23961e59ae68d2f542e6fa84210186b37acd1d0b4ffdf6ffe"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/crown_ibp_nofusion/bdac229ebd010f4ba6de03cf5a24c364",
+      "config_hash": "bdac229ebd010f4ba6de03cf5a24c364",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/crown_ibp_nofusion/bdac229ebd010f4ba6de03cf5a24c364.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.62,
+          "certified_accuracy": 56.5,
+          "adversarial_accuracy": 60.0
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "d80d032e275dbe941002cd484e58d03314fc041d8e3a85f9a21af795ed273550"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/mtl_ibp/3614f64d1f2410e4432dce3c5a33fb27",
+      "config_hash": "3614f64d1f2410e4432dce3c5a33fb27",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/mtl_ibp/3614f64d1f2410e4432dce3c5a33fb27.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 79.28,
+          "certified_accuracy": 62.6,
+          "adversarial_accuracy": 66.9
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "13d3774f1b78395623e923c51ccb8c5c9501300d54f88fd45b49e72ae7185473"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/mtl_ibp/3bc8061e5f640e7b88ae2c58f6f1fef4",
+      "config_hash": "3bc8061e5f640e7b88ae2c58f6f1fef4",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/mtl_ibp/3bc8061e5f640e7b88ae2c58f6f1fef4.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 80.9,
+          "certified_accuracy": 59.7,
+          "adversarial_accuracy": 68.1
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "6452138867072cac0d21d2271a64e7106e1db27c5a186fa4f670577c36eb33d6"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/mtl_ibp/a40a9486228c154349172056c19d8b2b",
+      "config_hash": "a40a9486228c154349172056c19d8b2b",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/mtl_ibp/a40a9486228c154349172056c19d8b2b.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 77.07,
+          "certified_accuracy": 63.5,
+          "adversarial_accuracy": 66.4
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "292b3e46a8d139054190aa66b8b7670cb04ace2bf5ac70f9b9daf80e52953218"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/mtl_ibp/f3d5e04aed12e577cc7de8e4389c8fac",
+      "config_hash": "f3d5e04aed12e577cc7de8e4389c8fac",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/mtl_ibp/f3d5e04aed12e577cc7de8e4389c8fac.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.16,
+          "certified_accuracy": 62.7,
+          "adversarial_accuracy": 65.9
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "167c36d0cfda260bb415095c7c91edb77043477e0daba547dec1a94b2553b074"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/sabr/3036ab5cd365d18945f9e7cfde0f2107",
+      "config_hash": "3036ab5cd365d18945f9e7cfde0f2107",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/sabr/3036ab5cd365d18945f9e7cfde0f2107.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 82.81,
+          "certified_accuracy": 61.3,
+          "adversarial_accuracy": 68.9
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "099355a8c577ea781e5ed4713861a75f274111c5549d1bcde3799a157b67a624"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/sabr/b4f5540875637cf1be256a5515499422",
+      "config_hash": "b4f5540875637cf1be256a5515499422",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/sabr/b4f5540875637cf1be256a5515499422.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 79.55,
+          "certified_accuracy": 65.3,
+          "adversarial_accuracy": 69.6
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "4c8250127b3a60c2b75d9d1a94acf0b665e0cc942cc5e0e4160edc1ae8f9da53"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/sabr/b6aa2afe81dcfb33722bc4cd50b50ffd",
+      "config_hash": "b6aa2afe81dcfb33722bc4cd50b50ffd",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/sabr/b6aa2afe81dcfb33722bc4cd50b50ffd.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 81.22,
+          "certified_accuracy": 61.9,
+          "adversarial_accuracy": 66.4
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "1932f0b3419ddde1e51b89d2f8f6f56345596184559520268f98df529934b580"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/sabr/d00d178dc16dc58f14257c4faf06a213",
+      "config_hash": "d00d178dc16dc58f14257c4faf06a213",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/sabr/d00d178dc16dc58f14257c4faf06a213.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 83.02,
+          "certified_accuracy": 58.7,
+          "adversarial_accuracy": 69.6
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "b06ed33774fef11c616a6b7baa69b2ea4d6a7ecc03fe744415e88d8b3cdcab5a"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/shi/1ec0f140a81f09109d52aac1b8765a82",
+      "config_hash": "1ec0f140a81f09109d52aac1b8765a82",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/shi/1ec0f140a81f09109d52aac1b8765a82.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 74.75,
+          "certified_accuracy": 57.0,
+          "adversarial_accuracy": 57.7
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "bec26f4818d991ab4d2eabde3b221e947398f4bfd4e53bcfd81cf052f0df8dff"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/shi/3a958721d62600ae8bb4901285e67ef7",
+      "config_hash": "3a958721d62600ae8bb4901285e67ef7",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/shi/3a958721d62600ae8bb4901285e67ef7.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 70.68,
+          "certified_accuracy": 57.4,
+          "adversarial_accuracy": 58.0
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "e12ebd4119b1a13ca9cbe24f3a916c8345675d068cd3015fd6adea891007d840"
+    },
+    {
+      "model_id": "cifar10/cnn9/eps-2-255/shi/5c37feb1b1f56c5b5490bbac1e2bf0d3",
+      "config_hash": "5c37feb1b1f56c5b5490bbac1e2bf0d3",
+      "dataset": "cifar10",
+      "architecture": "cnn9",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/cnn9/eps_2_255/shi/5c37feb1b1f56c5b5490bbac1e2bf0d3.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 75.19,
+          "certified_accuracy": 55.5,
+          "adversarial_accuracy": 56.5
+        }
+      ],
+      "size_bytes": 69982278,
+      "sha256": "621d1b52e96662545db8e76c8dd9e972d42cdae31e1b69c4db8952766759d774"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/crown_ibp_nofusion/1b3c1dc771bf451796f2aec7a41fa670",
+      "config_hash": "1b3c1dc771bf451796f2aec7a41fa670",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/crown_ibp_nofusion/1b3c1dc771bf451796f2aec7a41fa670.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 72.4,
+          "certified_accuracy": 61.5,
+          "adversarial_accuracy": 61.9
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "4d87f56e8b8213297d2b9ee83cca6d3c7839ec2d4810ea786b61b22044c0d7b4"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/crown_ibp_nofusion/1fdc1066dd7916d059e23820cf284a61",
+      "config_hash": "1fdc1066dd7916d059e23820cf284a61",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/crown_ibp_nofusion/1fdc1066dd7916d059e23820cf284a61.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 77.3,
+          "certified_accuracy": 56.4,
+          "adversarial_accuracy": 59.4
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "f45dc2104e999a825e793aa9e8fd29d4253fb580f8c8a41843d3ed14a2b36c58"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/crown_ibp_nofusion/371d4e9c0819e27bde78d3d77483770c",
+      "config_hash": "371d4e9c0819e27bde78d3d77483770c",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/crown_ibp_nofusion/371d4e9c0819e27bde78d3d77483770c.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 74.46,
+          "certified_accuracy": 60.1,
+          "adversarial_accuracy": 61.3
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "4865d94d7500b4feb9c5d3da24cc1688f1f4b279240e24fc977a34fa76d04539"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/crown_ibp_nofusion/3b334f56fec9617bbb19d21b23d3cc8a",
+      "config_hash": "3b334f56fec9617bbb19d21b23d3cc8a",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/crown_ibp_nofusion/3b334f56fec9617bbb19d21b23d3cc8a.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.29,
+          "certified_accuracy": 54.2,
+          "adversarial_accuracy": 57.3
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "7e8ad8a8540ee9647f4a745cd33eae6557da2295985fe13a33caecb59c32a35c"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/crown_ibp_nofusion/3ccc637000e0b5f411c11709a7d7b84f",
+      "config_hash": "3ccc637000e0b5f411c11709a7d7b84f",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/crown_ibp_nofusion/3ccc637000e0b5f411c11709a7d7b84f.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 76.76,
+          "certified_accuracy": 58.3,
+          "adversarial_accuracy": 59.7
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "e32443e2ca46296c6a79c7254b1aafd15f5142f07161b284265aa85b9a770e13"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/crown_ibp_nofusion/a7b2af3d414e9c182c8a6923edc52bf9",
+      "config_hash": "a7b2af3d414e9c182c8a6923edc52bf9",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/crown_ibp_nofusion/a7b2af3d414e9c182c8a6923edc52bf9.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 76.77,
+          "certified_accuracy": 56.5,
+          "adversarial_accuracy": 57.0
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "e6c56b25f9c23d8203d0d2054566e66a3c6488e450a890a17260251997996584"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/crown_ibp_nofusion/b996c6a3b0ed71cbbd002e0c4316b0a7",
+      "config_hash": "b996c6a3b0ed71cbbd002e0c4316b0a7",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/crown_ibp_nofusion/b996c6a3b0ed71cbbd002e0c4316b0a7.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 76.37,
+          "certified_accuracy": 59.2,
+          "adversarial_accuracy": 60.8
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "c1acb0483e062e5a3f74a402fbd73f80dab6e36c13d9cb3201478201f8a21f89"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/crown_ibp_nofusion/c75fcfc2e8b9bd4e0cba7b15dfe720d7",
+      "config_hash": "c75fcfc2e8b9bd4e0cba7b15dfe720d7",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/crown_ibp_nofusion/c75fcfc2e8b9bd4e0cba7b15dfe720d7.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 76.24,
+          "certified_accuracy": 59.4,
+          "adversarial_accuracy": 61.1
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "433905d03e122819ad17e3c1c70d64ba6fb02d2d257564439bc8a66ac3a2b631"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/mtl_ibp/2446e471a8137e434f8fee3fc3bb8a4d",
+      "config_hash": "2446e471a8137e434f8fee3fc3bb8a4d",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/mtl_ibp/2446e471a8137e434f8fee3fc3bb8a4d.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.93,
+          "certified_accuracy": 61.9,
+          "adversarial_accuracy": 66.2
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "bf8878251488bf7753fb1856dca64610327e80923a663d116f83fd623521dff8"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/mtl_ibp/45caaabb323eed9d8b5cdf2459f868de",
+      "config_hash": "45caaabb323eed9d8b5cdf2459f868de",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/mtl_ibp/45caaabb323eed9d8b5cdf2459f868de.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 77.61,
+          "certified_accuracy": 63.3,
+          "adversarial_accuracy": 67.8
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "6ba45c5692c797f8c77dd4161f2c96edacc8e592c375d4095830583c8695e3e9"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/mtl_ibp/e14e42df7f559d8c7ef2d8c8d08f58ca",
+      "config_hash": "e14e42df7f559d8c7ef2d8c8d08f58ca",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/mtl_ibp/e14e42df7f559d8c7ef2d8c8d08f58ca.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 81.35,
+          "certified_accuracy": 60.5,
+          "adversarial_accuracy": 68.2
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "41e818b6d79e5e0036b16924eb4e463a516777ab3fe7d0fc9ae794221fb02b74"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/sabr/30e4ddbe6013c5f5ba31a1694640e3be",
+      "config_hash": "30e4ddbe6013c5f5ba31a1694640e3be",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/sabr/30e4ddbe6013c5f5ba31a1694640e3be.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 80.6,
+          "certified_accuracy": 61.9,
+          "adversarial_accuracy": 66.6
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "72defb48459e33eb98643d0300369708f6167c701cd589cb80f7c215205a96cc"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/sabr/35f4aebdd51a407a16ab3912809627f4",
+      "config_hash": "35f4aebdd51a407a16ab3912809627f4",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/sabr/35f4aebdd51a407a16ab3912809627f4.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.82,
+          "certified_accuracy": 63.6,
+          "adversarial_accuracy": 67.5
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "0b7454fc46a42c8c69bf57c87c79ae9d62886be91f9ce3216f89a959913b6b24"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/sabr/b6ae02aa26e3c6f6dcb10c59da0d72ba",
+      "config_hash": "b6ae02aa26e3c6f6dcb10c59da0d72ba",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/sabr/b6ae02aa26e3c6f6dcb10c59da0d72ba.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 82.02,
+          "certified_accuracy": 61.2,
+          "adversarial_accuracy": 68.0
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "a36b5d9a23d84d8bddbec931886c3d79a56c74771b527b807ef49ecc3495aefd"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/sabr/ca8e36ed1738e773ddaf2261c0a6f26d",
+      "config_hash": "ca8e36ed1738e773ddaf2261c0a6f26d",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/sabr/ca8e36ed1738e773ddaf2261c0a6f26d.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 78.57,
+          "certified_accuracy": 64.2,
+          "adversarial_accuracy": 66.6
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "28dd10fd885b1fa0cd67a41e4370871c99bcb60b431d607a9c2900f3bf2d43c7"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/shi/457766135f8b4f9835b4a4d07baab183",
+      "config_hash": "457766135f8b4f9835b4a4d07baab183",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/shi/457766135f8b4f9835b4a4d07baab183.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 74.41,
+          "certified_accuracy": 54.7,
+          "adversarial_accuracy": 55.7
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "e92c6e265884f1146c536bf361825fdc29065577cb3510a7ded63acd8cf0dc82"
+    },
+    {
+      "model_id": "cifar10/narrow_cnn7/eps-2-255/shi/98bb2017188b07bdb00bf78d088f5225",
+      "config_hash": "98bb2017188b07bdb00bf78d088f5225",
+      "dataset": "cifar10",
+      "architecture": "narrow_cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/narrow_cnn7/eps_2_255/shi/98bb2017188b07bdb00bf78d088f5225.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 71.97,
+          "certified_accuracy": 55.2,
+          "adversarial_accuracy": 55.9
+        }
+      ],
+      "size_bytes": 34013566,
+      "sha256": "15d03cf1b21414248631f3fa05fdd3b038e2b968a71285535643135fffd1308f"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/crown_ibp_nofusion/2662a03deebe0704a789aa6db42d8c72",
+      "config_hash": "2662a03deebe0704a789aa6db42d8c72",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/crown_ibp_nofusion/2662a03deebe0704a789aa6db42d8c72.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 80.27,
+          "certified_accuracy": 50.9,
+          "adversarial_accuracy": 62.1
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "e4dbc67b4eafa15cf08a7bd4aac23dd897c07b80f62d2bea6264b5c1ec4d0fc2"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/crown_ibp_nofusion/8f8e27211eef29d1d625014e28ea6f6e",
+      "config_hash": "8f8e27211eef29d1d625014e28ea6f6e",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/crown_ibp_nofusion/8f8e27211eef29d1d625014e28ea6f6e.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 77.82,
+          "certified_accuracy": 62.1,
+          "adversarial_accuracy": 64.1
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "d33eee5f9abfa539109845c9587a9b02093c824d7b82a92460cfbd55f7cfb0c0"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/crown_ibp_nofusion/985f33620c549bc485bc559ff9a01a54",
+      "config_hash": "985f33620c549bc485bc559ff9a01a54",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/crown_ibp_nofusion/985f33620c549bc485bc559ff9a01a54.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 79.41,
+          "certified_accuracy": 60.6,
+          "adversarial_accuracy": 62.8
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "b5a8abbbe7be6b3a1eeb340d948205d6fa3406ec734198f87623c5478fc3a381"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/crown_ibp_nofusion/d165d7509399cb5ea95a963d8faaefb3",
+      "config_hash": "d165d7509399cb5ea95a963d8faaefb3",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/crown_ibp_nofusion/d165d7509399cb5ea95a963d8faaefb3.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 77.55,
+          "certified_accuracy": 62.3,
+          "adversarial_accuracy": 64.5
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "8ef81c3220ba86026c86e589ebfbe0245ed7f9bfbadbbbebaa861988a49a6311"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/crown_ibp_nofusion/e9336bd8542c9175dc421505762132af",
+      "config_hash": "e9336bd8542c9175dc421505762132af",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/crown_ibp_nofusion/e9336bd8542c9175dc421505762132af.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 79.44,
+          "certified_accuracy": 59.6,
+          "adversarial_accuracy": 63.6
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "1066cdf7999e5458ff20172055358876233497e4be2c3b555006f8b60a89bc4e"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/crown_ibp_nofusion/ef487a4d83126260d3ebc4b899f9b7f6",
+      "config_hash": "ef487a4d83126260d3ebc4b899f9b7f6",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/crown_ibp_nofusion/ef487a4d83126260d3ebc4b899f9b7f6.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 75.77,
+          "certified_accuracy": 62.9,
+          "adversarial_accuracy": 63.9
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "e355da8cfdc116c41213a70b7ddca72b6343b6a0f2e30b0c6fb17b0c68af762e"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/mtl_ibp/05c5977392cbfc156c8cadf844250c74",
+      "config_hash": "05c5977392cbfc156c8cadf844250c74",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/mtl_ibp/05c5977392cbfc156c8cadf844250c74.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 82.08,
+          "certified_accuracy": 64.0,
+          "adversarial_accuracy": 71.7
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "27d9a6c5e17125741651021b7de8d1acff5b6702317a13250b43f4e2371a36de"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/mtl_ibp/852f1de5274b8435d566a3251bde25d4",
+      "config_hash": "852f1de5274b8435d566a3251bde25d4",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/mtl_ibp/852f1de5274b8435d566a3251bde25d4.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 80.3,
+          "certified_accuracy": 65.8,
+          "adversarial_accuracy": 69.9
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "7bd7acf9f73906e55c76baa22450f53b13808c20f47dbf1d4c412ee132403db4"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/mtl_ibp/cc189310acd75adeba0dda448b0f50dd",
+      "config_hash": "cc189310acd75adeba0dda448b0f50dd",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/mtl_ibp/cc189310acd75adeba0dda448b0f50dd.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 83.57,
+          "certified_accuracy": 47.0,
+          "adversarial_accuracy": 73.5
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "701ceef7e7b88c1261b05a97b51ec3190dbe5cc81673bb6290e793ece1a7585f"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/sabr/196d06c93e6fe19795d85646aef13ada",
+      "config_hash": "196d06c93e6fe19795d85646aef13ada",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/sabr/196d06c93e6fe19795d85646aef13ada.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 80.8,
+          "certified_accuracy": 64.5,
+          "adversarial_accuracy": 69.3
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "1468ce1aee8b9a612bc737b3e28bd4fb4f3d90ded3d93f7a8d631b47ab0c67db"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/sabr/3fc617264e6714af929a9bed32bd8ee4",
+      "config_hash": "3fc617264e6714af929a9bed32bd8ee4",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/sabr/3fc617264e6714af929a9bed32bd8ee4.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 79.48,
+          "certified_accuracy": 65.0,
+          "adversarial_accuracy": 69.1
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "69569a3521bfde9738d2922b2cf8c0bfac6187a9048a17cbc2ad5ed84e9fb7b8"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/sabr/73c189e485552830e890d47ee84c741e",
+      "config_hash": "73c189e485552830e890d47ee84c741e",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/sabr/73c189e485552830e890d47ee84c741e.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 83.85,
+          "certified_accuracy": 58.0,
+          "adversarial_accuracy": 68.2
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "aad7e03efd84430eb7daabd0d3293c1c0d443910d25aaa4694c6b1d34466d86d"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/sabr/a52c69bb3ff09b71b51d5888d28bd4db",
+      "config_hash": "a52c69bb3ff09b71b51d5888d28bd4db",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/sabr/a52c69bb3ff09b71b51d5888d28bd4db.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 83.68,
+          "certified_accuracy": 59.2,
+          "adversarial_accuracy": 69.7
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "35cc0c7c0f280133adb1e3bc893b1eafb04963677c50f80ce49a353d3b31485f"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/sabr/e93ea0118e245427d2e156d20776e79d",
+      "config_hash": "e93ea0118e245427d2e156d20776e79d",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "sabr",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/sabr/e93ea0118e245427d2e156d20776e79d.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 83.02,
+          "certified_accuracy": 61.9,
+          "adversarial_accuracy": 70.3
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "148c2a75a5c606ba3e0d96f6723c2166f39f784f5f700a423a580a7a126aae79"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/shi/110c9de1e98590e236b03bbd525b9d0f",
+      "config_hash": "110c9de1e98590e236b03bbd525b9d0f",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/shi/110c9de1e98590e236b03bbd525b9d0f.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 74.28,
+          "certified_accuracy": 56.2,
+          "adversarial_accuracy": 57.5
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "a3741b6cc0f2782a57357d260a2fce7f4d9e2192092606e3b61dd40ff8dca827"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/shi/6c09f5c5e778df57c2d9535287725355",
+      "config_hash": "6c09f5c5e778df57c2d9535287725355",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/shi/6c09f5c5e778df57c2d9535287725355.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 72.57,
+          "certified_accuracy": 58.6,
+          "adversarial_accuracy": 59.1
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "e740ed15ffe7ba4629ee2abea9d2650fd1688ec3aa9086b34bea579707e81d3a"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/shi/8eb1e663c214f655fee044f61cd1aeb8",
+      "config_hash": "8eb1e663c214f655fee044f61cd1aeb8",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/shi/8eb1e663c214f655fee044f61cd1aeb8.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 72.9,
+          "certified_accuracy": 56.9,
+          "adversarial_accuracy": 57.7
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "3f3ba9473dd87dc73b026260e33a3e19e89d0aa60e794c5b22536a9092efc28e"
+    },
+    {
+      "model_id": "cifar10/wide_cnn7/eps-2-255/shi/a76d0cdf800491f53d06805356a96829",
+      "config_hash": "a76d0cdf800491f53d06805356a96829",
+      "dataset": "cifar10",
+      "architecture": "wide_cnn7",
+      "method": "shi",
+      "epsilon": 0.00784313725490196,
+      "epsilon_label": "2/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        32,
+        32
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/cifar10/wide_cnn7/eps_2_255/shi/a76d0cdf800491f53d06805356a96829.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 75.64,
+          "certified_accuracy": 56.0,
+          "adversarial_accuracy": 57.2
+        }
+      ],
+      "size_bytes": 140785214,
+      "sha256": "f0fcb466be2b70ddb90521222828aaa5d42df85252fb229275f5a5a0867e31c5"
+    },
+    {
+      "model_id": "mnist/cnn7/eps-0-3/crown_ibp_nofusion/6e7a157d069cde3fa8c6d7bcfcecbfe2",
+      "config_hash": "6e7a157d069cde3fa8c6d7bcfcecbfe2",
+      "dataset": "mnist",
+      "architecture": "cnn7",
+      "method": "crown_ibp_nofusion",
+      "epsilon": 0.3,
+      "epsilon_label": "0.3",
+      "training_epochs": 70,
+      "input_shape": [
+        1,
+        28,
+        28
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/mnist/cnn7/eps_0_3/crown_ibp_nofusion/6e7a157d069cde3fa8c6d7bcfcecbfe2.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 97.98,
+          "certified_accuracy": 92.5,
+          "adversarial_accuracy": 92.7
+        }
+      ],
+      "size_bytes": 53059902,
+      "sha256": "9642ec1eac3f280eada8408866f0c005ba0bb13d613a96b977c15c4536dc4c44"
+    },
+    {
+      "model_id": "mnist/cnn7/eps-0-3/mtl_ibp/24759fd866ff546c486b7fbd1457a6b1",
+      "config_hash": "24759fd866ff546c486b7fbd1457a6b1",
+      "dataset": "mnist",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.3,
+      "epsilon_label": "0.3",
+      "training_epochs": 70,
+      "input_shape": [
+        1,
+        28,
+        28
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/mnist/cnn7/eps_0_3/mtl_ibp/24759fd866ff546c486b7fbd1457a6b1.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 98.66,
+          "certified_accuracy": 92.4,
+          "adversarial_accuracy": 93.0
+        }
+      ],
+      "size_bytes": 53059902,
+      "sha256": "31d82a75e316e271fb6073f44d52b03f194e56cb4a3c07c3079f556c463d2cda"
+    },
+    {
+      "model_id": "mnist/cnn7/eps-0-3/mtl_ibp/cd7133847868439e62f1b2a02b495b3f",
+      "config_hash": "cd7133847868439e62f1b2a02b495b3f",
+      "dataset": "mnist",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.3,
+      "epsilon_label": "0.3",
+      "training_epochs": 70,
+      "input_shape": [
+        1,
+        28,
+        28
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/mnist/cnn7/eps_0_3/mtl_ibp/cd7133847868439e62f1b2a02b495b3f.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 98.67,
+          "certified_accuracy": 90.4,
+          "adversarial_accuracy": 92.4
+        }
+      ],
+      "size_bytes": 53059902,
+      "sha256": "9870f8be840e3bcde9b361534bf683e2cb8864aba2bb9b160badb2742e2b8071"
+    },
+    {
+      "model_id": "mnist/cnn7/eps-0-3/sabr/127303486acd7c496c0d3a25b887f397",
+      "config_hash": "127303486acd7c496c0d3a25b887f397",
+      "dataset": "mnist",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.3,
+      "epsilon_label": "0.3",
+      "training_epochs": 70,
+      "input_shape": [
+        1,
+        28,
+        28
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/mnist/cnn7/eps_0_3/sabr/127303486acd7c496c0d3a25b887f397.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 98.77,
+          "certified_accuracy": 92.8,
+          "adversarial_accuracy": 93.2
+        }
+      ],
+      "size_bytes": 53059902,
+      "sha256": "fef9b6a08193ec27a6b7212c5898aeee958a3d93ea994703bfc435b23ed85a24"
+    },
+    {
+      "model_id": "mnist/cnn7/eps-0-3/sabr/67e48338f1035ac6426f2e483994a8c3",
+      "config_hash": "67e48338f1035ac6426f2e483994a8c3",
+      "dataset": "mnist",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.3,
+      "epsilon_label": "0.3",
+      "training_epochs": 70,
+      "input_shape": [
+        1,
+        28,
+        28
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/mnist/cnn7/eps_0_3/sabr/67e48338f1035ac6426f2e483994a8c3.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 98.79,
+          "certified_accuracy": 91.4,
+          "adversarial_accuracy": 92.6
+        }
+      ],
+      "size_bytes": 53059902,
+      "sha256": "5ea54f29cf6ecc954a77987dec74a5f58c5d6c172be964570bd863c892fa9cb9"
+    },
+    {
+      "model_id": "mnist/cnn7/eps-0-3/shi/214c6593e56396c05a6d8b34fafadd72",
+      "config_hash": "214c6593e56396c05a6d8b34fafadd72",
+      "dataset": "mnist",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.3,
+      "epsilon_label": "0.3",
+      "training_epochs": 70,
+      "input_shape": [
+        1,
+        28,
+        28
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/mnist/cnn7/eps_0_3/shi/214c6593e56396c05a6d8b34fafadd72.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 98.55,
+          "certified_accuracy": 93.7,
+          "adversarial_accuracy": 94.1
+        }
+      ],
+      "size_bytes": 53059902,
+      "sha256": "9784a3c92aca18fbbd9e1a1e0ca0bdaa1f639a7d2c0c25960f0eb776db63e1d2"
+    },
+    {
+      "model_id": "mnist/cnn7/eps-0-3/shi/d080ad892ab5ff853b052d97404bdbf5",
+      "config_hash": "d080ad892ab5ff853b052d97404bdbf5",
+      "dataset": "mnist",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.3,
+      "epsilon_label": "0.3",
+      "training_epochs": 70,
+      "input_shape": [
+        1,
+        28,
+        28
+      ],
+      "num_classes": 10,
+      "checkpoint": "checkpoints/mnist/cnn7/eps_0_3/shi/d080ad892ab5ff853b052d97404bdbf5.pt",
+      "evaluations": [
+        {
+          "collection": "architecture_appendix",
+          "summary": "results/verification/main/summary_results_timeout300_testsamples1000.json",
+          "test_samples": 1000,
+          "timeout_seconds": 300,
+          "clean_accuracy": 98.56,
+          "certified_accuracy": 92.5,
+          "adversarial_accuracy": 92.9
+        }
+      ],
+      "size_bytes": 53059902,
+      "sha256": "65e790fe75a86a1f388f8b597acd392583d38f6659d86b4612e1c0e7e0711f57"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/crown_ibp/4fe7a1c184d8581d51eab588c8eccbd9",
+      "config_hash": "4fe7a1c184d8581d51eab588c8eccbd9",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "crown_ibp",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/crown_ibp/4fe7a1c184d8581d51eab588c8eccbd9.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 31.21,
+          "certified_accuracy": 20.96,
+          "adversarial_accuracy": 21.48
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "7dd3e37f6e8a06469ad9cf86721fbf1fd2afba643689475abca30922e8743c2f"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/crown_ibp/ad4c5a622a9b18f48ef43d6c69018354",
+      "config_hash": "ad4c5a622a9b18f48ef43d6c69018354",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "crown_ibp",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/crown_ibp/ad4c5a622a9b18f48ef43d6c69018354.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 32.38,
+          "certified_accuracy": 20.71,
+          "adversarial_accuracy": 21.4
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "c1b30c474982f53b817c3bed3b2067f18e676b375b6af36d535675e2e22be8fd"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/crown_ibp/e79babf88c603a72173ef4a6edb8584e",
+      "config_hash": "e79babf88c603a72173ef4a6edb8584e",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "crown_ibp",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/crown_ibp/e79babf88c603a72173ef4a6edb8584e.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 30.82,
+          "certified_accuracy": 22.2,
+          "adversarial_accuracy": 22.68
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "f3b38062728fa935853c0347133608bb147d9b74316802609eb88677a81126bb"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/mtl_ibp/59a1c19a369b55824ea13b0f5257c958",
+      "config_hash": "59a1c19a369b55824ea13b0f5257c958",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/mtl_ibp/59a1c19a369b55824ea13b0f5257c958.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 39.75,
+          "certified_accuracy": 30.67,
+          "adversarial_accuracy": 32.74
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "dc4e6da46d5d7ea96b1c410611710e733ef818879e52046a86687118f36a799b"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/mtl_ibp/febaebea558c2c0599105001d0c4728b",
+      "config_hash": "febaebea558c2c0599105001d0c4728b",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "mtl_ibp",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/mtl_ibp/febaebea558c2c0599105001d0c4728b.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 39.8,
+          "certified_accuracy": 30.45,
+          "adversarial_accuracy": 32.62
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "dc766beea1ebd605ea4ac30c85d233cbb4dc9ff8e88c6fdd4c6f93c77736d8ab"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/sabr/65d7e5f657906d14ead334399c727ba9",
+      "config_hash": "65d7e5f657906d14ead334399c727ba9",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/sabr/65d7e5f657906d14ead334399c727ba9.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 42.1,
+          "certified_accuracy": 27.42,
+          "adversarial_accuracy": 31.62
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "6c0a7718ec4cbbe43390615d51746308e2bc3382d15994ae617f74d7aa77108e"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/sabr/f11ca1c5031c1ce0d8f200c56d482510",
+      "config_hash": "f11ca1c5031c1ce0d8f200c56d482510",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/sabr/f11ca1c5031c1ce0d8f200c56d482510.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 42.27,
+          "certified_accuracy": 23.13,
+          "adversarial_accuracy": 29.36
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "3a93696a4ce69ab5f74df6b6524ff00daf9e25676cf4c2f1ad30a677466c589d"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/sabr/ffc62b45da0908db528d627cbc407fc5",
+      "config_hash": "ffc62b45da0908db528d627cbc407fc5",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "sabr",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/sabr/ffc62b45da0908db528d627cbc407fc5.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 40.61,
+          "certified_accuracy": 28.86,
+          "adversarial_accuracy": 31.69
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "64f2e1c98a713d7d07e0b0019eac74f3f447dc7984927ef3ea5ea2ddebf74cdf"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/shi/29b1002d6bf17578c86dd92f60cd1278",
+      "config_hash": "29b1002d6bf17578c86dd92f60cd1278",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/shi/29b1002d6bf17578c86dd92f60cd1278.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 34.24,
+          "certified_accuracy": 20.79,
+          "adversarial_accuracy": 21.68
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "4ea69006c729b2fe7701276ea0b822acbd017c2184bb2eaee8c6f3c4ffd7fce3"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/shi/3ff24e0e4325047de4a0938ea1afd655",
+      "config_hash": "3ff24e0e4325047de4a0938ea1afd655",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/shi/3ff24e0e4325047de4a0938ea1afd655.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 31.92,
+          "certified_accuracy": 21.82,
+          "adversarial_accuracy": 22.43
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "fd52cf4c9dcbee1d51f35783da374af1c04e891692dd0583382280cf25c4c636"
+    },
+    {
+      "model_id": "tinyimagenet/cnn7/eps-1-255/shi/f28f78a0f61278e772127c6a92091339",
+      "config_hash": "f28f78a0f61278e772127c6a92091339",
+      "dataset": "tinyimagenet",
+      "architecture": "cnn7",
+      "method": "shi",
+      "epsilon": 0.00392156862745098,
+      "epsilon_label": "1/255",
+      "training_epochs": 160,
+      "input_shape": [
+        3,
+        64,
+        64
+      ],
+      "num_classes": 200,
+      "checkpoint": "checkpoints/tinyimagenet/cnn7/eps_1_255/shi/f28f78a0f61278e772127c6a92091339.pt",
+      "evaluations": [
+        {
+          "collection": "main",
+          "summary": "results/verification/main/summary_results.json",
+          "test_samples": 10000,
+          "timeout_seconds": 1000,
+          "clean_accuracy": 32.12,
+          "certified_accuracy": 21.6,
+          "adversarial_accuracy": 22.35
+        }
+      ],
+      "size_bytes": 270509566,
+      "sha256": "ccf57c3c000d55f923d2c0641cde082319c647d6db3fe110d060e1215c708b12"
+    }
+  ]
+}
