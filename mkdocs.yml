@@ -5,6 +5,7 @@ nav:
     - Certified Training: examples/certified_training.ipynb
     - Model Evaluation: examples/model_evaluation.ipynb
     - Hyperparameter Optimisation: examples/hyperparameter_optimisation.ipynb
+    - Pareto-front Models: examples/pareto_front_models.md
   - API Reference:
       - attacks:
         - pgd: api/attacks/pgd.md

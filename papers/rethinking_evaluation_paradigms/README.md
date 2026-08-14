@@ -87,8 +87,10 @@ model = load_model(config_hash=models[0]["config_hash"], device="cuda")
 logits = model(images)
 ```
 
-A runnable example prints the MTL-IBP front, selects its highest-certified
-member, downloads it, and evaluates it on CIFAR-10 with CTRAIN:
+The runnable
+[MTL-IBP Pareto-front example](examples/evaluate_mtl_front.py) prints the
+front, selects its highest-certified member, downloads it, and evaluates it on
+CIFAR-10 with CTRAIN:
 
 ```bash
 python papers/rethinking_evaluation_paradigms/examples/evaluate_mtl_front.py

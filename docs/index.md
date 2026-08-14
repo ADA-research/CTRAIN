@@ -86,6 +86,22 @@ Documentation is available in the docs directory, including:
 - Setup Guide
 - Usage Examples
 
+## ICML 2026 Paper and Published Models
+
+CTRAIN includes the code and result artifacts for the ICML 2026 paper
+**“Rethinking Evaluation Paradigms in IBP-based Certified Training”**, which
+compares certified-training methods through their natural-versus-certified
+accuracy Pareto fronts. The final, completely verified per-method fronts are
+available as
+[published checkpoints](https://huggingface.co/kkaulen/ctrain_pareto_fronts).
+
+See the [Pareto-front models example](examples/pareto_front_models.md) for a
+runnable MTL-IBP workflow that prints a published front, downloads one model,
+and evaluates it on CIFAR-10 with CTRAIN. The full paper code, results, and
+reproduction instructions are in the
+[paper artifacts](https://github.com/ADA-research/CTRAIN/tree/main/papers/rethinking_evaluation_paradigms).
+
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).

@@ -183,6 +183,13 @@ wrapped_model.load_state_dict(torch.load(chosen["checkpoint_path"]))
 std_acc, cert_acc, adv_acc = wrapped_model.evaluate(test_loader)
 ```
 
+The final, completely verified paper fronts are also available as
+[published checkpoints](https://huggingface.co/kkaulen/ctrain_pareto_fronts).
+The runnable
+[MTL-IBP example](papers/rethinking_evaluation_paradigms/examples/evaluate_mtl_front.py)
+shows how to print a front from the manifest, select and download one model,
+and evaluate it on the CIFAR-10 test set with CTRAIN.
+
 The paper-specific reproduction guide is in
 `papers/rethinking_evaluation_paradigms/README.md`.
 
