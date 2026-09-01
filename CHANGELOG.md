@@ -1,6 +1,24 @@
 # CHANGELOG
 
 
+## v0.6.1 (2026-09-01)
+
+### Bug Fixes
+
+- Restore kappa in constructors of CrownIBP and ShiIBP wrappers. closes #8
+  ([`e4fe7da`](https://github.com/ADA-research/CTRAIN/commit/e4fe7da695834f6d99515b7bc50e395d36c4d603))
+
+### Chores
+
+- **paper**: Publish Pareto-front model hub and evaluation example
+  ([`7fb281a`](https://github.com/ADA-research/CTRAIN/commit/7fb281abf7deabb76bf79667fe689756d4df8234))
+
+### Documentation
+
+- Reference Pareto-front models and ICML paper
+  ([`d5a8371`](https://github.com/ADA-research/CTRAIN/commit/d5a8371f27efcfff685701ce47f012afc66504f1))
+
+
 ## v0.6.0 (2026-08-13)
 
 
