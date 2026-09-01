@@ -12,7 +12,7 @@ class ShiIBPModelWrapper(CTRAINWrapper):
     Wrapper class for training models using SHI-IBP method. For details, see Shi et al. (2021) Fast certified robust training with short warmup. https://proceedings.neurips.cc/paper/2021/file/988f9153ac4fd966ea302dd9ab9bae15-Paper.pdf
     """
     
-    def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), gradient_clip=10, l1_reg_weight=0.000001, shi_reg_weight=.5, shi_reg_decay=True, checkpoint_save_path=None, checkpoint_save_interval=10,
+    def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), gradient_clip=10, l1_reg_weight=0.000001, shi_reg_weight=.5, shi_reg_decay=True, start_kappa=0, end_kappa=0, checkpoint_save_path=None, checkpoint_save_interval=10,
     bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
         """
         Initializes the ShiIBPModelWrapper.
@@ -33,6 +33,8 @@ class ShiIBPModelWrapper(CTRAINWrapper):
             l1_reg_weight (float): L1 regularization weight.
             shi_reg_weight (float): SHI regularization weight.
             shi_reg_decay (bool): Whether to decay SHI regularization during the ramp up phase.
+            start_kappa (float): Starting weight of the clean loss during the ramp-up phase.
+            end_kappa (float): Ending weight of the clean loss during the ramp-up phase.
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
@@ -48,8 +50,8 @@ class ShiIBPModelWrapper(CTRAINWrapper):
         self.l1_reg_weight = l1_reg_weight
         self.shi_reg_weight = shi_reg_weight
         self.shi_reg_decay = shi_reg_decay
-        self.start_kappa = 0
-        self.end_kappa = 0
+        self.start_kappa = start_kappa
+        self.end_kappa = end_kappa
         self.optimizer_func = optimizer_func
         
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
