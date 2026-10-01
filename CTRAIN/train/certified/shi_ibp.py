@@ -12,6 +12,7 @@ from CTRAIN.train.certified.losses import get_ibp_loss
 from CTRAIN.train.certified.initialisation import ibp_init_shi
 from CTRAIN.train.certified.regularisers import get_shi_regulariser
 from CTRAIN.util import save_checkpoint
+from CTRAIN.train.certified.util import synchronise_bn
 from CTRAIN.train.certified.regularisers import get_l1_reg
 from CTRAIN.train.certified.progress import progress_bar, update_progress, log_epoch_summary
 
@@ -40,6 +41,7 @@ def shi_train_model(
     results_path="./results",
     checkpoint_save_interval=10,
     device="cuda",
+    population_bn=False,
 ):
     """
     Train a model using the Shi-IBP method for certified robustness.
@@ -68,6 +70,7 @@ def shi_train_model(
         shi_reg_decay (bool, optional): Whether to decay SHI regularization. Defaults to True.
         results_path (str, optional): Path to save the training results. Defaults to "./results".
         checkpoint_save_interval (int, optional): Interval for saving checkpoints. Defaults to 10.
+        population_bn (bool): Recalibrate BatchNorm after each epoch; default False.
         device (str, optional): Device to use for training ('cuda' or 'cpu'). Defaults to 'cuda'.
 
     Returns:
@@ -219,6 +222,8 @@ def shi_train_model(
             nat_acc=train_acc_nat,
             cert_acc=train_acc_cert,
         )
+
+        synchronise_bn(original_model, hardened_model, train_loader, device, population_bn)
 
         if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
             save_checkpoint(

@@ -28,7 +28,7 @@ def progress_bar(iterable, epoch, num_epochs, eps, method=None, disable=False):
     )
 
 
-def update_progress(progress, loss, nat_acc=None, cert_acc=None, adv_acc=None, lr=None):
+def update_progress(progress, loss, nat_acc=None, cert_acc=None, adv_acc=None, lr=None, robust_acc=None):
     values = {"loss": f"{_as_float(loss):.4f}"}
     if nat_acc is not None:
         values["nat"] = f"{_as_float(nat_acc):.3f}"
@@ -36,12 +36,14 @@ def update_progress(progress, loss, nat_acc=None, cert_acc=None, adv_acc=None, l
         values["adv"] = f"{_as_float(adv_acc):.3f}"
     if cert_acc is not None:
         values["cert"] = f"{_as_float(cert_acc):.3f}"
+    if robust_acc is not None:
+        values["robust_proxy"] = f"{_as_float(robust_acc):.3f}"
     if lr is not None:
         values["lr"] = f"{_as_float(lr):.2e}"
     progress.set_postfix(values)
 
 
-def log_epoch_summary(epoch, num_epochs, loss, nat_acc, cert_acc, adv_acc=None):
+def log_epoch_summary(epoch, num_epochs, loss, nat_acc, cert_acc=None, adv_acc=None, robust_acc=None):
     parts = [
         f"Epoch [{epoch + 1}/{num_epochs}]",
         f"loss={_as_float(loss):.4f}",
@@ -49,5 +51,8 @@ def log_epoch_summary(epoch, num_epochs, loss, nat_acc, cert_acc, adv_acc=None):
     ]
     if adv_acc is not None:
         parts.append(f"adv_acc={_as_float(adv_acc):.4f}")
-    parts.append(f"cert_acc={_as_float(cert_acc):.4f}")
+    if cert_acc is not None:
+        parts.append(f"cert_acc={_as_float(cert_acc):.4f}")
+    if robust_acc is not None:
+        parts.append(f"robust_proxy_acc={_as_float(robust_acc):.4f}")
     tqdm.write(", ".join(parts))

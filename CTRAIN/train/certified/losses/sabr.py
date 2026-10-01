@@ -3,7 +3,7 @@ from CTRAIN.bound import bound_sabr
 from CTRAIN.train.certified.losses import get_loss_from_bounds
 
 def get_sabr_loss(hardened_model, original_model, data, target, eps, subselection_ratio, criterion, device='cuda', 
-                      n_classes=10, x_L=None, x_U=None, data_min=None, data_max=None, pgd_steps=8, pgd_step_size=.5, pgd_restarts=1, pgd_early_stopping=True, pgd_decay_factor=.1, pgd_decay_checkpoints=(4,7), pgd_ptb=None, return_stats=False, return_bounds=False, **kwargs):
+                      n_classes=10, x_L=None, x_U=None, data_min=None, data_max=None, pgd_steps=8, pgd_step_size=.5, pgd_restarts=1, pgd_early_stopping=True, pgd_decay_factor=.1, pgd_decay_checkpoints=(4,7), pgd_ptb=None, return_stats=False, return_bounds=False, relu_upper_retention=1.0, pgd_eps_factor=1.0, **kwargs):
 
     """
     Compute the SABR loss for a given model and data.
@@ -35,6 +35,9 @@ def get_sabr_loss(hardened_model, original_model, data, target, eps, subselectio
         return_bounds (bool, optional): Whether to return bounds. Default is False.
         **kwargs: Additional arguments.
     
+        relu_upper_retention (float): Unstable ReLU upper bound fraction for this training bound; default 1. Values below 1 are not sound certificates.
+        pgd_eps_factor (float): Positive PGD search-range factor; nominal IBP bounds are unchanged. Explicit pgd_ptb, when provided, takes precedence.
+
     Returns:
         (tuple): A tuple containing the loss, and optionally robustness statistics (robust_err, adv_err).
     """
@@ -58,7 +61,9 @@ def get_sabr_loss(hardened_model, original_model, data, target, eps, subselectio
         decay_checkpoints=pgd_decay_checkpoints, 
         decay_factor=pgd_decay_factor,
         pgd_ptb=pgd_ptb,
-        return_adv_output=True
+        return_adv_output=True,
+        relu_upper_retention=relu_upper_retention,
+        pgd_eps_factor=pgd_eps_factor
     )
     loss = get_loss_from_bounds(lb, criterion=criterion)
     

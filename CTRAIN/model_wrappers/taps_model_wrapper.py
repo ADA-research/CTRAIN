@@ -9,6 +9,7 @@ from CTRAIN.model_wrappers.model_wrapper import CTRAINWrapper
 from CTRAIN.train.certified import taps_train_model
 from CTRAIN.train.certified.util import split_network
 from CTRAIN.util import seed_ctrain
+from CTRAIN.bound.util import validate_hybrid_options
 
 class TAPSModelWrapper(CTRAINWrapper):
     """
@@ -23,7 +24,7 @@ class TAPSModelWrapper(CTRAINWrapper):
                  gradient_link_thresh=.5, gradient_link_tol=0.00001,
                  checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda'),
-                 ):
+                 relu_upper_retention=1.0, population_bn=False, pgd_eps_factor=1.0):
         """
         Initializes the TAPSModelWrapper.
 
@@ -56,9 +57,15 @@ class TAPSModelWrapper(CTRAINWrapper):
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
+            pgd_eps_factor (float): PGD search range factor; nominal IBP bounds are unchanged.
             device (torch.device): Device to run the training on.
+            relu_upper_retention (float): Fraction of unstable ReLU upper bounds retained during training and selection; (0, 1], default 1.
+            population_bn (bool): Recalibrate BatchNorm on training data after each epoch; default False.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
+        validate_hybrid_options(relu_upper_retention, pgd_eps_factor)
+        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval, population_bn=population_bn)
+        self.pgd_eps_factor = pgd_eps_factor
+        self.relu_upper_retention = relu_upper_retention
         self.cert_train_method = 'taps'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -90,6 +97,8 @@ class TAPSModelWrapper(CTRAINWrapper):
         if len(blocks) != 2:
             raise NotImplementedError("Currently we only support two blocks (feature extractor +  classifier) for TAPS/STAPS")
         features, classifier = blocks
+        features.eval()
+        classifier.eval()
         self.bounded_model.bounded_blocks = [
             BoundedModule(features, global_input=dummy_input, bound_opts=bound_opts, device=device),
             BoundedModule(classifier, global_input=torch.zeros_like(features(dummy_input), device=device), bound_opts=bound_opts, device=device)
@@ -102,13 +111,15 @@ class TAPSModelWrapper(CTRAINWrapper):
         
         
     
-    def train_model(self, train_loader, val_loader=None, start_epoch=0):
+    def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
         """
         Trains the model using the TAPS method.
 
         Args:
             train_loader (torch.utils.data.DataLoader): DataLoader for training data.
             val_loader (torch.utils.data.DataLoader, optional): DataLoader for validation data.
+            start_epoch (int): Epoch to start training from.
+            end_epoch (int, optional): Stop before this epoch, preserving the configured schedules.
 
         Returns:
             (auto_LiRPA.BoundedModule): Trained model.
@@ -141,11 +152,16 @@ class TAPSModelWrapper(CTRAINWrapper):
             taps_pgd_decay_checkpoints=self.pgd_decay_steps,
             taps_pgd_decay_factor=self.pgd_alpha_decay_factor,
             start_epoch=start_epoch,
+            end_epoch=end_epoch,
             results_path=self.checkpoint_path,
             checkpoint_save_interval=self.checkpoint_save_interval,
+            population_bn=self.population_bn,
+            relu_upper_retention=self.relu_upper_retention,
+            validation_eps=self.eps,
+            pgd_eps_factor=self.pgd_eps_factor,
             device=self.device
         )
-        
+
         return trained_model
     
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1, adv_loss_weight=1, cert_loss_weight=1, complete_verify=False):
@@ -183,6 +199,9 @@ class TAPSModelWrapper(CTRAINWrapper):
             eps=self.eps,
             num_epochs=epochs, 
             bound_opts=self.bound_opts,
+            relu_upper_retention=self.relu_upper_retention,
+            population_bn=self.population_bn,
+            pgd_eps_factor=self.pgd_eps_factor,
             checkpoint_save_path=None,
             device=self.device,
             train_eps_factor=config['train_eps_factor'],

@@ -7,7 +7,7 @@ from auto_LiRPA.operators.relu import BoundRelu
 from auto_LiRPA.perturbations import PerturbationLpNorm
 from CTRAIN.bound import bound_ibp
 
-def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, device, tolerance=.5, verbose=False, included_regularisers=['relu', 'tightness'], regularisation_decay=True, loss_fusion=False):
+def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, device, tolerance=.5, verbose=False, included_regularisers=['relu', 'tightness'], regularisation_decay=True, loss_fusion=False, relu_upper_retention=1.0):
     """
     Compute the Shi regularisation loss for a given model. See Shi et al. (2020) for more details.
     
@@ -50,7 +50,8 @@ def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, devi
                 target=target,
                 n_classes=n_classes,
                 bound_upper=True,
-                loss_fusion=loss_fusion
+                loss_fusion=loss_fusion,
+                relu_upper_retention=relu_upper_retention
             )
     tightness_0 = ((node_inp.upper - node_inp.lower) / 2).mean()
     ratio_init = tightness_0 / ((node_inp.upper + node_inp.lower) / 2).std()

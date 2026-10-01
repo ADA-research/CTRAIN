@@ -17,7 +17,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
                  lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), gradient_clip=10, l1_reg_weight=0.000001,
                  shi_reg_weight=.5, shi_reg_decay=True, start_beta=1, end_beta=0,
                  loss_fusion=True, checkpoint_save_path=None, checkpoint_save_interval=10,
-                 bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
+                 bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda'), population_bn=False):
         """
         Initializes the CrownIBPModelWrapper.
 
@@ -43,9 +43,10 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
+            population_bn (bool): Recalibrate BatchNorm on training data after every epoch.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
+        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval, population_bn=population_bn)
         self.cert_train_method = 'crown_ibp'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -68,7 +69,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             self.bounded_model.eval()
             example_input = torch.ones(self.input_shape, device=device)
             self.bound_opts['loss_fusion'] = True
-            self.loss_fusion_model = BoundedModule(model=CrossEntropyWrapper(self.original_model), global_input=(example_input, torch.zeros(1, dtype=torch.long)), bound_opts=self.bound_opts, device=device)
+            self.loss_fusion_model = BoundedModule(model=CrossEntropyWrapper(self.original_model).eval(), global_input=(example_input, torch.zeros(1, dtype=torch.long)), bound_opts=self.bound_opts, device=device)
             self.loss_fusion_optimizer = optimizer_func(self.loss_fusion_model.parameters(), lr=lr)
 
             if original_train:
@@ -139,6 +140,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             shi_reg_decay=self.shi_reg_decay,
             results_path=self.checkpoint_path,
             checkpoint_save_interval=self.checkpoint_save_interval,
+            population_bn=self.population_bn,
             device=self.device
         )
         
@@ -174,6 +176,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             eps=self.eps,
             num_epochs=epochs, 
             bound_opts=self.bound_opts,
+            population_bn=self.population_bn,
             checkpoint_save_path=None,
             device=self.device,
             loss_fusion=self.loss_fusion,

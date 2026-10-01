@@ -2,7 +2,7 @@ import torch
 from CTRAIN.bound import bound_ibp
 from CTRAIN.train.certified.losses import get_loss_from_bounds
 
-def get_ibp_loss(hardened_model, ptb, data, target, n_classes, criterion, return_bounds=False, return_stats=False):
+def get_ibp_loss(hardened_model, ptb, data, target, n_classes, criterion, return_bounds=False, return_stats=False, relu_upper_retention=1.0):
     """
     Compute the Interval Bound Propagation (IBP) loss for a given model.
     
@@ -16,6 +16,8 @@ def get_ibp_loss(hardened_model, ptb, data, target, n_classes, criterion, return
         return_bounds (bool, optional): If True, return the lower and upper bounds. Default is False.
         return_stats (bool, optional): If True, return additional statistics. Default is False.
     
+        relu_upper_retention (float): Unstable ReLU upper bound fraction for this training bound; default 1. Values below 1 are not sound certificates.
+
     Returns:
         (tuple): A tuple containing the certified loss. If `return_bounds` is True, the tuple also contains the lower and upper bounds. 
                If `return_stats` is True, the tuple also contains the robust error.
@@ -26,6 +28,7 @@ def get_ibp_loss(hardened_model, ptb, data, target, n_classes, criterion, return
         data=data,
         target=target,
         n_classes=n_classes,
+        relu_upper_retention=relu_upper_retention,
     )
     certified_loss = get_loss_from_bounds(lb, criterion)
     

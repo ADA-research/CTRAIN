@@ -4,10 +4,12 @@ import numpy as np
 import torch
 
 from CTRAIN.bound.ibp import bound_ibp
+from CTRAIN.bound.util import get_pgd_ptb, validate_hybrid_options
 from CTRAIN.attacks import pgd_attack
+from CTRAIN.util.util import preserve_model_state
 
 
-def bound_sabr(hardened_model, original_model, data, target, eps, subselection_ratio, device='cuda', n_classes=10, x_L=None, x_U=None, data_min=None, data_max=None, n_steps=8, step_size=.5, restarts=1, early_stopping=True, intermediate_bound_model=None, decay_factor=0.1, decay_checkpoints=(4,7), return_adv_output=False, pgd_ptb=None):
+def bound_sabr(hardened_model, original_model, data, target, eps, subselection_ratio, device='cuda', n_classes=10, x_L=None, x_U=None, data_min=None, data_max=None, n_steps=8, step_size=.5, restarts=1, early_stopping=True, intermediate_bound_model=None, decay_factor=0.1, decay_checkpoints=(4,7), return_adv_output=False, pgd_ptb=None, relu_upper_retention=1.0, pgd_eps_factor=1.0):
     """
     Compute the lower and upper bounds of the model's output using the SABR method.
 
@@ -36,61 +38,72 @@ def bound_sabr(hardened_model, original_model, data, target, eps, subselection_r
             center search. The resulting SABR box is still clamped to the
             nominal region described by ``eps`` or ``x_L``/``x_U``.
 
+        relu_upper_retention (float): Unstable ReLU upper bound fraction for this training bound; default 1. Values below 1 are not sound certificates.
+        pgd_eps_factor (float): Positive PGD search-range factor; nominal IBP bounds are unchanged. Explicit pgd_ptb, when provided, takes precedence.
+
     Returns:
         (Tuple[Tensor, Tensor, Tensor]): The lower and upper bounds of the model's output, and the adversarial output if return_adv_output is True.
     """
-    hardened_model.eval()
-    original_model.eval()
-    
-    propagation_inputs, tau, x_adv = get_propagation_region(
-        model=hardened_model,
-        data=data,
-        data_min=data_min,
-        data_max=data_max,
-        target=target,
-        eps=eps if (x_L is None and x_U is None) else None,
-        subselection_ratio=subselection_ratio,
-        n_steps=n_steps,
-        step_size=step_size,
-        restarts=restarts,
-        early_stopping=early_stopping,
-        x_L=x_L,
-        x_U=x_U,
-        pgd_x_L=None if pgd_ptb is None else pgd_ptb.x_L,
-        pgd_x_U=None if pgd_ptb is None else pgd_ptb.x_U,
-        decay_checkpoints=decay_checkpoints, 
-        decay_factor=decay_factor
-    )
-    
-    hardened_model.train()
-    original_model.train()
-    
-    ptb = PerturbationLpNorm(
-        eps=tau,
-        norm=np.inf,
-        x_L=torch.clamp(propagation_inputs - tau, data_min, data_max).to(device),
-        x_U=torch.clamp(propagation_inputs + tau, data_min, data_max).to(device)
-    )
-    
-    # Pass input through network to set batch statistics
-    adv_output = hardened_model(x_adv)    
-    
-    # Use intermediate_bound_model if provided and return intermediate bounds (as needed by STAPS), otherwise use hardened_model
-    lb, ub = bound_ibp(
-        model=hardened_model if intermediate_bound_model is None else intermediate_bound_model,
-        ptb=ptb,
-        data=data,
-        # data=propagation_inputs,
-        # Only provide target if intermediate_bound_model is not used (as we are not interested in final bound margins)
-        target=target if intermediate_bound_model is None else None,
-        n_classes=n_classes,
-        bound_upper=True,
-        reuse_input=False
-    )
-    
-    if return_adv_output:
-        return lb, ub, adv_output
-    return lb, ub
+    validate_hybrid_options(relu_upper_retention, pgd_eps_factor)
+    if pgd_ptb is None and pgd_eps_factor != 1:
+        nominal = PerturbationLpNorm(
+            norm=np.inf, eps=eps if eps is not None else np.inf,
+            x_L=x_L if x_L is not None else torch.clamp(data - eps, data_min, data_max),
+            x_U=x_U if x_U is not None else torch.clamp(data + eps, data_min, data_max))
+        pgd_ptb = get_pgd_ptb(nominal, data, pgd_eps_factor, data_min, data_max, eps=eps)
+    models = (hardened_model, original_model) + (() if intermediate_bound_model is None else (intermediate_bound_model,))
+    with preserve_model_state(*models):
+        with preserve_model_state(hardened_model, original_model):
+            hardened_model.eval()
+            original_model.eval()
+
+            propagation_inputs, tau, x_adv = get_propagation_region(
+                model=hardened_model,
+                data=data,
+                data_min=data_min,
+                data_max=data_max,
+                target=target,
+                eps=eps if (x_L is None and x_U is None) else None,
+                subselection_ratio=subselection_ratio,
+                n_steps=n_steps,
+                step_size=step_size,
+                restarts=restarts,
+                early_stopping=early_stopping,
+                x_L=x_L,
+                x_U=x_U,
+                pgd_x_L=None if pgd_ptb is None else pgd_ptb.x_L,
+                pgd_x_U=None if pgd_ptb is None else pgd_ptb.x_U,
+                decay_checkpoints=decay_checkpoints,
+                decay_factor=decay_factor
+            )
+
+
+        ptb = PerturbationLpNorm(
+            eps=tau,
+            norm=np.inf,
+            x_L=torch.clamp(propagation_inputs - tau, data_min, data_max).to(device),
+            x_U=torch.clamp(propagation_inputs + tau, data_min, data_max).to(device)
+        )
+
+        # Pass input through network to set batch statistics
+        adv_output = hardened_model(x_adv)
+
+        # Use intermediate_bound_model if provided and return intermediate bounds (as needed by STAPS), otherwise use hardened_model
+        lb, ub = bound_ibp(
+            model=hardened_model if intermediate_bound_model is None else intermediate_bound_model,
+            ptb=ptb,
+            data=propagation_inputs,
+            # Only provide target if intermediate_bound_model is not used (as we are not interested in final bound margins)
+            target=target if intermediate_bound_model is None else None,
+            n_classes=n_classes,
+            bound_upper=True,
+            reuse_input=False,
+            relu_upper_retention=relu_upper_retention
+        )
+
+        if return_adv_output:
+            return lb, ub, adv_output
+        return lb, ub
 
 def get_propagation_region(model, data, target, subselection_ratio, step_size, n_steps, restarts, x_L=None, x_U=None, data_min=None, data_max=None, eps=None, early_stopping=True, decay_factor=.1, decay_checkpoints=(4, 7), pgd_x_L=None, pgd_x_U=None):
     """
@@ -129,11 +142,12 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
     if eps is not None and data is not None:
         x_L=torch.clamp(data - eps, data_min, data_max).to(device)
         x_U=torch.clamp(data + eps, data_min, data_max).to(device)
-    else:
-        # TODO: This might break TAPS/STAPS
-        eps = torch.max((x_U - x_L))
-    
-    tau =  subselection_ratio * eps
+    if not 0 < subselection_ratio <= 1:
+        raise ValueError("subselection_ratio must be in (0, 1]")
+    if torch.any(x_L > x_U):
+        raise ValueError("Nominal lower bounds must not exceed upper bounds")
+    # Shrink each clipped interval, including pixels on the image boundary.
+    tau = subselection_ratio * (x_U - x_L) / 2
 
     attack_x_L = x_L if pgd_x_L is None else pgd_x_L
     attack_x_U = x_U if pgd_x_U is None else pgd_x_U
@@ -141,7 +155,7 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
         raise ValueError("PGD bounds must have the same shape as the nominal bounds")
     if torch.any(attack_x_L > attack_x_U):
         raise ValueError("PGD lower bounds must not exceed upper bounds")
-    
+
     x_adv = pgd_attack(
         model=model,
         data=data,
@@ -156,7 +170,7 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
         decay_checkpoints=decay_checkpoints,
         decay_factor=decay_factor
     )
-    
+
     propagation_inputs = torch.clamp(x_adv, x_L + tau, x_U - tau) # called midpoints in SABR code
     tau = torch.as_tensor(tau, device=device)
     return propagation_inputs, tau, x_adv

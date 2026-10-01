@@ -5,6 +5,7 @@ from smac.utils.configspace import get_config_hash
 from CTRAIN.model_wrappers.model_wrapper import CTRAINWrapper
 from CTRAIN.train.certified import mtl_ibp_train_model
 from CTRAIN.util import seed_ctrain
+from CTRAIN.bound.util import validate_hybrid_options
 
 class MTLIBPModelWrapper(CTRAINWrapper):
     """
@@ -16,7 +17,7 @@ class MTLIBPModelWrapper(CTRAINWrapper):
                  shi_reg_weight=.5, shi_reg_decay=True, pgd_steps=1, 
                  pgd_alpha=10, pgd_restarts=1, pgd_early_stopping=False, pgd_alpha_decay_factor=.1,
                  pgd_decay_milestones=(), pgd_eps_factor=1, mtl_ibp_alpha=0.5, checkpoint_save_path=None, checkpoint_save_interval=10,
-                 bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda')):
+                 bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda'), population_bn=False, relu_upper_retention=1.0):
         """
         Initializes the MTLIBPModelWrapper.
 
@@ -47,9 +48,13 @@ class MTLIBPModelWrapper(CTRAINWrapper):
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
+            population_bn (bool): Recalibrate BatchNorm on training data after every epoch.
+            relu_upper_retention (float): Fraction of unstable ReLU upper bounds retained during training; default 1.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval)
+        validate_hybrid_options(relu_upper_retention, pgd_eps_factor)
+        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval, population_bn=population_bn)
+        self.relu_upper_retention = relu_upper_retention
         self.cert_train_method = 'mtl_ibp'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -114,6 +119,8 @@ class MTLIBPModelWrapper(CTRAINWrapper):
             pgd_decay_checkpoints=self.pgd_decay_milestones,
             results_path=self.checkpoint_path,
             checkpoint_save_interval=self.checkpoint_save_interval,
+            population_bn=self.population_bn,
+            relu_upper_retention=self.relu_upper_retention,
             device=self.device
         )
         
@@ -149,6 +156,8 @@ class MTLIBPModelWrapper(CTRAINWrapper):
             eps=self.eps,
             num_epochs=epochs, 
             bound_opts=self.bound_opts,
+            population_bn=self.population_bn,
+            relu_upper_retention=self.relu_upper_retention,
             checkpoint_save_path=None,
             device=self.device,
             train_eps_factor=config['train_eps_factor'],

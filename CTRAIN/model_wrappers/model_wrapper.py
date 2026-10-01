@@ -23,7 +23,7 @@ class CTRAINWrapper(nn.Module):
     Wrapper base class for certifiably training models.
     """
     def __init__(self, model: nn.Module, eps:float, input_shape: tuple, train_eps_factor=1, lr=0.0005, optimizer_func=torch.optim.Adam,
-                 lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), bound_opts=dict(conv_mode='patches', relu='adaptive'), device='cuda', checkpoint_save_path=None, checkpoint_save_interval=10):
+                 lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), bound_opts=dict(conv_mode='patches', relu='adaptive'), device='cuda', checkpoint_save_path=None, checkpoint_save_interval=10, population_bn=False):
         """
         Initialize the CTRAINWrapper Base Class.
 
@@ -37,6 +37,7 @@ class CTRAINWrapper(nn.Module):
             bound_opts (dict, optional): Options for bounding the model. Default is {'conv_mode': 'patches', 'relu': 'adaptive'}.
             device (str or torch.device, optional): The device to run the model on. Default is 'cuda'.
             checkpoint_save_path (str, optional): Path to save checkpoints. Default is None.
+            population_bn (bool, optional): Recalibrate BatchNorm after each training epoch.
             checkpoint_save_interval (int, optional): Interval to save checkpoints. Default is 10.
 
         Attributes:
@@ -95,6 +96,7 @@ class CTRAINWrapper(nn.Module):
             os.makedirs(self.checkpoint_path, exist_ok=True)
 
         self.checkpoint_save_interval = checkpoint_save_interval
+        self.population_bn = population_bn
 
     def train(self, mode=True):
         """

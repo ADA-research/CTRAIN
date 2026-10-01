@@ -1,20 +1,17 @@
-from concurrent.futures import ProcessPoolExecutor
+import copy
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import numpy as np
-from auto_LiRPA import BoundedModule, PerturbationLpNorm
+from auto_LiRPA import PerturbationLpNorm
+from CTRAIN.bound.util import validate_hybrid_options
 
-from CTRAIN.bound.taps import GradExpander
-from CTRAIN.eval import eval_acc, eval_certified, eval_epoch
-from CTRAIN.bound import bound_ibp
 from CTRAIN.train.certified.eps_scheduler import SmoothedScheduler
-from CTRAIN.train.certified.losses import get_ibp_loss, get_sabr_loss, get_taps_loss
+from CTRAIN.train.certified.losses import get_sabr_loss, get_taps_loss
 from CTRAIN.train.certified.initialisation import ibp_init_shi
 from CTRAIN.train.certified.regularisers import get_shi_regulariser
 from CTRAIN.util import save_checkpoint
 from CTRAIN.train.certified.regularisers import get_l1_reg
-from CTRAIN.train.certified.util import split_network
+from CTRAIN.train.certified.util import evaluate_taps_proxy, synchronise_bn
 from CTRAIN.train.certified.progress import progress_bar, update_progress, log_epoch_summary
 
 
@@ -57,6 +54,10 @@ def staps_train_model(
     results_path="./results",
     checkpoint_save_interval=10,
     device="cuda",
+    population_bn=False,
+    validation_eps=None,
+    relu_upper_retention=1.0,
+    pgd_eps_factor=1.0,
 ):
     """
     Trains a hardened model using the STAPS training method.
@@ -65,7 +66,7 @@ def staps_train_model(
         original_model (torch.nn.Module): The original model to be hardened.
         hardened_model (auto_LiRPA.BoundedModule): The bounded model to be trained.
         train_loader (torch.utils.data.DataLoader): DataLoader for the training data.
-        val_loader (torch.utils.data.DataLoader, optional): DataLoader for the validation data. Defaults to None.
+        val_loader (torch.utils.data.DataLoader, optional): Optional validation data. Selects the best model by full-epsilon latent-margin accuracy after ramp-up; otherwise returns the final model.
         start_epoch (int, optional): Epoch to start training from. Defaults to 0.
         end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
         num_epochs (int, optional): Number of epochs to train the model. Defaults to None.
@@ -101,11 +102,16 @@ def staps_train_model(
         start_epoch (int, optional): Epoch to start training from. Defaults to 0.
         results_path (str, optional): Path to save training results. Defaults to "./results".
         checkpoint_save_interval (int, optional): Interval for saving checkpoints. Defaults to 10.
+        population_bn (bool, optional): Recalibrate BatchNorm on the training loader after each epoch.
+        pgd_eps_factor (float): PGD search range factor; does not change nominal IBP bounds.
+        validation_eps (float, optional): Evaluation radius for checkpoint selection; defaults to training epsilon.
+        relu_upper_retention (float): Retained unstable ReLU upper bound fraction for training; default 1.
         device (str, optional): Device to use for training ('cuda' or 'cpu'). Defaults to 'cuda'.
 
     Returns:
         (autoLiRPA.BoundedModule): The trained bounded model.
     """
+    validate_hybrid_options(relu_upper_retention, pgd_eps_factor)
     if end_epoch is None:
         end_epoch = num_epochs
 
@@ -129,6 +135,8 @@ def staps_train_model(
     )
 
     cur_eps = eps_scheduler.get_cur_eps()
+    best_accuracy, best_state = -1.0, None
+    selection_models = (original_model, hardened_model, *hardened_model.bounded_blocks)
 
     for epoch in range(start_epoch, end_epoch):
 
@@ -138,6 +146,8 @@ def staps_train_model(
         epoch_nat_err = 0
         epoch_rob_err = 0
 
+        original_model.train()
+        hardened_model.train()
         for block in hardened_model.bounded_blocks:
             block.train()
 
@@ -178,11 +188,14 @@ def staps_train_model(
 
             if eps_scheduler.get_cur_eps(normalise=False) == 0.0:
                 loss = clean_loss
+                epoch_rob_err += regular_err
             elif eps_scheduler.get_cur_eps(normalise=False) != 0.0 and (
                 eps_scheduler.get_cur_eps(normalise=False)
                 != eps_scheduler.get_max_eps(normalise=False)
             ):
                 reg_loss, robust_err, adv_err = get_sabr_loss(
+                    relu_upper_retention=relu_upper_retention,
+                    pgd_eps_factor=pgd_eps_factor,
                     hardened_model=hardened_model,
                     original_model=original_model,
                     data_max=data_max,
@@ -204,6 +217,7 @@ def staps_train_model(
                 )
 
                 loss_regularisers = get_shi_regulariser(
+                    relu_upper_retention=relu_upper_retention,
                     model=hardened_model,
                     ptb=ptb,
                     data=data,
@@ -241,6 +255,8 @@ def staps_train_model(
                     decay_factor=sabr_pgd_decay_factor,
                 )
                 loss, robust_err = get_taps_loss(
+                    relu_upper_retention=relu_upper_retention,
+                    pgd_eps_factor=pgd_eps_factor,
                     original_model=original_model,
                     hardened_model=hardened_model,
                     bounded_blocks=hardened_model.bounded_blocks,
@@ -286,7 +302,7 @@ def staps_train_model(
                 progress,
                 loss=running_loss / completed_batches,
                 nat_acc=1 - epoch_nat_err / completed_batches,
-                cert_acc=1 - epoch_rob_err / completed_batches,
+                robust_acc=1 - epoch_rob_err / completed_batches,
                 lr=optimizer.param_groups[-1]["lr"],
             )
             eps_scheduler.batch_step()
@@ -303,8 +319,37 @@ def staps_train_model(
             num_epochs=num_epochs,
             loss=running_loss / len(train_loader),
             nat_acc=train_acc_nat,
-            cert_acc=train_acc_cert,
+            robust_acc=train_acc_cert,
         )
+
+        synchronise_bn(original_model, hardened_model, train_loader, device, population_bn)
+
+        # Compare only at the fixed evaluation radius, after the ramp-up phase.
+        if val_loader is not None and cur_eps.equal(eps_scheduler.get_max_eps().reshape(-1, 1, 1)):
+            eval_eps = eps if validation_eps is None else validation_eps
+            val_eps = eval_eps / val_loader.std if val_loader.normalised else torch.tensor(eval_eps)
+            accuracy = evaluate_taps_proxy(
+                original_model, hardened_model, val_loader, val_eps, n_classes, device,
+                relu_upper_retention=relu_upper_retention, pgd_eps_factor=pgd_eps_factor,
+                pgd_steps=taps_pgd_steps, pgd_restarts=taps_pgd_restarts,
+                pgd_step_size=taps_pgd_step_size,
+                pgd_decay_factor=taps_pgd_decay_factor,
+                pgd_decay_checkpoints=taps_pgd_decay_checkpoints,
+                gradient_link_thresh=taps_gradient_link_thresh,
+                gradient_link_tolerance=taps_gradient_link_tolerance,
+                propagation="SABR",
+                sabr_args=dict(
+                    subselection_ratio=subselection_ratio, n_steps=sabr_pgd_steps,
+                    step_size=sabr_pgd_step_size, restarts=sabr_pgd_restarts,
+                    early_stopping=sabr_pgd_early_stopping,
+                    decay_factor=sabr_pgd_decay_factor,
+                    decay_checkpoints=sabr_pgd_decay_checkpoints,
+                ),
+            )
+            print(f"Validation robust_proxy_acc={accuracy:.4f}")
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                best_state = copy.deepcopy([model.state_dict() for model in selection_models])
 
         if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
             save_checkpoint(
@@ -314,4 +359,7 @@ def staps_train_model(
         if lr_scheduler is not None and lr_decay_schedule_unit == "epoch":
             lr_scheduler.step()
 
+    if best_state is not None:
+        for model, state in zip(selection_models, best_state):
+            model.load_state_dict(state)
     return hardened_model

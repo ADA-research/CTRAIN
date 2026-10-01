@@ -4,6 +4,21 @@ import random
 import numpy as np
 import onnx
 import inspect
+from contextlib import contextmanager
+
+
+@contextmanager
+def preserve_model_state(*models):
+    """Restore module modes and parameter gradient flags, including on failure."""
+    modes = {module: module.training for model in models for module in model.modules()}
+    gradients = {param: param.requires_grad for model in models for param in model.parameters()}
+    try:
+        yield
+    finally:
+        for module, training in modes.items():
+            module.training = training
+        for param, requires_grad in gradients.items():
+            param.requires_grad_(requires_grad)
 
 def export_onnx(model, file_name, batch_size, input_shape):
     """

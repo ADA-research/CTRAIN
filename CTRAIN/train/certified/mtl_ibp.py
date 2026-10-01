@@ -2,12 +2,14 @@ import torch
 import torch.nn as nn
 import numpy as np
 from auto_LiRPA import PerturbationLpNorm
+from CTRAIN.bound.util import validate_hybrid_options
 
 from CTRAIN.train.certified.eps_scheduler import SmoothedScheduler
 from CTRAIN.train.certified.losses import get_mtl_ibp_loss
 from CTRAIN.train.certified.initialisation import ibp_init_shi
 from CTRAIN.train.certified.regularisers import get_shi_regulariser
 from CTRAIN.util import save_checkpoint
+from CTRAIN.train.certified.util import synchronise_bn
 from CTRAIN.train.certified.regularisers import get_l1_reg
 from CTRAIN.train.certified.progress import progress_bar, update_progress, log_epoch_summary
 
@@ -44,6 +46,8 @@ def mtl_ibp_train_model(
     results_path="./results",
     checkpoint_save_interval=10,
     device="cuda",
+    relu_upper_retention=1.0,
+    population_bn=False,
 ):
     """
     Trains a model using the MTL-IBP method.
@@ -80,12 +84,15 @@ def mtl_ibp_train_model(
         pgd_early_stopping (bool, optional): Whether to use early stopping for PGD. Defaults to False.
         results_path (str, optional): Path to save the results. Defaults to "./results".
         checkpoint_save_interval (int, optional): Interval for saving checkpoints. Defaults to 10.
+        relu_upper_retention (float): Retained unstable ReLU upper bound fraction for training; default 1.
+        population_bn (bool): Recalibrate BatchNorm after each epoch; default False.
         device (str, optional): Device to use for training ('cuda' or 'cpu'). Defaults to 'cuda'.
 
     Returns:
         (auto_LiRPA.BoundedModule): The trained hardened model.
     """
 
+    validate_hybrid_options(relu_upper_retention, pgd_eps_factor)
     if end_epoch is None:
         end_epoch = num_epochs
                         
@@ -153,22 +160,14 @@ def mtl_ibp_train_model(
 
             if eps_scheduler.get_cur_eps(normalise=False) != 0.0:
 
-                if pgd_eps_factor == 1:
-                    pgd_ptb = ptb
-                else:
-                    pgd_eps = cur_eps_device * pgd_eps_factor
-                    pgd_ptb = PerturbationLpNorm(
-                        eps=pgd_eps,
-                        norm=np.inf,
-                        x_L=torch.clamp(data - pgd_eps, data_min, data_max),
-                        x_U=torch.clamp(data + pgd_eps, data_min, data_max),
-                    )
-
                 loss, robust_err, adv_err = get_mtl_ibp_loss(
+                    relu_upper_retention=relu_upper_retention,
+                    pgd_eps_factor=pgd_eps_factor,
                     hardened_model=hardened_model,
                     original_model=original_model,
                     ptb=ptb,
                     data=data,
+                    data_min=data_min, data_max=data_max, eps=cur_eps_device,
                     target=target,
                     n_classes=n_classes,
                     criterion=criterion,
@@ -178,7 +177,6 @@ def mtl_ibp_train_model(
                     restarts=pgd_restarts,
                     step_size=pgd_step_size,
                     n_steps=pgd_n_steps,
-                    pgd_ptb=pgd_ptb,
                     early_stopping=pgd_early_stopping,
                     decay_checkpoints=pgd_decay_checkpoints,
                     decay_factor=pgd_decay_factor,
@@ -195,6 +193,7 @@ def mtl_ibp_train_model(
             ):
                 # Important Change to Vanilla IBP: Regularise Unstable ReLUs and Bound Tightness during Warm Up/Ramp Up
                 loss_regularisers = get_shi_regulariser(
+                    relu_upper_retention=relu_upper_retention,
                     model=hardened_model,
                     ptb=ptb,
                     data=data,
@@ -232,7 +231,8 @@ def mtl_ibp_train_model(
                 loss=running_loss / completed_batches,
                 nat_acc=1 - epoch_nat_err / completed_batches,
                 adv_acc=1 - epoch_adv_err / completed_batches,
-                cert_acc=1 - epoch_rob_err / completed_batches,
+                **{"cert_acc" if relu_upper_retention == 1 else "robust_acc":
+                   1 - epoch_rob_err / completed_batches},
                 lr=optimizer.param_groups[-1]["lr"],
             )
             eps_scheduler.batch_step()
@@ -251,8 +251,10 @@ def mtl_ibp_train_model(
             loss=running_loss / len(train_loader),
             nat_acc=train_acc_nat,
             adv_acc=train_acc_adv,
-            cert_acc=train_acc_cert,
+            **{"cert_acc" if relu_upper_retention == 1 else "robust_acc": train_acc_cert},
         )
+
+        synchronise_bn(original_model, hardened_model, train_loader, device, population_bn)
 
         if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
             save_checkpoint(
