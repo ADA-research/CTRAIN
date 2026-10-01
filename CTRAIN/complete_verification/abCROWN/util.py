@@ -157,7 +157,7 @@ bab:
   sort_domain_interval: -1  # If unsorted domains are used, sort the domains every sort_domain_interval iterations.
   vanilla_crown: false  # Use vanilla CROWN during BaB.
   tree_traversal: depth_first  # During BaB, unknown domains can continue being split (deepening the tree, i.e. depth first traversal) or split only when all other unknown domains have the same number of splits (keeping the tree shallow for as long as possible, i.e. breadth first traversal). Depth first traversal minimizes memory access time, breadth first traversal is beneficial for BICCOS.
-  hugetensor_allocator: true  # Use the default tensor allocator instead of the HugeTensor allocator.
+  hugetensor_allocator: false  # Always use the PyTorch allocator.
   cut:
     enabled: false  # Enable cutting planes using GCP-CROWN.
     cuts_path: null  # For cuts from CPLEX, specify the path for saving intermediate files with generated cuts.

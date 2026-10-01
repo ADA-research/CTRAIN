@@ -34,18 +34,20 @@ def export_onnx(model, file_name, batch_size, input_shape):
     Returns:
         None
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-        # Input to the model
+    reference = next(model.parameters(), None)
+    if reference is None:
+        reference = next(model.buffers(), torch.empty(0))
+    device, dtype = reference.device, reference.dtype
+    # Input to the model
     if len(input_shape) == 4:
         batch_size = input_shape[0]
         input_shape = input_shape[1:4]
-    x = torch.randn(batch_size, *input_shape, requires_grad=False).to(device)
-    torch_out = model(x)
+    x = torch.randn(batch_size, *input_shape, device=device, dtype=dtype, requires_grad=False)
 
     export_kwargs = {
         "export_params": True,
         "opset_version": 18,
-        "do_constant_folding": True,
+        "do_constant_folding": False,
         "input_names": ["input"],
         "output_names": ["output"],
         "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
@@ -56,8 +58,17 @@ def export_onnx(model, file_name, batch_size, input_shape):
         export_kwargs["dynamo"] = False
 
     # Export the model
-    torch.onnx.export(model, x, file_name, **export_kwargs)
-    remove_training_mode_attr(file_name, file_name)
+    with preserve_model_state(model), torch.no_grad():
+        model.eval()
+        expected = model(x).detach()
+        torch.onnx.export(model, x, file_name, **export_kwargs)
+        remove_training_mode_attr(file_name, file_name)
+        import onnxruntime as ort
+        session = ort.InferenceSession(str(file_name), providers=["CPUExecutionProvider"])
+        actual = session.run(None, {session.get_inputs()[0].name: x.cpu().numpy()})[0]
+        if not np.allclose(expected.cpu().numpy(), actual, rtol=1e-4, atol=1e-5):
+            error = np.max(np.abs(expected.cpu().numpy() - actual))
+            raise RuntimeError(f"ONNX export changed model outputs (max error {error:g})")
     print(f"Model exported to {file_name}")
     
 def remove_training_mode_attr(onnx_path, output_path):

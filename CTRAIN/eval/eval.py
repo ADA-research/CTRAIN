@@ -3,7 +3,7 @@ import os
 import time
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 import numpy as np
 
 import shutil
@@ -22,7 +22,9 @@ from CTRAIN.complete_verification.abCROWN.verify import (
     limited_abcrown_eval,
     abcrown_eval,
 )
+from CTRAIN.complete_verification.neuralsat import neuralsat_eval, validate_neuralsat_command, validate_neuralsat_options
 from CTRAIN.util import export_onnx, construct_c
+from CTRAIN.util.util import preserve_model_state
 
 from contextlib import redirect_stdout, contextmanager
 
@@ -58,8 +60,8 @@ def _to_device_tensor(value, device):
     return value.to(device) if torch.is_tensor(value) else torch.as_tensor(value, device=device)
 
 
-def eval_acc(model, test_loader, test_samples=np.inf):
-    device = torch.device(
+def eval_acc(model, test_loader, test_samples=np.inf, device=None):
+    device = torch.device(device) if device is not None else torch.device(
         "cuda"
         if torch.cuda.is_available()
         else "mps"
@@ -355,7 +357,7 @@ def eval_alpha_crown(
     return certified, total_images, results
 
 
-def eval_complete_abcrown(
+def eval_complete(
     model,
     eps_std,
     data_loader,
@@ -373,9 +375,12 @@ def eval_complete_abcrown(
     start_idx=0,
     end_idx=None,
     results_filename="results.json",
+    engine="abcrown",
+    neuralsat_command=None,
+    neuralsat_batch_size=1000,
 ):
     """
-    Evaluate the model using the complete ABCROWN method. Attention, this evaluation may be very costly!
+    Evaluate the model using alpha-beta-CROWN or NeuralSAT. Attention, this evaluation may be very costly!
 
     Parameters:
         model (auto_LiRPA.BoundedModule): The neural network model to be evaluated.
@@ -390,16 +395,28 @@ def eval_complete_abcrown(
         separate_abcrown_process (bool, optional): Whether to run ABCROWN in a separate process. Default is False.
         device (str, optional): Device to run the evaluation on. Default is 'cuda'.
         results_path (str, optional): Path to save the results of the ABCROWN evaluation. Default is "./abCROWN_results".
-        warm_start (bool, optional): Whether to skip verification for instances where the results file contains an result already.
+        warm_start (bool, optional): Whether to reuse existing per-instance results.
+        engine (str): "abcrown" (default) or "neuralsat".
+        neuralsat_command (list): NeuralSAT argv prefix; None uses the bundled solver.
+        neuralsat_batch_size (int): NeuralSAT maximum parallel branches (default 1000).
 
     Returns:
         (tuple): A tuple containing the certified accuracy and the adversarial accuracy.
     """
 
+    if engine not in ("abcrown", "neuralsat"):
+        raise ValueError("engine must be 'abcrown' or 'neuralsat'")
+    if engine == "neuralsat":
+        neuralsat_command = validate_neuralsat_command(neuralsat_command)
+        validate_neuralsat_options(timeout, device, neuralsat_batch_size)
+        if abcrown_config_dict is not None:
+            raise ValueError("abcrown_config_dict cannot be used with NeuralSAT")
+    method_name = "abCROWN" if engine == "abcrown" else "neuralsat"
+
     eps_std = eps_std.to(device)
 
     os.makedirs(results_path, exist_ok=True)
-    os.makedirs(f"{results_path}/abCROWN_logs/", exist_ok=True)
+    os.makedirs(f"{results_path}/{method_name}_logs/", exist_ok=True)
     test_limit = min(int(test_samples), len(data_loader.dataset)) if test_samples < np.inf else len(data_loader.dataset)
     start_idx = max(0, int(start_idx))
     end_idx = test_limit if end_idx is None else min(test_limit, int(end_idx))
@@ -415,6 +432,8 @@ def eval_complete_abcrown(
         print(f"Loaded {len(results)} results from {results_file}")
         results = {int(k): v for k, v in results.items()}
         for idx, item in results.items():
+            if item.get("method") not in (None, method_name, "clean_classification", "IBP", "CROWN-IBP", "CROWN", "PGD"):
+                raise ValueError("Warm-start results belong to a different verification engine")
             if item.get('running_time') is None:
                 item['running_time'] = 0
     else:
@@ -440,8 +459,90 @@ def eval_complete_abcrown(
 
     batch_size = data_loader.batch_size
 
-    std_config = get_abcrown_standard_conf(timeout=timeout, no_cores=no_cores)
-    std_config["solver"]["batch_size"] = abcrown_batch_size
+    def subset_loader(indices):
+        loader = DataLoader(
+            Subset(data_loader.dataset, indices),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=getattr(data_loader, "num_workers", 0),
+        )
+        for name in ("mean", "std", "min", "max", "normalised"):
+            if hasattr(data_loader, name):
+                setattr(loader, name, getattr(data_loader, name))
+        return loader
+
+    model.eval()
+    pending = [
+        idx for idx in range(start_idx, end_idx)
+        if results[idx].get("result") not in ("sat", "unsat", "timeout")
+    ]
+    for idx in pending:
+        results[idx]["result"] = None
+    clean_pending = []
+    seen = 0
+    with torch.no_grad():
+        for data, targets in subset_loader(pending):
+            correct = model(data.to(device)).argmax(1).cpu() == targets
+            for local_idx, is_correct in enumerate(correct):
+                idx = pending[seen + local_idx]
+                if is_correct:
+                    clean_pending.append(idx)
+                else:
+                    results[idx] = {"result": "sat", "method": "clean_classification", "running_time": 0}
+                    adv_sample_found[idx] = True
+            seen += len(targets)
+
+    if clean_pending:
+        _, _, incomplete_certified, incomplete_results = eval_adaptive(
+            model=model,
+            eps=eps_std,
+            data_loader=subset_loader(clean_pending),
+            n_classes=n_classes,
+            test_samples=len(clean_pending),
+            device=device,
+            methods=["IBP", "CROWN"],
+        )
+        for local_idx, idx in enumerate(clean_pending):
+            record = incomplete_results[local_idx]
+            results[idx] = {
+                "result": "unsat" if incomplete_certified[local_idx] else None,
+                "method": record.get("method"),
+                "running_time": record.get("running_time") or 0,
+            }
+            if incomplete_certified[local_idx]:
+                certified[idx] = True
+
+    pgd_pending = [idx for idx in clean_pending if not certified[idx]]
+    if pgd_pending:
+        _, pgd_found, pgd_results = eval_adversarial(
+            model=model,
+            data_loader=subset_loader(pgd_pending),
+            eps=eps_std,
+            n_classes=n_classes,
+            device=device,
+            test_samples=len(pgd_pending),
+            return_adv_indices=True,
+            early_stopping=True,
+        )
+        for local_idx, idx in enumerate(pgd_pending):
+            pgd_record = pgd_results[local_idx]
+            running_time = results[idx]["running_time"] + (pgd_record.get("running_time") or 0)
+            if pgd_found[local_idx]:
+                results[idx] = {"result": "sat", "method": "PGD", "running_time": running_time}
+                adv_sample_found[idx] = True
+            else:
+                results[idx]["running_time"] = running_time
+
+    write_json_atomic(results_file, results)
+    no_certified = torch.sum(certified).item()
+    unresolved = [
+        idx for idx in range(start_idx, end_idx)
+        if results[idx].get("result") not in ("sat", "unsat", "timeout")
+    ]
+
+    std_config = get_abcrown_standard_conf(timeout=timeout, no_cores=no_cores) if engine == "abcrown" else {}
+    if engine == "abcrown":
+        std_config["solver"]["batch_size"] = abcrown_batch_size
     if abcrown_config_dict is not None:
         def update_config(base_config, custom_config):
             for key, value in custom_config.items():
@@ -451,19 +552,22 @@ def eval_complete_abcrown(
                     base_config[key] = value
 
         update_config(std_config, abcrown_config_dict)
+    if engine == "abcrown":
+        std_config["bab"]["hugetensor_allocator"] = False
 
-    tmp_root = f"/tmp/abCROWN_{os.getpid()}_{start_idx}_{end_idx}"
+    tmp_root = f"/tmp/{method_name}_{os.getpid()}_{start_idx}_{end_idx}"
     os.makedirs(tmp_root, exist_ok=True)
     model_onnx_path = f"{tmp_root}/model.onnx"
 
-    export_onnx(
-        model=model,
-        file_name=model_onnx_path,
-        batch_size=1,
-        input_shape=input_shape,
-    )
+    if unresolved:
+        export_onnx(
+            model=model,
+            file_name=model_onnx_path,
+            batch_size=1,
+            input_shape=input_shape,
+        )
 
-    for batch_idx, (data, targets) in tqdm(enumerate(data_loader)):
+    for batch_idx, (data, targets) in tqdm(enumerate(data_loader if unresolved else ())):
         batch_start = batch_idx * batch_size
         batch_end = batch_start + len(targets)
         if batch_start >= end_idx:
@@ -530,13 +634,19 @@ def eval_complete_abcrown(
         print(adv_sample_found[global_indices[0] : global_indices[-1] + 1])
         print(certified[global_indices[0] : global_indices[-1] + 1])
         for idx, vnn_instance in zip(vnnlib_indices, vnnlib_batch):
-            if results[idx]["result"] is not None:
+            if results[idx]["result"] in ("sat", "unsat", "timeout"):
                 print(f"Skipping instance {idx} as it already has a result: {results[idx]['result']}")
                 continue
             if idx >= test_limit:
                 print(f"Skipping instance {idx} as it exceeds test_samples {test_samples}")
                 continue
-            if separate_abcrown_process:
+            if engine == "neuralsat":
+                running_time, result = neuralsat_eval(
+                    model_onnx_path, vnn_instance, neuralsat_command,
+                    timeout=timeout, device=device, batch_size=neuralsat_batch_size,
+                    log_path=f"{results_path}/{method_name}_logs/{idx}.log",
+                )
+            elif separate_abcrown_process:
                 running_time, result = limited_abcrown_eval(
                     # work_dir='/tmp/abCROWN',
                     config=std_config,
@@ -587,7 +697,7 @@ def eval_complete_abcrown(
 
             results[idx] = {
                 "result": result,
-                "method": "abCROWN",
+                "method": method_name,
                 "running_time": running_time + results[idx]["running_time"],
             }
             write_json_atomic(results_file, results)
@@ -636,6 +746,11 @@ def eval_complete_abcrown(
 
     return certified_acc, adv_acc
 
+
+def eval_complete_abcrown(*args, **kwargs):
+    """Backward-compatible alpha-beta-CROWN evaluation entry point."""
+    return eval_complete(*args, **kwargs)
+
 def eval_adaptive(
     model,
     eps,
@@ -659,167 +774,56 @@ def eval_adaptive(
         device (str, optional): Device to run the evaluation on. Default is 'cuda'.
 
     Returns:
-        (tuple): A tuple containing the number of certified samples, total number of images evaluated, and a tensor holding per-instance certification results.
+        (tuple): Certified count, evaluated count, per-instance certification mask, and result records.
     """
     eps = _to_device_tensor(eps, device)
     methods = _canonical_methods(methods)
-    assert methods is not None and len(methods) >= 1, (
-        "Please provide at least one bounding method!"
-    )
-
-    certified = torch.tensor([], device=device)
-    total_images = 0
-
-    crown_data_loader = DataLoader(data_loader.dataset, batch_size=1, shuffle=False)
-    crown_data_loader.max, crown_data_loader.min, crown_data_loader.std = (
-        data_loader.max,
-        data_loader.min,
-        data_loader.std,
-    )
-
-    results = {
-        i: {"result": None, "method": None, "running_time": None}
-        for i in range(min(len(data_loader.dataset), test_samples))
-    }
-
-    for batch_idx, (data, targets) in tqdm(enumerate(data_loader)):
-        certified_idx = torch.zeros(len(data), device=device, dtype=torch.bool)
-        data, targets = data.to(device), targets.to(device)
-        data_min, data_max = data_loader.min.to(device), data_loader.max.to(device)
-
-        ptb = PerturbationLpNorm(
-            eps=eps,
-            norm=np.inf,
-            x_L=torch.clamp(data - eps, data_min, data_max),
-            x_U=torch.clamp(data + eps, data_min, data_max),
-        )
-
-        if batch_idx * data_loader.batch_size >= test_samples:
-            continue
-
-        total_images += len(targets)
-
-        if "IBP" in methods:
-            start_time = time.time()
-            lb, ub = bound_ibp(
-                model=model,
-                ptb=ptb,
-                data=data,
-                target=targets,
-                n_classes=n_classes,
-                reuse_input=False,
-            )
-            end_time = time.time()
-            certified_idx[(lb > 0).all(dim=1)] = True
-
-            results.update({
-                batch_idx * data_loader.batch_size + i: {
-                    "result": 'unsat' if (lb[i] > 0).all().item() else None,
-                    "method": "IBP",
-                    "running_time": (end_time - start_time) / len(targets),
-                }
-                for i in range(len(targets))
-            })
-
-
-        ptb = PerturbationLpNorm(
-            eps=eps,
-            norm=np.inf,
-            x_L=torch.clamp(
-                data[~certified_idx] - eps, data_min, data_max
-            ),
-            x_U=torch.clamp(
-                data[~certified_idx] + eps, data_min, data_max
-            ),
-        )
-        data = data.to(device)
-        certified_idx = certified_idx.to(device)
-
-        if torch.sum(~certified_idx) > 0 and "CROWN-IBP" in methods:
-            start_time = time.time()
-            lb, ub = bound_crown_ibp(
-                model=model,
-                ptb=ptb,
-                data=data[~certified_idx],
-                target=targets[~certified_idx],
-                n_classes=n_classes,
-                reuse_input=False,
-            )
-            end_time = time.time()
-            uncertified_indices = torch.where(~certified_idx)[0]
-
-            # Update certification status for the uncertified samples
-            certified_idx[~certified_idx] = (lb > 0).all(dim=1)
-
-            # Update results only for the samples that were actually evaluated by CROWN-IBP
-            crown_ibp_results = {}
-            for lb_idx, original_idx in enumerate(uncertified_indices):
-                instance_id = batch_idx * data_loader.batch_size + original_idx.item()
-                crown_ibp_results[instance_id] = {
-                    "result": 'unsat' if (lb[lb_idx] > 0).all().item() else None,
-                    "method": "CROWN-IBP",
-                    "running_time": (end_time - start_time) / len(targets),
-                }
-
-            results.update(crown_ibp_results)
-
-        certified = torch.cat((certified, certified_idx))
-
-    print(
-        f"certified {torch.sum(certified).item()} / {len(certified)} using IBP",
-        flush=True,
-    )
-
-    for batch_idx, (data, targets) in tqdm(enumerate(crown_data_loader)):
-        if batch_idx >= test_samples or not ("CROWN" in methods):
-            break
-        if certified[batch_idx]:
-            continue
-
-        data = data.to(device)
-        ptb = PerturbationLpNorm(
-            eps=eps,
-            norm=np.inf,
-            x_L=torch.clamp(data - eps, data_loader.min.to(device), data_loader.max.to(device)),
-            x_U=torch.clamp(data + eps, data_loader.min.to(device), data_loader.max.to(device)),
-        )
-        data, targets = data.to(device), targets.to(device)
-        start_time = time.time()
-        lb, ub = bound_crown(
-            model=model,
-            ptb=ptb,
-            data=data,
-            target=targets,
-            n_classes=n_classes,
-            reuse_input=False,
-        )
-        end_time = time.time()
-        instance_certified = (lb > 0).all(dim=1).item()
-        certified[batch_idx] = instance_certified
-
-        results[batch_idx] = {
-            "result": 'unsat' if instance_certified else None,
-            "method": "CROWN",
-            "running_time": (end_time - start_time) / len(targets),
-        }
-
-    if test_samples < np.inf:
-        certified = certified[:test_samples]
-    no_certified = torch.sum(certified)
-    total_images = len(certified)
-
-    if "CROWN" in methods:
-        print(
-            f"certified {torch.sum(certified).item()} / {len(certified)} after using CROWN",
-            flush=True,
-        )
-
-    return no_certified, total_images, certified, results
+    if isinstance(methods, str):
+        methods = [methods]
+    if not methods or any(method not in ('IBP', 'CROWN-IBP', 'CROWN') for method in methods):
+        raise ValueError('Adaptive methods must contain IBP, CROWN-IBP, or CROWN')
+    limit = min(len(data_loader.dataset), int(test_samples)) if test_samples < np.inf else len(data_loader.dataset)
+    certified = torch.zeros(limit, dtype=torch.bool, device=device)
+    results = {i: {"result": None, "method": None, "running_time": 0.} for i in range(limit)}
+    seen = 0
+    data_min = _to_device_tensor(data_loader.min, device)
+    data_max = _to_device_tensor(data_loader.max, device)
+    with preserve_model_state(model):
+        model.eval()
+        for data, targets in data_loader:
+            if seen >= limit:
+                break
+            count = min(len(targets), limit - seen)
+            data, targets = data[:count].to(device), targets[:count].to(device)
+            for method, bound in [('IBP', bound_ibp), ('CROWN-IBP', bound_crown_ibp), ('CROWN', bound_crown)]:
+                if method not in methods:
+                    continue
+                pending = torch.where(~certified[seen:seen + count])[0]
+                groups = pending.split(1) if method == 'CROWN' else [pending]
+                for indices in groups:
+                    if not len(indices):
+                        continue
+                    inputs, labels = data[indices], targets[indices]
+                    ptb = PerturbationLpNorm(eps=eps, norm=np.inf,
+                        x_L=torch.clamp(inputs - eps, data_min, data_max),
+                        x_U=torch.clamp(inputs + eps, data_min, data_max))
+                    start = time.monotonic()
+                    lb, _ = bound(model=model, ptb=ptb, data=inputs, target=labels,
+                                  n_classes=n_classes, reuse_input=False)
+                    elapsed = (time.monotonic() - start) / len(indices)
+                    verified = (lb > 0).all(dim=1)
+                    certified[seen + indices] = verified
+                    for index, success in zip(indices.tolist(), verified.tolist()):
+                        record = results[seen + index]
+                        record.update(result='unsat' if success else None, method=method,
+                                      running_time=record['running_time'] + elapsed)
+            seen += count
+    return certified[:seen].sum(), seen, certified[:seen], results
 
 
 # TODO: can we maybe spare no_classes?
 def eval_certified(
-    model, data_loader, eps, n_classes=10, test_samples=np.inf, method="IBP"
+    model, data_loader, eps, n_classes=10, test_samples=np.inf, method="IBP", device=None
 ):
     """
     Evaluate the certified robustness of a model using a given verification method.
@@ -836,7 +840,7 @@ def eval_certified(
         (float): The certified accuracy of the model on the test examples for the given epsilon.
         (dict): A dictionary containing per-instance certification results and running times.
     """
-    device = torch.device(
+    device = torch.device(device) if device is not None else torch.device(
         "cuda"
         if torch.cuda.is_available()
         else "mps"
@@ -1022,7 +1026,7 @@ def eval_model(
     Returns:
         tuple: (std_acc (float): Standard accuracy of the model, cert_acc (float): Certified accuracy of the model, adv_acc (float): Adversarial accuracy of the model)
     """
-    std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples)
+    std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples, device=device)
     cert_acc, _ = eval_certified(
         model=model,
         data_loader=data_loader,
@@ -1030,6 +1034,7 @@ def eval_model(
         eps=eps,
         test_samples=test_samples,
         method=method,
+        device=device,
     )
     adv_acc = eval_adversarial(
         model=model,
@@ -1076,7 +1081,7 @@ def eval_epoch(
     """
     os.makedirs(results_path, exist_ok=True)
     model.eval()
-    std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples)
+    std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples, device=device)
     if (eps == 0.0).all():
         cert_acc = adv_acc = std_acc
     else:

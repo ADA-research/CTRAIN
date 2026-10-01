@@ -8,7 +8,8 @@ from auto_LiRPA.bound_general import BoundedModule
 from smac import Scenario, HyperparameterOptimizationFacade
 from smac.utils.configspace import get_config_hash
 
-from CTRAIN.eval.eval import eval_acc, eval_model, eval_complete_abcrown
+from CTRAIN.complete_verification.neuralsat import validate_neuralsat_command, validate_neuralsat_options
+from CTRAIN.eval.eval import eval_acc, eval_model, eval_complete
 from CTRAIN.model_wrappers.configs import get_config_space
 
 
@@ -160,9 +161,12 @@ class CTRAINWrapper(nn.Module):
         start_idx=0,
         end_idx=None,
         results_filename="results.json",
+        engine="abcrown",
+        neuralsat_command=None,
+        neuralsat_batch_size=1000,
     ):
         """
-        Evaluate the model using the complete verification tool abCROWN.
+        Evaluate the model using alpha-beta-CROWN (default) or NeuralSAT.
 
         Args:
             test_loader (DataLoader): DataLoader for the test set.
@@ -176,14 +180,24 @@ class CTRAINWrapper(nn.Module):
             start_idx (int, optional): First dataset index to verify. Defaults to 0.
             end_idx (int, optional): Exclusive end dataset index to verify. Defaults to None.
             results_filename (str, optional): JSON file name under results_path. Defaults to 'results.json'.
+            engine (str): 'abcrown' (default) or 'neuralsat'.
+            neuralsat_command (list): Argv prefix; None uses the bundled solver.
+            neuralsat_batch_size (int): Maximum NeuralSAT parallel branches. Defaults to 1000.
 
         Returns:
             (tuple): A tuple containing: std_acc (float): Standard accuracy of the model on the test set, certified_acc (float): Certified accuracy of the model on the test set and adv_acc (float): Adversarial accuracy of the model on the test set.
         """
+        if engine not in ("abcrown", "neuralsat"):
+            raise ValueError("engine must be 'abcrown' or 'neuralsat'")
+        if engine == "neuralsat":
+            neuralsat_command = validate_neuralsat_command(neuralsat_command)
+            validate_neuralsat_options(timeout, self.device, neuralsat_batch_size)
+            if abcrown_config_dict is not None:
+                raise ValueError("abcrown_config_dict cannot be used with NeuralSAT")
         eps_std = self.eps / test_loader.std if test_loader.normalised else torch.tensor(self.eps)
         eps_std = torch.reshape(eps_std, (*eps_std.shape, 1, 1)).to(self.device)
-        std_acc = eval_acc(self.bounded_model, test_loader=test_loader, test_samples=test_samples)
-        certified_acc, adv_acc = eval_complete_abcrown(
+        std_acc = eval_acc(self.bounded_model, test_loader=test_loader, test_samples=test_samples, device=self.device)
+        certified_acc, adv_acc = eval_complete(
             model=self.bounded_model,
             eps_std=eps_std,
             data_loader=test_loader,
@@ -200,6 +214,9 @@ class CTRAINWrapper(nn.Module):
             start_idx=start_idx,
             end_idx=end_idx,
             results_filename=results_filename,
+            engine=engine,
+            neuralsat_command=neuralsat_command,
+            neuralsat_batch_size=neuralsat_batch_size,
         )
         return std_acc, certified_acc, adv_acc
 
