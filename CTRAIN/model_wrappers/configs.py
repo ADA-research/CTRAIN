@@ -6,6 +6,8 @@ import torch
 
 
 def get_config_space(model_wrapper, epochs, eps, defaults=dict()):
+    if model_wrapper.cert_train_method == 'set_based':
+        return build_set_based_config_space(epochs, eps, defaults)
     if model_wrapper.cert_train_method == 'shi':
         return build_shi_config_space(epochs, eps, defaults=defaults)
     elif model_wrapper.cert_train_method == 'crown_ibp':
@@ -215,3 +217,17 @@ def get_combined_config_space(epoch, eps, defaults=dict(), included_methods=['sh
     
     
     
+
+
+def build_set_based_config_space(epochs, eps, defaults=None):
+    defaults = {} if defaults is None else defaults
+    return ConfigurationSpace(space={
+        'tau': Float('tau', (0., 1.), default=defaults.get('tau', .1)),
+        'learning_rate': Float('learning_rate', (1e-5, .1), log=True, default=defaults.get('lr', .0005)),
+        'optimizer_func': Categorical('optimizer_func', ['adam', 'adamw', 'radam']),
+        'warm_up_epochs': Integer('warm_up_epochs', (0, max(1, epochs)), default=defaults.get('warm_up_epochs', 1)),
+        'ramp_up_epochs': Integer('ramp_up_epochs', (0, max(1, epochs)), default=defaults.get('ramp_up_epochs', min(20, epochs))),
+        'train_eps_factor': Float('train_eps_factor', (1., 2.), default=1.),
+        'lr_decay_factor': Float('lr_decay_factor', (.01, .9), default=.1),
+        'lr_milestones': Constant('lr_milestones', tuple(defaults.get('lr_milestones', (int(.7 * epochs), int(.85 * epochs)))))
+    })

@@ -1,4 +1,5 @@
 from functools import partial
+import copy
 import os
 import torch
 import torch.nn as nn
@@ -139,11 +140,23 @@ class CTRAINWrapper(nn.Module):
         Args:
             test_loader (DataLoader): DataLoader containing the test dataset.
             test_samples (int, optional): Number of test samples to evaluate. Defaults to np.inf.
-            eval_method (str or list, optional): The certification method to use. Options are 'IBP', 'CROWN', 'CROWN-IBP', 'ADAPTIVE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'ADAPTIVE'.
+            eval_method (str or list, optional): The certification method to use. Options are 'ZONOTOPE', 'IBP', 'CROWN', 'CROWN-IBP', 'ADAPTIVE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'ADAPTIVE'.
 
         Returns:
             (Tuple): Evaluation results in terms of std_acc, cert_acc and adv_acc.
         """
+        if eval_method == 'ZONOTOPE':
+            from CTRAIN.eval.zonotope import evaluate_zonotope_model
+            native_model = copy.deepcopy(self.original_model)
+            native_state = native_model.state_dict()
+            # LiRPA named members translate graph names back to PyTorch names;
+            # its state_dict retains graph names and omits BN batch counters.
+            native_state.update(dict(self.bounded_model.named_parameters()))
+            native_state.update({name: value for name, value in self.bounded_model.named_buffers()
+                                 if name in native_state})
+            native_model.load_state_dict(native_state)
+            return evaluate_zonotope_model(native_model, test_loader, self.eps,
+                                            test_samples, device=self.device)
         eps_std = self.eps / test_loader.std if test_loader.normalised else torch.tensor(self.eps)
         eps_std = torch.reshape(eps_std, (*eps_std.shape, 1, 1))
         return eval_model(self.bounded_model, test_loader, n_classes=self.n_classes, eps=eps_std, test_samples=test_samples, method=eval_method, device=self.device)

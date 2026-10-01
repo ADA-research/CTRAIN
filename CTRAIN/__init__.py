@@ -1,4 +1,5 @@
 _MODEL_WRAPPER_EXPORTS = {
+    "SetBasedModelWrapper": "CTRAIN.model_wrappers",
     "ShiIBPModelWrapper": "CTRAIN.model_wrappers",
     "SABRModelWrapper": "CTRAIN.model_wrappers",
     "CrownIBPModelWrapper": "CTRAIN.model_wrappers",
