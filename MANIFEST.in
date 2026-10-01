@@ -1,4 +1,5 @@
 graft CTRAIN/verification_systems/abCROWN
+graft CTRAIN/verification_systems/neuralsat
 prune papers
 global-exclude __pycache__/*
 global-exclude *.py[cod]

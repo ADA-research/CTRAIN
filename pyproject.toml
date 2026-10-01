@@ -35,7 +35,9 @@ dependencies = [
     "pyyaml>=6.0",
     "sortedcontainers>=2.4",
     "termcolor>=2.3.0",
-    "gurobipy>=10"
+    "gurobipy>=10",
+    "beartype==0.16.4",
+    "coloredlogs>=15.0.1"
 ]
 requires-python = ">=3.8"
 keywords = ["certified training", "robustness", "machine learning", "verification"]
@@ -51,6 +53,17 @@ include = ["CTRAIN*"]
 
 [tool.setuptools.package-data]
 "CTRAIN" = [
+    "verification_systems/neuralsat/**/*.py",
+    "verification_systems/neuralsat/**/*.yaml",
+    "verification_systems/neuralsat/**/*.yml",
+    "verification_systems/neuralsat/**/*.json",
+    "verification_systems/neuralsat/**/*.md",
+    "verification_systems/neuralsat/**/*.txt",
+    "verification_systems/neuralsat/**/LICENSE",
+    "verification_systems/neuralsat/**/*.cpp",
+    "verification_systems/neuralsat/**/*.cu",
+    "verification_systems/neuralsat/LICENSE",
+    "verification_systems/neuralsat/UPSTREAM.md",
     "verification_systems/abCROWN/**/*.yaml",
     "verification_systems/abCROWN/**/*.yml",
     "verification_systems/abCROWN/**/*.json",
