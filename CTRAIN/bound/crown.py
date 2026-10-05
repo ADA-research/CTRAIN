@@ -1,7 +1,34 @@
+import copy
 import torch
 from auto_LiRPA import BoundedTensor
 
 from CTRAIN.util import construct_c
+from CTRAIN.util.util import preserve_model_state
+
+
+def bound_alpha_crown(model, ptb, data, target, n_classes=10,
+                      bound_upper=False, reuse_input=False, alpha_iterations=20):
+    """Optimize CROWN's ReLU slopes; restore caller modes, flags and options.
+
+    Parameter gradients are left untouched. Optimization requires gradients even
+    when called inside ``torch.no_grad()``. These are sound bounds, not shrinkage.
+    """
+    if type(alpha_iterations) is not int or alpha_iterations <= 0:
+        raise ValueError('alpha_iterations must be a positive integer')
+    options = copy.deepcopy(model.bound_opts)
+    try:
+        with preserve_model_state(model), torch.enable_grad():
+            model.eval()
+            for parameter in model.parameters():
+                parameter.requires_grad_(False)
+            model.set_bound_opts({'optimize_bound_args': {'iteration': alpha_iterations}})
+            bounded = BoundedTensor(data, ptb=ptb)
+            return model.compute_bounds(
+                x=None if reuse_input else (bounded,), IBP=False,
+                method='CROWN-Optimized', C=construct_c(data, target, n_classes),
+                bound_upper=bound_upper)
+    finally:
+        model.set_bound_opts(options)
 
 # Uses CROWN bounds throughout all intermediate layers and the final layer. 
 def bound_crown(model, ptb, data, target, n_classes=10, bound_upper=False, reuse_input=False):

@@ -133,17 +133,21 @@ class CTRAINWrapper(nn.Module):
         """
         return self.bounded_model(x)
 
-    def evaluate(self, test_loader, test_samples=np.inf, eval_method='ADAPTIVE'):
+    def evaluate(self, test_loader, test_samples=np.inf, eval_method='ADAPTIVE',
+                 adversarial_method='PGD', alpha_iterations=20, autoattack_kwargs=None):
         """
         Evaluate the model using the provided test data loader.
 
         Args:
             test_loader (DataLoader): DataLoader containing the test dataset.
             test_samples (int, optional): Number of test samples to evaluate. Defaults to np.inf.
-            eval_method (str or list, optional): The certification method to use. Options are 'ZONOTOPE', 'IBP', 'CROWN', 'CROWN-IBP', 'ADAPTIVE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'ADAPTIVE'.
+            eval_method (str or list, optional): The certification method to use. Options are 'ZONOTOPE', 'IBP', 'CROWN', 'ALPHA-CROWN', 'CROWN-IBP', 'ADAPTIVE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'ADAPTIVE'.
 
         Returns:
             (Tuple): Evaluation results in terms of std_acc, cert_acc and adv_acc.
+
+        adversarial_method selects PGD (default) or AUTOATTACK; autoattack_kwargs
+        configures its version/seed/verbosity. alpha_iterations controls ALPHA-CROWN.
         """
         if eval_method == 'ZONOTOPE':
             from CTRAIN.eval.zonotope import evaluate_zonotope_model
@@ -156,10 +160,13 @@ class CTRAINWrapper(nn.Module):
                                  if name in native_state})
             native_model.load_state_dict(native_state)
             return evaluate_zonotope_model(native_model, test_loader, self.eps,
-                                            test_samples, device=self.device)
+                                            test_samples, device=self.device, adversarial_method=adversarial_method,
+                                            autoattack_kwargs=autoattack_kwargs)
         eps_std = self.eps / test_loader.std if test_loader.normalised else torch.tensor(self.eps)
         eps_std = torch.reshape(eps_std, (*eps_std.shape, 1, 1))
-        return eval_model(self.bounded_model, test_loader, n_classes=self.n_classes, eps=eps_std, test_samples=test_samples, method=eval_method, device=self.device)
+        return eval_model(self.bounded_model, test_loader, n_classes=self.n_classes, eps=eps_std, test_samples=test_samples, method=eval_method, device=self.device,
+                          adversarial_method=adversarial_method, alpha_iterations=alpha_iterations,
+                          autoattack_kwargs=autoattack_kwargs)
 
     def evaluate_complete(
         self,

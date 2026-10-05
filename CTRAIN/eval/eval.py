@@ -8,11 +8,12 @@ import numpy as np
 
 import shutil
 
-from auto_LiRPA import PerturbationLpNorm, BoundedTensor
+from auto_LiRPA import PerturbationLpNorm
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 
-from CTRAIN.bound import bound_ibp, bound_crown, bound_crown_ibp
+from CTRAIN.bound import bound_ibp, bound_crown, bound_crown_ibp, bound_alpha_crown
+from CTRAIN.eval.autoattack import eval_autoattack
 from CTRAIN.attacks import pgd_attack
 from CTRAIN.complete_verification.abCROWN.util import (
     instances_to_vnnlib,
@@ -23,7 +24,7 @@ from CTRAIN.complete_verification.abCROWN.verify import (
     abcrown_eval,
 )
 from CTRAIN.complete_verification.neuralsat import neuralsat_eval, validate_neuralsat_command, validate_neuralsat_options
-from CTRAIN.util import export_onnx, construct_c
+from CTRAIN.util import export_onnx
 from CTRAIN.util.util import preserve_model_state
 
 from contextlib import redirect_stdout, contextmanager
@@ -308,53 +309,16 @@ def eval_alpha_crown(
     alpha_iterations=20,
 ):
     """
-    Evaluate the model using alpha-CROWN (optimized CROWN).
-    """
-    alpha_data_loader = DataLoader(data_loader.dataset, batch_size=1, shuffle=False)
-    alpha_data_loader.max, alpha_data_loader.min, alpha_data_loader.std = (
-        data_loader.max.to(device),
-        data_loader.min.to(device),
-        data_loader.std.to(device),
-    )
-    certified = 0
-    total_images = 0
-    results = {
-        i: {"result": None, "method": "ALPHA-CROWN", "running_time": None}
-        for i in range(min(len(alpha_data_loader.dataset), test_samples))
-    }
-    model.set_bound_opts({"optimize_bound_args": {"iteration": alpha_iterations}})
-    for batch_idx, (data, targets) in tqdm(enumerate(alpha_data_loader)):
-        if total_images >= test_samples:
-            continue
-        data, targets = data.to(device), targets.to(device)
-        eps_device = _to_device_tensor(eps, device)
-        ptb = PerturbationLpNorm(
-            eps=eps_device,
-            norm=np.inf,
-            x_L=torch.clamp(data - eps_device, alpha_data_loader.min, alpha_data_loader.max),
-            x_U=torch.clamp(data + eps_device, alpha_data_loader.min, alpha_data_loader.max),
-        )
-        bounded = BoundedTensor(data, ptb=ptb)
-        c = construct_c(bounded, targets, n_classes)
-        start_time = time.time()
-        lb, ub = model.compute_bounds(
-            x=(bounded,),
-            IBP=False,
-            method="CROWN-Optimized",
-            C=c,
-            bound_upper=False,
-        )
-        end_time = time.time()
-        no_certified = torch.sum((lb > 0).all(dim=1)).item()
-        certified += no_certified
-        total_images += len(targets)
-        results[batch_idx] = {
-            "result": "unsat" if (lb > 0).all(dim=1).cpu().item() else None,
-            "method": "ALPHA-CROWN",
-            "running_time": (end_time - start_time) / len(targets),
-        }
+    Evaluate sound alpha-CROWN bounds with ``alpha_iterations`` slope updates.
 
-    return certified, total_images, results
+    Returns certified count, evaluated count and per-instance result records.
+    Uses single-image bound computations in loader order and preserves caller
+    modes, gradient flags and optimization options, including on exceptions.
+    """
+    certified, total, _, results = eval_adaptive(
+        model, eps, data_loader, n_classes, test_samples, device,
+        methods=['ALPHA-CROWN'], alpha_iterations=alpha_iterations)
+    return int(certified), total, results
 
 
 def eval_complete(
@@ -759,6 +723,7 @@ def eval_adaptive(
     test_samples=np.inf,
     device="cuda",
     methods=["IBP", "CROWN-IBP", "CROWN"],
+    alpha_iterations=20,
 ):
     """
     Evaluate the model in terms of certified accuracy in an adaptive method. This means, that all methods
@@ -780,9 +745,16 @@ def eval_adaptive(
     methods = _canonical_methods(methods)
     if isinstance(methods, str):
         methods = [methods]
-    if not methods or any(method not in ('IBP', 'CROWN-IBP', 'CROWN') for method in methods):
-        raise ValueError('Adaptive methods must contain IBP, CROWN-IBP, or CROWN')
+    if not methods or any(method not in ('IBP', 'CROWN-IBP', 'CROWN', 'ALPHA-CROWN') for method in methods):
+        raise ValueError('Adaptive methods must contain IBP, CROWN-IBP, CROWN, or ALPHA-CROWN')
+    if 'ALPHA-CROWN' in methods and (type(alpha_iterations) is not int or alpha_iterations <= 0):
+        raise ValueError('alpha_iterations must be a positive integer')
+    if test_samples <= 0 or (test_samples != np.inf and
+                            (not np.isfinite(test_samples) or int(test_samples) != test_samples)):
+        raise ValueError('test_samples must be a positive integer or infinity')
     limit = min(len(data_loader.dataset), int(test_samples)) if test_samples < np.inf else len(data_loader.dataset)
+    if not limit:
+        raise ValueError('Evaluation loader must contain samples')
     certified = torch.zeros(limit, dtype=torch.bool, device=device)
     results = {i: {"result": None, "method": None, "running_time": 0.} for i in range(limit)}
     seen = 0
@@ -795,11 +767,11 @@ def eval_adaptive(
                 break
             count = min(len(targets), limit - seen)
             data, targets = data[:count].to(device), targets[:count].to(device)
-            for method, bound in [('IBP', bound_ibp), ('CROWN-IBP', bound_crown_ibp), ('CROWN', bound_crown)]:
+            for method, bound in [('IBP', bound_ibp), ('CROWN-IBP', bound_crown_ibp), ('CROWN', bound_crown), ('ALPHA-CROWN', bound_alpha_crown)]:
                 if method not in methods:
                     continue
                 pending = torch.where(~certified[seen:seen + count])[0]
-                groups = pending.split(1) if method == 'CROWN' else [pending]
+                groups = pending.split(1) if method in ('CROWN', 'ALPHA-CROWN') else [pending]
                 for indices in groups:
                     if not len(indices):
                         continue
@@ -809,7 +781,8 @@ def eval_adaptive(
                         x_U=torch.clamp(inputs + eps, data_min, data_max))
                     start = time.monotonic()
                     lb, _ = bound(model=model, ptb=ptb, data=inputs, target=labels,
-                                  n_classes=n_classes, reuse_input=False)
+                                  n_classes=n_classes, reuse_input=False,
+                                  **({'alpha_iterations': alpha_iterations} if method == 'ALPHA-CROWN' else {}))
                     elapsed = (time.monotonic() - start) / len(indices)
                     verified = (lb > 0).all(dim=1)
                     certified[seen + indices] = verified
@@ -823,7 +796,8 @@ def eval_adaptive(
 
 # TODO: can we maybe spare no_classes?
 def eval_certified(
-    model, data_loader, eps, n_classes=10, test_samples=np.inf, method="IBP", device=None
+    model, data_loader, eps, n_classes=10, test_samples=np.inf, method="IBP", device=None,
+    alpha_iterations=20
 ):
     """
     Evaluate the certified robustness of a model using a given verification method.
@@ -847,62 +821,63 @@ def eval_certified(
         if torch.backends.mps.is_available()
         else "cpu"
     )
-    model.eval()
-    certified = 0
-    total_images = 0
+    with preserve_model_state(model):
+        model.eval()
+        certified = 0
+        total_images = 0
 
-    method = _canonical_methods(method)
+        method = _canonical_methods(method)
 
-    if method == "CROWN":
-        certified, total_images, results = eval_crown(
-            model, eps, data_loader, n_classes, test_samples, device
-        )
-    elif method == "ALPHA-CROWN":
-        certified, total_images, results = eval_alpha_crown(
-            model, eps, data_loader, n_classes, test_samples, device
-        )
-    elif method == "IBP":
-        certified, total_images, results = eval_ibp(
-            model, eps, data_loader, n_classes, test_samples, device
-        )
-    elif method == "CROWN-IBP":
-        certified, total_images, results = eval_crown_ibp(
-            model, eps, data_loader, n_classes, test_samples, device
-        )
-    elif method == "ADAPTIVE":
-        certified, total_images, certified_tensor, results = eval_adaptive(
-            model, eps, data_loader, n_classes, test_samples, device
-        )
-    elif isinstance(method, list):
-        certified, total_images, certified_tensor, results = eval_adaptive(
-            model, eps, data_loader, n_classes, test_samples, device, methods=method
-        )
-    elif method == "COMPLETE":
-        # TODO: Infer input shape or pass it, pass timeout and no_cores!
-        cert_acc, adv_acc = eval_complete_abcrown(
-            model,
-            eps,
-            data_loader,
-            n_classes,
-            input_shape=(1, 28, 28),
-            test_samples=test_samples,
-            timeout=1000,
-            no_cores=28,
-            device=device,
-        )
-        return cert_acc, {"result": None, "method": "COMPLETE", "running_time": None}
-    elif isinstance(method, (list, tuple, np.ndarray)):
-        certified, total_images, certified_tensor, results = eval_adaptive(
-            model, eps, data_loader, n_classes, test_samples, device, methods=method
-        )
-    else:
-        assert False, "UNKNOWN BOUNDING METHOD!"
+        if method == "CROWN":
+            certified, total_images, results = eval_crown(
+                model, eps, data_loader, n_classes, test_samples, device
+            )
+        elif method == "ALPHA-CROWN":
+            certified, total_images, results = eval_alpha_crown(
+                model, eps, data_loader, n_classes, test_samples, device, alpha_iterations
+            )
+        elif method == "IBP":
+            certified, total_images, results = eval_ibp(
+                model, eps, data_loader, n_classes, test_samples, device
+            )
+        elif method == "CROWN-IBP":
+            certified, total_images, results = eval_crown_ibp(
+                model, eps, data_loader, n_classes, test_samples, device
+            )
+        elif method == "ADAPTIVE":
+            certified, total_images, certified_tensor, results = eval_adaptive(
+                model, eps, data_loader, n_classes, test_samples, device
+            )
+        elif isinstance(method, list):
+            certified, total_images, certified_tensor, results = eval_adaptive(
+                model, eps, data_loader, n_classes, test_samples, device, methods=method, alpha_iterations=alpha_iterations
+            )
+        elif method == "COMPLETE":
+            # TODO: Infer input shape or pass it, pass timeout and no_cores!
+            cert_acc, adv_acc = eval_complete_abcrown(
+                model,
+                eps,
+                data_loader,
+                n_classes,
+                input_shape=(1, 28, 28),
+                test_samples=test_samples,
+                timeout=1000,
+                no_cores=28,
+                device=device,
+            )
+            return cert_acc, {"result": None, "method": "COMPLETE", "running_time": None}
+        elif isinstance(method, (list, tuple, np.ndarray)):
+            certified, total_images, certified_tensor, results = eval_adaptive(
+                model, eps, data_loader, n_classes, test_samples, device, methods=method, alpha_iterations=alpha_iterations
+            )
+        else:
+            assert False, "UNKNOWN BOUNDING METHOD!"
 
-    return (
-        (certified / total_images).cpu().item()
-        if torch.is_tensor(certified)
-        else certified / total_images
-    ), results
+        return (
+            (certified / total_images).cpu().item()
+            if torch.is_tensor(certified)
+            else certified / total_images
+        ), results
 
 
 def eval_adversarial(
@@ -917,9 +892,11 @@ def eval_adversarial(
     n_classes=10,
     device="cuda",
     test_samples=np.inf,
+    method="PGD",
+    autoattack_kwargs=None,
 ):
     """
-    Evaluate the adversarial robustness of a model using the PGD attack.
+    Evaluate adversarial robustness using PGD or optional official AutoAttack.
 
     Parameters:
         model (torch.nn.Module): The model to evaluate.
@@ -933,11 +910,18 @@ def eval_adversarial(
         n_classes (int, optional): Number of classes in the dataset. Default is 10.
         device (str, optional): Device to perform computations on. Default is 'cuda'.
         test_samples (int or float, optional): Number of samples to test. Default is np.inf.
+        method (str): PGD (default) or AUTOATTACK.
+        autoattack_kwargs (dict, optional): AutoAttack version, seed and verbose settings.
 
     Returns:
         (float): Adversarial accuracy of the model.
         (np.ndarray): Indices of unsafe indices if return_adv_indices is True.
     """
+    if method.upper().replace('-', '').replace('_', '') == 'AUTOATTACK':
+        return eval_autoattack(model, data_loader, eps, return_adv_indices,
+                               device, test_samples, **(autoattack_kwargs or {}))
+    if method != 'PGD':
+        raise ValueError('Adversarial method must be PGD or AUTOATTACK')
     model.eval()
     adv_preds = np.array([])
     labels = np.array([])
@@ -1010,6 +994,9 @@ def eval_model(
     test_samples=np.inf,
     method="ADAPTIVE",
     device="cuda",
+    adversarial_method="PGD",
+    alpha_iterations=20,
+    autoattack_kwargs=None,
 ):
     """
     Evaluate the model on standard, certified, and adversarial accuracy.
@@ -1022,34 +1009,41 @@ def eval_model(
         test_samples (int or float, optional): Number of samples to test. Default is np.inf (all samples).
         method (str or list, optional): The certification method to use. Options are 'IBP', 'CROWN', 'CROWN-IBP', 'ADAPTIVE', 'COMPLETE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'ADAPTIVE'.
         device (str, optional): Device to perform adversarial evaluation on. Default is 'cuda'.
+        adversarial_method (str): PGD (default) or AUTOATTACK.
+        alpha_iterations (int): Alpha-CROWN optimization iterations; default 20.
+        autoattack_kwargs (dict, optional): AutoAttack version, seed and verbose settings.
 
     Returns:
         tuple: (std_acc (float): Standard accuracy of the model, cert_acc (float): Certified accuracy of the model, adv_acc (float): Adversarial accuracy of the model)
     """
-    std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples, device=device)
-    cert_acc, _ = eval_certified(
-        model=model,
-        data_loader=data_loader,
-        n_classes=n_classes,
-        eps=eps,
-        test_samples=test_samples,
-        method=method,
-        device=device,
-    )
-    adv_acc = eval_adversarial(
-        model=model,
-        data_loader=data_loader,
-        eps=eps,
-        n_classes=n_classes,
-        device=device,
-        test_samples=test_samples,
-        restarts=30,
-        n_steps=100,
-        step_size=.1,
-        early_stopping=True,
-    )
+    with preserve_model_state(model):
+        std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples, device=device)
+        cert_acc, _ = eval_certified(
+            model=model,
+            data_loader=data_loader,
+            n_classes=n_classes,
+            eps=eps,
+            test_samples=test_samples,
+            method=method,
+            alpha_iterations=alpha_iterations,
+            device=device,
+        )
+        adv_acc = eval_adversarial(
+            model=model,
+            data_loader=data_loader,
+            eps=eps,
+            n_classes=n_classes,
+            device=device,
+            test_samples=test_samples,
+            method=adversarial_method,
+            autoattack_kwargs=autoattack_kwargs,
+            restarts=30,
+            n_steps=100,
+            step_size=.1,
+            early_stopping=True,
+        )
 
-    return std_acc, cert_acc, adv_acc
+        return std_acc, cert_acc, adv_acc
 
 
 def eval_epoch(

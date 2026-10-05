@@ -88,7 +88,8 @@ def eval_zonotope(model, data_loader, eps, test_samples=float('inf'),
 
 
 def evaluate_zonotope_model(model, loader, eps, test_samples=float('inf'),
-                             propagation_batch_size=1, error_propagation='interval', device=None):
+                             propagation_batch_size=1, error_propagation='interval', device=None,
+                             adversarial_method='PGD', autoattack_kwargs=None):
     """Match CTRAIN's (clean, certified, adversarial) evaluation interface."""
     from CTRAIN.eval.eval import eval_adversarial
     clean, certified = eval_zonotope(model, loader, eps, test_samples,
@@ -100,5 +101,6 @@ def evaluate_zonotope_model(model, loader, eps, test_samples=float('inf'),
         model.eval()
         n_classes = model(data[:1]).shape[1]
         adversarial = eval_adversarial(model, loader, radius, n_classes=n_classes,
-                                       device=device, test_samples=test_samples)
+                                       device=device, test_samples=test_samples,
+                                       method=adversarial_method, autoattack_kwargs=autoattack_kwargs)
     return clean, certified, adversarial
