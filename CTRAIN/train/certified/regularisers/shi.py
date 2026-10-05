@@ -35,13 +35,14 @@ def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, devi
     loss_tightness, loss_std, loss_relu, loss_ratio = (l0.clone() for i in range(4))
 
     if isinstance(model, BoundDataParallel):
-        modules = list(model._modules.values())[0]._modules
+        bounded = list(model._modules.values())[0]
     else:
-        modules = model._modules
+        bounded = model
+    modules = bounded._modules
     # print(modules)
     # print(modules.keys())
     # print(model)
-    node_inp = modules['/input-1']#modules['/input.1']
+    node_inp = modules[bounded.input_name[0]]
     if node_inp.upper is None:
         _, _ = bound_ibp(
                 model=model,
@@ -57,7 +58,7 @@ def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, devi
     ratio_init = tightness_0 / ((node_inp.upper + node_inp.lower) / 2).std()
     cnt_layers = 0
     cnt = 0
-    for m in model._modules.values():
+    for m in modules.values():
         if isinstance(m, BoundRelu):
             lower, upper = m.inputs[0].lower, m.inputs[0].upper
             center = (upper + lower) / 2
@@ -107,6 +108,8 @@ def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, devi
                 print('pre-bn',
                     'bnv2_mean {:.5f} bnv2_var {:.5f}'.format(bn_mean.item(), bn_var.item()))
 
+    if cnt == 0:
+        return loss
     loss_tightness /= cnt
     loss_std /= cnt
     loss_relu /= cnt
