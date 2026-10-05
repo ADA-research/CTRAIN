@@ -23,23 +23,36 @@ def get_config_space(model_wrapper, epochs, eps, defaults=dict()):
     else:
         assert False, 'Unknown model wrapper!'
 
-def get_base_config(epochs, eps, defaults=dict()):
+def get_base_config(epochs, eps, defaults=dict(), train_eps_factor_bounds=(1, 2),
+                    optimizer_choices=('adam', 'adamw', 'radam')):
     # TODO: maybe make it possible to pass lr decay epochs as tuple as done in wrapper
     # TODO: maybe convert default torch.optim instance to string
 
+    if type(epochs) is not int or epochs <= 0:
+        raise ValueError('epochs must be a positive integer')
+    warm_max = min(5, epochs - 1)
+    ramp_max = min(math.ceil(.75 * epochs), epochs - warm_max)
+    ramp_min = min(10, ramp_max)
+    warm = (Integer('warm_up_epochs', (0, warm_max), default=defaults.get('warm_up_epochs'))
+            if warm_max else Constant('warm_up_epochs', 0))
+    ramp = (Integer('ramp_up_epochs', (ramp_min, ramp_max), default=defaults.get('ramp_up_epochs'))
+            if ramp_min < ramp_max else Constant('ramp_up_epochs', ramp_max))
+    for name, hp in (('warm_up_epochs', warm), ('ramp_up_epochs', ramp)):
+        if isinstance(hp, Constant) and name in defaults and defaults[name] != hp.value:
+            raise ValueError(f'{name} must be {hp.value} for this epoch budget')
     return ConfigurationSpace(
         name='base',
         space={
-            'warm_up_epochs': Integer('warm_up_epochs', (0, 5), default=defaults.get('warm_up_epochs')),
-            'ramp_up_epochs': Integer('ramp_up_epochs', (10, math.ceil(0.75*epochs)), default=defaults.get('ramp_up_epochs')),
+            'warm_up_epochs': warm,
+            'ramp_up_epochs': ramp,
             'lr_decay_factor': Float('lr_decay_factor', (1e-5, 0.9), log=True, default=defaults.get('lr_decay_factor')),
             'lr_decay_epoch_1': Integer('lr_decay_epoch_1', (0, math.ceil(.5 * epochs)), default=defaults.get('lr_decay_epoch_1')),
             'lr_decay_epoch_2': Integer('lr_decay_epoch_2', (0, math.ceil(.25 * epochs)), default=defaults.get('lr_decay_epoch_2')),
             'l1_reg_weight': Float('l1_reg_weight', (1e-8, 1e-4), log=True, default=defaults.get('l1_reg_weight')),
             'shi_reg_weight': Float("shi_reg_weight", (0.0, 1.0), default=defaults.get('shi_reg_weight')),
             'shi_reg_decay': Constant('shi_reg_decay', True),
-            'train_eps_factor': Float("train_eps_factor", (1, 2), default=defaults.get('train_eps_factor')),
-            'optimizer_func': Categorical('optimizer_func', ['adam', 'adamw', 'radam'], default=defaults.get('optimizer_func', NotSet)),
+            'train_eps_factor': Float("train_eps_factor", train_eps_factor_bounds, default=defaults.get('train_eps_factor')),
+            'optimizer_func': Categorical('optimizer_func', optimizer_choices, default=defaults.get('optimizer_func', NotSet)),
             'learning_rate': Float('learning_rate', (1e-5, 0.1), log=True, default=defaults.get('lr'))
         }
     )

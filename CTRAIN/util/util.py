@@ -83,7 +83,7 @@ def remove_training_mode_attr(onnx_path, output_path):
     onnx.save(model, output_path)
     print(f"Cleaned model saved to: {output_path}")
 
-def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False):
+def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False, lr_scheduler=None):
     """
     Saves the model checkpoint to the specified path.
 
@@ -93,18 +93,22 @@ def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False
         loss (float): The loss value at the time of saving the checkpoint.
         epoch (int): The current epoch number.
         results_path (str): The directory path where the checkpoint will be saved.
+        lr_scheduler (optional): Save scheduler state for exact LR resumption.
 
     Raises:
         AssertionError: If a checkpoint for the given epoch already exists at the specified path.
     """
     if os.path.exists(f"{results_path}/{epoch}_checkpoint.pt") and not overwrite:
         assert False, "Checkpoint already exists!"
-    torch.save({
+    checkpoint = {
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'loss': loss,
-            }, f"{results_path}/{epoch}_checkpoint.pt")
+            }
+    if lr_scheduler is not None:
+        checkpoint['lr_scheduler_state_dict'] = lr_scheduler.state_dict()
+    torch.save(checkpoint, f"{results_path}/{epoch}_checkpoint.pt")
 
 def construct_c(data, target, n_classes):
     """

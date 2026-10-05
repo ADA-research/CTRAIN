@@ -276,17 +276,19 @@ class CTRAINWrapper(nn.Module):
             val_loader (DataLoader, optional): DataLoader for the validation dataset. Defaults to None.
             end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
 
-        Loads the model and optimizer state from the checkpoint, sets the starting epoch,
-        and resumes training from that epoch.
+        Loads model, optimizer and optional LR scheduler state, sets the starting
+        epoch, and resumes training. Legacy checkpoints omit scheduler state.
         """
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
         model_state_dict = checkpoint['model_state_dict']
         self.load_state_dict(model_state_dict)
         self.epoch = checkpoint['epoch']
         optimizer_state_dict = checkpoint['optimizer_state_dict']
         self.optimizer.load_state_dict(optimizer_state_dict)
+        if 'lr_scheduler_state_dict' in checkpoint:
+            self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
 
-        self.train_model(train_loader, val_loader, start_epoch=self.epoch, end_epoch=end_epoch)
+        return self.train_model(train_loader, val_loader, start_epoch=self.epoch, end_epoch=end_epoch)
 
     def hpo_smac(self, train_loader, val_loader, budget=5*24*60*60, defaults=dict(), eval_samples=1000, output_dir='./smac_hpo', deterministic=False, seed=42, nat_loss_weight=1., adv_loss_weight=1., cert_loss_weight=1.):
         """
@@ -320,13 +322,14 @@ class CTRAINWrapper(nn.Module):
         os.makedirs(f'{output_dir}/nets', exist_ok=True)
         os.makedirs(f'{output_dir}/smac/', exist_ok=True)
 
-        eps_std = self.eps / train_loader.std
+        eps_std = self.eps / train_loader.std if train_loader.normalised else torch.tensor(self.eps)
         scenario = Scenario(
             configspace=get_config_space(self, self.num_epochs, eps_std, defaults=defaults),
             deterministic=deterministic,
             walltime_limit=budget,
             n_trials=np.inf,
             output_directory=f'{output_dir}/smac/',
+            seed=seed,
             use_default_config=True if len(defaults.values()) > 0 else False
         )
         initial_design = HyperparameterOptimizationFacade.get_initial_design(scenario, n_configs_per_hyperparamter=1)
@@ -335,7 +338,6 @@ class CTRAINWrapper(nn.Module):
             partial(self._hpo_runner, epochs=self.num_epochs, train_loader=train_loader, val_loader=val_loader, cert_eval_samples=eval_samples, output_dir=output_dir, nat_loss_weight=nat_loss_weight, adv_loss_weight=adv_loss_weight, cert_loss_weight=cert_loss_weight),
             initial_design=initial_design,
             overwrite=True,
-            seed=seed,
         )
 
         inc = smac.optimize()
