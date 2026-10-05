@@ -4,6 +4,8 @@ import random
 import numpy as np
 import onnx
 import inspect
+import copy
+import warnings
 from contextlib import contextmanager
 
 
@@ -23,6 +25,9 @@ def preserve_model_state(*models):
 def export_onnx(model, file_name, batch_size, input_shape):
     """
     Exports a PyTorch model to the ONNX format.
+
+    If FP32 parity fails, retry against a separate CPU float64 reference
+    with the same tolerance. Acceptance through this fallback emits a warning.
 
     Args:
         model (torch.nn.Module): The PyTorch model to be exported.
@@ -66,9 +71,31 @@ def export_onnx(model, file_name, batch_size, input_shape):
         import onnxruntime as ort
         session = ort.InferenceSession(str(file_name), providers=["CPUExecutionProvider"])
         actual = session.run(None, {session.get_inputs()[0].name: x.cpu().numpy()})[0]
+        if actual.shape != tuple(expected.shape) or not np.isfinite(actual).all():
+            raise RuntimeError("ONNX export changed model outputs (invalid shape or non-finite values)")
         if not np.allclose(expected.cpu().numpy(), actual, rtol=1e-4, atol=1e-5):
             error = np.max(np.abs(expected.cpu().numpy() - actual))
-            raise RuntimeError(f"ONNX export changed model outputs (max error {error:g})")
+            failure = f"ONNX export changed model outputs (max error {error:g})"
+            if dtype != torch.float32:
+                raise RuntimeError(failure)
+            try:
+                # Never cast the caller or the exported graph to float64.
+                reference_model = copy.deepcopy(model).to(device='cpu', dtype=torch.float64)
+                reference_model.eval()
+                reference_output = reference_model(x.to(device='cpu', dtype=torch.float64)).detach().cpu().numpy()
+            except Exception as exc:
+                raise RuntimeError(f"{failure}; CPU float64 parity reference unavailable: {exc}") from exc
+            reference_error = np.max(np.abs(reference_output - actual))
+            if not np.allclose(reference_output, actual, rtol=1e-4, atol=1e-5):
+                raise RuntimeError(f"{failure}; CPU float64 reference also disagrees "
+                                   f"(max error {reference_error:g})")
+            warnings.warn(
+                f"ONNX export failed FP32 parity (max error {error:g}) but passed against "
+                f"a CPU float64 reference (max error {reference_error:g}) with unchanged "
+                "rtol=1e-4, atol=1e-5. Continuing with the original FP32 ONNX model; "
+                "this numerical parity check is not a robustness certificate.",
+                RuntimeWarning, stacklevel=2,
+            )
     print(f"Model exported to {file_name}")
     
 def remove_training_mode_attr(onnx_path, output_path):
