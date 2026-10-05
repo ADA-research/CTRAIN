@@ -22,7 +22,7 @@ def validate_set_options(tau, input_set, num_generators, error_propagation,
 
 
 def attack_zonotope(model, data, target, radius, data_min, data_max,
-                    num_generators=8, pgd_eps_factor=1.):
+                    num_generators=8, pgd_eps_factor=1., bn_statistics=None, layers=None):
     """Detached randomized FGSM directions, coordinatewise fitted to the nominal box."""
     if type(num_generators) is not int or num_generators <= 0 or not math.isfinite(pgd_eps_factor) or pgd_eps_factor <= 0:
         raise ValueError('Invalid attack generator count or PGD epsilon factor')
@@ -33,11 +33,24 @@ def attack_zonotope(model, data, target, radius, data_min, data_max,
     positions = []
     with preserve_model_state(model), torch.enable_grad():
         model.eval()
-        for _ in range(num_generators):
-            point = (search_lower + torch.rand_like(data) * (search_upper - search_lower)).detach().requires_grad_(True)
-            gradient, = torch.autograd.grad(F.cross_entropy(model(point), target), point)
-            point = (point + search_radius * gradient.sign()).clamp(search_lower, search_upper)
-            positions.append(point.detach().clamp(lower, upper))
+        # CORA uses stored clean statistics and numeric BN backward on all FGSM
+        # candidates together. Standalone callers retain ordinary eval-mode PGD.
+        groups = [num_generators] if bn_statistics is not None else [1] * num_generators
+        for count in groups:
+            point = torch.cat([search_lower + torch.rand_like(data) * (search_upper - search_lower)
+                               for _ in range(count)]).detach().requires_grad_(True)
+            if bn_statistics is None:
+                logits = model(point)
+            else:
+                enclosure = Zonotope(point, point.new_empty((len(point), 0, *point.shape[1:])), torch.zeros_like(point))
+                logits = bound_zonotope(model, enclosure, bn_statistics=bn_statistics, layers=layers,
+                                        bn_backward='numeric').c
+            gradient, = torch.autograd.grad(F.cross_entropy(logits, target.repeat(count)), point)
+            repeats = (count, *([1] * (data.ndim - 1)))
+            step = (torch.zeros_like(data) + search_radius).repeat(repeats)
+            point = (point + step * gradient.sign()).clamp(search_lower.repeat(repeats), search_upper.repeat(repeats))
+            point = point.detach().clamp(lower.repeat(repeats), upper.repeat(repeats))
+            positions.extend(point.reshape(count, *data.shape).unbind(0))
     positions = torch.stack(positions, 1)
     center = positions.mean(1).clamp(lower, upper)
     generators = (positions - center.unsqueeze(1)) / num_generators
@@ -51,7 +64,8 @@ def attack_zonotope(model, data, target, radius, data_min, data_max,
 def get_set_based_loss(model, data, target, eps, radius, data_min, data_max,
                        tau=.1, input_set='box', num_generators=8,
                        error_propagation='interval', pgd_eps_factor=1.,
-                       bn_statistics=None, layers=None, input_zonotope=None):
+                       bn_statistics=None, layers=None, input_zonotope=None,
+                       bn_backward=None):
     """eps is the scheduled radius BEFORE normalization; radius is in model units."""
     if not math.isfinite(eps) or eps < 0:
         raise ValueError('eps must be nonnegative and finite')
@@ -65,8 +79,8 @@ def get_set_based_loss(model, data, target, eps, radius, data_min, data_max,
                                  (data + radius).clamp(data_min, data_max))
     else:
         enclosure = attack_zonotope(model, data, target, radius, data_min, data_max,
-                                    num_generators, pgd_eps_factor)
-    output = bound_zonotope(model, enclosure, error_propagation, bn_statistics, layers)
+                                    num_generators, pgd_eps_factor, bn_statistics, layers)
+    output = bound_zonotope(model, enclosure, error_propagation, bn_statistics, layers, bn_backward)
     ce = F.cross_entropy(output.c, target)
     if eps == 0:
         return ce

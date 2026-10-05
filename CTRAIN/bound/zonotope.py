@@ -83,7 +83,71 @@ class _SetBasedRelu(BoundRelu):
                 torch.where(tiny, -lower * upper / width, intercept))
 
 
-def _forward_operator(layer, linear, statistics):
+class _CoraBatchNorm(torch.autograd.Function):
+    """Pinned CORA nnBatchNormLayer backward, not PyTorch's BN derivative.
+
+    Forward remains LiRPA. Training needs this adapter because fixed affine
+    LiRPA BN omits CORA's batch corrections and affine-gradient accumulation.
+    Source: TUMcps/CORA 904a4442e68b1dc149a34e917dd63a7d3fb49a3a,
+    nn/layers/linear/nnBatchNormLayer.m and nnElementwiseAffineLayer.m.
+    """
+    @staticmethod
+    def forward(ctx, lower, upper, generators, weight, bias, mean, variance, eps, mode):
+        shape = (1, -1, *([1] * (lower.ndim - 2)))
+        invstd = torch.rsqrt(variance + eps).reshape(shape)
+        ctx.mode = mode
+        linear = LinearBound(generators, lower, generators, upper)
+        operator = BoundBatchNormalization(dict(epsilon=eps, momentum=.99),
+                                           [], 0, {}, training=False)
+        result = operator.bound_forward(generators.shape[1], linear, _constant(weight),
+                                        _constant(bias), _constant(mean), _constant(variance))
+        # Numeric CORA stores pre-affine normalized input, but its zonotope
+        # forward stores c_normed/G_normed AFTER scale, offset and endpoint swap.
+        if mode == 'numeric':
+            norm_lower = (lower - mean.reshape(shape)) * invstd
+            norm_upper = (upper - mean.reshape(shape)) * invstd
+            norm_generators = generators * invstd.unsqueeze(1)
+        else:
+            norm_lower, norm_upper, norm_generators = result.lb, result.ub, result.lw
+        ctx.save_for_backward(lower, upper, generators, norm_lower, norm_upper,
+                              norm_generators, weight.reshape(shape), invstd)
+        return result.lb, result.ub, result.lw
+
+    @staticmethod
+    def backward(ctx, gl, gu, gG):
+        lower, upper, G, nl, nu, nG, weight, invstd = ctx.saved_tensors
+        batch = len(lower)
+        dims = (0, *range(2, lower.ndim))
+        # CORA updates scale/offset in BN, then adds the parent affine update
+        # using the original inputs. Preserve both contributions. nl/nu/nG are
+        # the exact CORA stored tensors (pre-affine numeric, post-affine set).
+        product = gl * nl + gu * nu
+        dweight = (product + gl * lower + gu * upper + (gG * G).sum(1)).sum(dims)
+        dbias = 2 * (gl + gu).sum(dims)
+        if ctx.mode == 'interval':
+            routed_l = torch.where(weight < 0, gu, gl) * weight
+            routed_u = torch.where(weight < 0, gl, gu) * weight
+            correction = .5 * ((routed_l + routed_u).mean(0, keepdim=True)
+                               - invstd * (product + (gG * nG).sum(1)).sum(0, keepdim=True)
+                               / (2 * batch**2))
+            dl, du = invstd * (routed_l - correction), invstd * (routed_u - correction)
+        else:
+            # A point center is represented by two identical LiRPA bias bounds.
+            gradient = gl + gu
+            scaled = gradient * weight
+            product = gradient * nl
+            if ctx.mode == 'numeric':
+                incoming = invstd * (scaled - scaled.mean(0, keepdim=True)
+                                    + invstd * product.sum(0, keepdim=True) / (2 * batch**2))
+            else:
+                correction = scaled.mean(0, keepdim=True) + invstd * (
+                    product + (gG * nG).sum(1)).sum(0, keepdim=True) / (2 * batch**2)
+                incoming = invstd * (scaled - correction)
+            dl = du = incoming * .5
+        return dl, du, gG * weight.unsqueeze(1) * invstd.unsqueeze(1), dweight, dbias, None, None, None, None
+
+
+def _forward_operator(layer, linear, statistics, bn_backward=None):
     dim = linear.lw.shape[1]
     if isinstance(layer, nn.Linear):
         args = [linear, _constant(_split_weight(layer.weight))]
@@ -103,13 +167,17 @@ def _forward_operator(layer, linear, statistics):
     if isinstance(layer, (nn.BatchNorm1d, nn.BatchNorm2d)):
         if statistics is None:
             if layer.training:
-                raise ValueError('Training BatchNorm requires clean logical-batch statistics')
+                raise ValueError('Training BatchNorm requires clean batch statistics')
             mean, variance = layer.running_mean, layer.running_var
         else:
             mean, variance = statistics[layer]
         weight = layer.weight if layer.affine else torch.ones_like(mean)
         bias = layer.bias if layer.affine else torch.zeros_like(mean)
-        # The statistics are fixed for every chunk; this call never updates buffers.
+        if bn_backward is not None and statistics is not None:
+            lb, ub, G = _CoraBatchNorm.apply(linear.lb, linear.ub, linear.lw,
+                                            weight, bias, mean, variance, layer.eps, bn_backward)
+            return LinearBound(G, lb, G, ub)
+        # Fixed statistics; this call never updates buffers.
         operator = BoundBatchNormalization(dict(epsilon=layer.eps, momentum=.9),
                                            [], 0, {}, training=False)
         split_weight = _split_weight(weight)
@@ -130,10 +198,13 @@ def _forward_operator(layer, linear, statistics):
     raise ValueError(f'Unsupported set-based layer: {type(layer).__name__}')
 
 
-def bound_zonotope(model, zonotope, error_propagation='interval', bn_statistics=None, layers=None):
+def bound_zonotope(model, zonotope, error_propagation='interval', bn_statistics=None, layers=None,
+                   bn_backward=None):
     """Propagate fresh LiRPA linear bounds with centered generator coordinates."""
     if error_propagation not in ('interval', 'generators'):
         raise ValueError('error_propagation must be interval or generators')
+    if bn_backward not in (None, 'numeric', 'interval', 'generators'):
+        raise ValueError('bn_backward must be numeric, interval, generators, or None')
     layers = sequential_layers(model) if layers is None else layers
     c, G, r = zonotope.c, zonotope.G, zonotope.r
     if error_propagation == 'generators' and (r != 0).any():
@@ -141,7 +212,7 @@ def bound_zonotope(model, zonotope, error_propagation='interval', bn_statistics=
         r = torch.zeros_like(r)
     linear = LinearBound(G, c - r, G, c + r)
     for layer in layers:
-        linear = _forward_operator(layer, linear, bn_statistics)
+        linear = _forward_operator(layer, linear, bn_statistics, bn_backward)
         # Same-slope propagation keeps both coefficient tensors equal. Share them.
         linear.uw = linear.lw
         if error_propagation == 'generators' and isinstance(layer, nn.ReLU):
