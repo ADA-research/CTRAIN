@@ -6,6 +6,10 @@ import torch
 
 
 def get_config_space(model_wrapper, epochs, eps, defaults=dict()):
+    if model_wrapper.cert_train_method == 'gls':
+        space = get_base_config(epochs, eps, defaults)
+        space.add(Float('sigma', (1e-5, 1e-2), log=True, default=defaults.get('sigma', 1e-3)))
+        return space
     if model_wrapper.cert_train_method == 'ibp_r':
         return build_ibp_r_config_space(epochs, eps, defaults=defaults)
     if model_wrapper.cert_train_method == 'set_based':
