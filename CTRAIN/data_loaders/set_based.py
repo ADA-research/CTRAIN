@@ -8,7 +8,7 @@ from torchvision.datasets.folder import default_loader
 
 def load_set_based_data(dataset, data_root='data', batch_size=128, workers=0,
                         download=False, selection_split='none', validation_fraction=.1,
-                        seed=42, smoke=False, input_size=None, normalise=False):
+                        seed=42, smoke=False, input_size=None, normalise=False, normalisation_stats=None):
     if dataset not in ('mnist', 'cifar10', 'svhn', 'tinyimagenet'):
         raise ValueError('Unknown reproduction dataset')
     if selection_split not in ('none', 'test', 'validation') or not 0 < validation_fraction < 1:
@@ -17,8 +17,14 @@ def load_set_based_data(dataset, data_root='data', batch_size=128, workers=0,
     size, channels, classes = (28, 1, 10) if dataset == 'mnist' else (64, 3, 200) if tiny else (32, 3, 10)
     size = input_size or size
     # CTRAIN defaults: no loader normalization; radii and pixels are both in [0, 1].
-    mean = [.4802, .4481, .3975] if tiny else [.4914, .4822, .4465]
-    std = [.2302, .2265, .2262] if tiny else [.2023, .1994, .2010]
+    mean = [0.] if dataset == 'mnist' else [.4802, .4481, .3975] if tiny else [.4914, .4822, .4465]
+    std = [1.] if dataset == 'mnist' else [.2302, .2265, .2262] if tiny else [.2023, .1994, .2010]
+    if normalisation_stats is not None:
+        mean, std = normalisation_stats['mean'], normalisation_stats['std']
+        if (not normalise or len(mean) != channels or len(std) != channels
+                or not torch.isfinite(torch.tensor(mean)).all()
+                or not torch.isfinite(torch.tensor(std)).all() or min(std) <= 0):
+            raise ValueError('normalisation_stats must contain finite channel means and positive deviations with normalise=True')
     tensor = [T.ToTensor(), T.Normalize(mean, std)] if normalise else [T.ToTensor()]
     test_transform = T.Compose([T.CenterCrop(size), *tensor])
     padding = (4 if tiny and size == 64 else 0 if tiny else 2) if normalise else 4

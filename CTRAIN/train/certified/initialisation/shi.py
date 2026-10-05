@@ -14,19 +14,25 @@ def get_params(model):
             print('Skipping parameter {}'.format(p[0]))
     return weights, biases
 
-def ibp_init_shi(model_ori, model):
+def ibp_init_shi(model_ori, model, init_last_layer=False, zero_bias=False):
     """
-    Reinitialize the weights of the given model according to the Shi et al. (2020) initialization scheme.
+    Reinitialize weights using Shi et al. (2021), std = sqrt(2*pi)/fan_in.
 
     Args:
         model_ori (torch.nn.Module): The original model.
         model (auto_LiRPA.BoundedModule): The LiRPA model.
+        init_last_layer (bool): Also reinitialize the final weight tensor.
+            False preserves the original Shi code's exclusion.
+        zero_bias (bool): Zero all named bias parameters, including BN offsets.
+            False preserves their existing values.
 
     Returns:
         None
     """
+    if type(init_last_layer) is not bool or type(zero_bias) is not bool:
+        raise ValueError('init_last_layer and zero_bias must be booleans')
     weights, biases = get_params(model_ori)
-    for i in range(len(weights)-1):
+    for i in range(len(weights) if init_last_layer else len(weights)-1):
         if weights[i][1].ndim == 1:
             continue
         weight = weights[i][1]
@@ -35,6 +41,9 @@ def ibp_init_shi(model_ori, model):
         std_before = weight.std().item()
         torch.nn.init.normal_(weight, mean=0, std=std)
         print(f'Reinitialize {weights[i][0]}, std before {std_before:.5f}, std now {weight.std():.5f}')
+    if zero_bias:
+        for _, bias in biases:
+            torch.nn.init.zeros_(bias)
     for node in model._modules.values():
         if isinstance(node, BoundConv) or isinstance(node, BoundLinear):
             if len(node.inputs[0].inputs) > 0 and isinstance(node.inputs[0].inputs[0], BoundAdd):

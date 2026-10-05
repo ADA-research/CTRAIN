@@ -5,6 +5,7 @@ from importlib import import_module
 
 _EXPORTS = {
     "ExpressiveIBPModelWrapper": ".expressive_ibp_model_wrapper",
+    "IBPRModelWrapper": ".ibp_r_model_wrapper",
     "SetBasedModelWrapper": ".set_based_model_wrapper",
     "ShiIBPModelWrapper": ".shi_ibp_model_wrapper",
     "CrownIBPModelWrapper": ".crown_ibp_model_wrapper",

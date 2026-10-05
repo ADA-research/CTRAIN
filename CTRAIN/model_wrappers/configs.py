@@ -6,6 +6,8 @@ import torch
 
 
 def get_config_space(model_wrapper, epochs, eps, defaults=dict()):
+    if model_wrapper.cert_train_method == 'ibp_r':
+        return build_ibp_r_config_space(epochs, eps, defaults=defaults)
     if model_wrapper.cert_train_method == 'set_based':
         return build_set_based_config_space(epochs, eps, defaults)
     if model_wrapper.cert_train_method == 'shi':
@@ -200,10 +202,25 @@ def build_exp_ibp_config_space(epochs, eps, include_base_config=True, defaults=d
     return build_expressive_ibp_config_space(epochs, eps, include_base_config, defaults, method='exp_ibp')
 
 
+def build_ibp_r_config_space(epochs, eps, include_base_config=True, defaults=None):
+    defaults = {'train_eps_factor': 2.1, 'optimizer_func': 'sgd', 'lr': .01, **(defaults or {})}
+    config_space = get_base_config(epochs, eps, defaults, train_eps_factor_bounds=(1, 3),
+                                 optimizer_choices=('sgd', 'adam', 'adamw', 'radam')) if include_base_config else ConfigurationSpace()
+    config_space.add_configuration_space('ibp_r', ConfigurationSpace(space={
+        'rho': Float('rho', (1e-6, .1), log=True, default=defaults.get('rho', 2e-4)),
+        'regularisation_mask': Categorical('regularisation_mask', [False, True],
+                                         default=defaults.get('regularisation_mask', False)),
+        'pgd_steps': Integer('pgd_steps', (1, 10), default=defaults.get('pgd_steps', 8)),
+        'pgd_alpha': Float('pgd_alpha', (.1, 2.), default=defaults.get('pgd_alpha', .25)),
+        'pgd_restarts': Constant('pgd_restarts', 1),
+        'pgd_eps_factor': Float('pgd_eps_factor', (1., 3.), default=defaults.get('pgd_eps_factor', 1.)),
+    }))
+    return config_space
 
 
 def get_combined_config_space(epoch, eps, defaults=dict(), included_methods=['shi', 'crown_ibp', 'sabr', 'mtl_ibp', 'taps', 'staps']):
-    base_config_space = get_base_config(epoch, eps, defaults=defaults)
+    base_config_space = get_base_config(epoch, eps, defaults=defaults,
+                                       train_eps_factor_bounds=(1, 3) if 'ibp_r' in included_methods else (1, 2))
     base_config_space.add_hyperparameter(
         Categorical('cert_train_method', included_methods)
     )
@@ -245,6 +262,12 @@ def get_combined_config_space(epoch, eps, defaults=dict(), included_methods=['sh
             base_config_space.add_conditions(
                 [EqualsCondition(base_config_space[param], base_config_space['cert_train_method'], method)
                  for param in base_config_space if f'{method}:' in param])
+    if 'ibp_r' in included_methods:
+        base_config_space.add_configuration_space('ibp_r', build_ibp_r_config_space(
+            epoch, eps, include_base_config=False, defaults=defaults))
+        base_config_space.add_conditions(
+            [EqualsCondition(base_config_space[param], base_config_space['cert_train_method'], 'ibp_r')
+             for param in base_config_space if 'ibp_r:' in param])
 
     return base_config_space
     

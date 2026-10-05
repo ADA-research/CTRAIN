@@ -654,6 +654,8 @@ class CTRAINWrapper(nn.Module):
 
     def _optimizer_from_config(self, config):
         optimizer_name = config["optimizer_func"]
+        if optimizer_name == "sgd":
+            return torch.optim.SGD
         if optimizer_name == "adam":
             return torch.optim.Adam
         if optimizer_name == "adamw":
