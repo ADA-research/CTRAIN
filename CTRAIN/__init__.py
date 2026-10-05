@@ -1,9 +1,12 @@
 _MODEL_WRAPPER_EXPORTS = {
+    "ExpressiveIBPModelWrapper": "CTRAIN.model_wrappers",
     "SetBasedModelWrapper": "CTRAIN.model_wrappers",
     "ShiIBPModelWrapper": "CTRAIN.model_wrappers",
     "SABRModelWrapper": "CTRAIN.model_wrappers",
     "CrownIBPModelWrapper": "CTRAIN.model_wrappers",
     "MTLIBPModelWrapper": "CTRAIN.model_wrappers",
+    "CCIBPModelWrapper": "CTRAIN.model_wrappers",
+    "ExpIBPModelWrapper": "CTRAIN.model_wrappers",
     "TAPSModelWrapper": "CTRAIN.model_wrappers",
     "STAPSModelWrapper": "CTRAIN.model_wrappers",
 }

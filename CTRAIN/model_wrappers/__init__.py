@@ -4,6 +4,7 @@ from importlib import import_module
 
 
 _EXPORTS = {
+    "ExpressiveIBPModelWrapper": ".expressive_ibp_model_wrapper",
     "SetBasedModelWrapper": ".set_based_model_wrapper",
     "ShiIBPModelWrapper": ".shi_ibp_model_wrapper",
     "CrownIBPModelWrapper": ".crown_ibp_model_wrapper",
@@ -11,6 +12,8 @@ _EXPORTS = {
     "TAPSModelWrapper": ".taps_model_wrapper",
     "STAPSModelWrapper": ".staps_model_wrapper",
     "MTLIBPModelWrapper": ".mtl_ibp_model_wrapper",
+    "CCIBPModelWrapper": ".cc_ibp_model_wrapper",
+    "ExpIBPModelWrapper": ".exp_ibp_model_wrapper",
 }
 
 

@@ -20,6 +20,10 @@ def get_config_space(model_wrapper, epochs, eps, defaults=dict()):
         return build_staps_config_space(epochs, eps, defaults=defaults)
     elif model_wrapper.cert_train_method == 'mtl_ibp':
         return build_mtl_ibp_config_space(epochs, eps, defaults=defaults)
+    elif model_wrapper.cert_train_method == 'cc_ibp':
+        return build_cc_ibp_config_space(epochs, eps, defaults=defaults)
+    elif model_wrapper.cert_train_method == 'exp_ibp':
+        return build_exp_ibp_config_space(epochs, eps, defaults=defaults)
     else:
         assert False, 'Unknown model wrapper!'
 
@@ -161,28 +165,42 @@ def build_staps_config_space(epochs, eps, include_base_config=True, defaults=dic
     return config_space 
 
 
-def build_mtl_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+def build_expressive_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict(), *, method):
     if include_base_config:
         config_space = get_base_config(epochs, eps, defaults=defaults)
     else:
         config_space = ConfigurationSpace()
 
-    mtl_ibp_config_space = ConfigurationSpace(
-        name='mtl_ibp',
+    expressive_config_space = ConfigurationSpace(
+        name=method,
         space={
-            'mtl_ibp_alpha': Float('mtl_ibp_alpha', (0.001, 0.5), log=True, default=defaults.get('mtl_ibp_alpha')),
+            f'{method}_alpha': Float(f'{method}_alpha', (0.001, 0.5), log=True, default=defaults.get(f'{method}_alpha')),
             'pgd_steps': Integer('pgd_steps', (1, 10), default=defaults.get('pgd_steps')),
             'pgd_alpha': Float('pgd_alpha', (0.1, 2), default=defaults.get('pgd_alpha')),
             'pgd_restarts': Constant('pgd_restarts', 1), # fixed number since it can get very expensive with more restarts
-            'mtl_ibp_eps_factor': Float("mtl_ibp_eps_factor", (1, 3), default=defaults.get('mtl_ibp_eps_factor')),
+            'pgd_eps_factor': Float('pgd_eps_factor', (1, 3), default=defaults.get('pgd_eps_factor')),
             'start_kappa': Constant('start_kappa', 0.0),
             'end_kappa': Constant('end_kappa', 0.0),
         },
 
     )
-    config_space.add_configuration_space('mtl_ibp', mtl_ibp_config_space)
+    config_space.add_configuration_space(method, expressive_config_space)
 
     return config_space 
+
+def build_mtl_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict(), method='mtl_ibp'):
+    return build_expressive_ibp_config_space(epochs, eps, include_base_config, defaults, method=method)
+
+
+def build_cc_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+    return build_expressive_ibp_config_space(epochs, eps, include_base_config, defaults, method='cc_ibp')
+
+
+def build_exp_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+    return build_expressive_ibp_config_space(epochs, eps, include_base_config, defaults, method='exp_ibp')
+
+
+
 
 def get_combined_config_space(epoch, eps, defaults=dict(), included_methods=['shi', 'crown_ibp', 'sabr', 'mtl_ibp', 'taps', 'staps']):
     base_config_space = get_base_config(epoch, eps, defaults=defaults)
@@ -219,12 +237,14 @@ def get_combined_config_space(epoch, eps, defaults=dict(), included_methods=['sh
         base_config_space.add_conditions(
             [EqualsCondition(base_config_space[param], base_config_space['cert_train_method'], 'staps') for param in base_config_space if 'staps:' in param],
         )
-    if 'mtl_ibp' in included_methods:
-        mtl_ibp_config = build_mtl_ibp_config_space(epoch, eps, include_base_config=False, defaults=defaults)
-        base_config_space.add_configuration_space('mtl_ibp', mtl_ibp_config)
-        base_config_space.add_conditions(
-            [EqualsCondition(base_config_space[param], base_config_space['cert_train_method'], 'mtl_ibp') for param in base_config_space if 'mtl_ibp:' in param],
-        )
+    for method in ('mtl_ibp', 'cc_ibp', 'exp_ibp'):
+        if method in included_methods:
+            config = build_expressive_ibp_config_space(epoch, eps, include_base_config=False,
+                                              defaults=defaults, method=method)
+            base_config_space.add_configuration_space(method, config)
+            base_config_space.add_conditions(
+                [EqualsCondition(base_config_space[param], base_config_space['cert_train_method'], method)
+                 for param in base_config_space if f'{method}:' in param])
 
     return base_config_space
     
