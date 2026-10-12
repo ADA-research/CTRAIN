@@ -108,9 +108,37 @@ def attack_counterexamples():
     raises(lambda: pgd_attack(model, data, target, data, data, restarts=0, device='cpu'), 'restarts')
 
 
+
+
+def validation_transforms():
+    class Dataset:
+        def __init__(self, transform, **kwargs):
+            self.transform = transform
+            self._samples = [(f'00000/{i // 2:05d}_{i:05d}.ppm', 0) for i in range(20)]
+
+        def __len__(self):
+            return 20
+
+        def __getitem__(self, index):
+            return self.transform(Image.fromarray(np.zeros((32, 32, 3), dtype=np.uint8))), 0
+
+    def augment(image):
+        return Image.fromarray(np.full((32, 32, 3), 255, dtype=np.uint8))
+    for name, load in [('MNIST', load_mnist), ('CIFAR10', load_cifar10),
+                       ('GTSRB', load_gtsrb), ('ImageFolder', load_tinyimagenet)]:
+        with patch(f'CTRAIN.data_loaders.data_loaders.datasets.{name}', Dataset), \
+             patch('CTRAIN.data_loaders.data_loaders.download_tinyimagenet'):
+            train, val, test = load(normalise=False, train_transforms=[augment], val_split=True)
+        assert train.dataset[0][0].mean() == 1
+        assert val.dataset[0][0].mean() == test.dataset[0][0].mean() == 0
+        assert not set(train.dataset.indices) & set(val.dataset.indices)
+        assert train.dataset.dataset.transform is not val.dataset.dataset.transform
+
+
 if __name__ == "__main__":
     torch.set_num_threads(1)
     torch.manual_seed(0)
     attack_counterexamples()
     schedules()
+    validation_transforms()
     print("Shared training and verification regressions passed")

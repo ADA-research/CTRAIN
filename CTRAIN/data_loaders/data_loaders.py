@@ -1,3 +1,5 @@
+import copy
+
 import torch
 from torchvision import datasets, transforms as transforms
 from torch.utils.data import DataLoader, random_split, Subset
@@ -6,6 +8,8 @@ import numpy as np
 import os
 import requests
 import zipfile
+
+MNIST_MEAN, MNIST_STD = .1307, .3081
 
 def load_mnist(batch_size=64, normalise=True, train_transforms=[], val_split=True, data_root='./data'): # TODO replace to multi epoch pre-loader
     """
@@ -33,8 +37,8 @@ def load_mnist(batch_size=64, normalise=True, train_transforms=[], val_split=Tru
         train_loader, val_loader, test_loader = load_mnist(batch_size=32, normalise=True, train_transforms=[transforms.RandomRotation(10)], val_split=True, data_root='./data')
     """
     if normalise:
-        mean = torch.tensor([0.1307])
-        std = torch.tensor([0.3081])
+        mean = torch.tensor([MNIST_MEAN])
+        std = torch.tensor([MNIST_STD])
     else:
         mean = torch.tensor([0])
         std = torch.tensor([1])
@@ -58,7 +62,10 @@ def load_mnist(batch_size=64, normalise=True, train_transforms=[], val_split=Tru
     train_dataset = datasets.MNIST(root=data_root, train=True, download=True, transform=train_transform)
     test_dataset = datasets.MNIST(root=data_root, train=False, transform=test_transform)
     if val_split:
+        evaluation_dataset = copy.copy(train_dataset)
+        evaluation_dataset.transform = test_transform
         train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
+        val_dataset = Subset(evaluation_dataset, val_dataset.indices)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
     
 
@@ -132,7 +139,10 @@ def load_cifar10(batch_size=64, normalise=True, train_transforms=[transforms.Ran
     train_dataset = datasets.CIFAR10(root=data_root, train=True, download=True, transform=train_transform)
     test_dataset = datasets.CIFAR10(root=data_root, train=False, transform=test_transform, download=True)
     if val_split:
+        evaluation_dataset = copy.copy(train_dataset)
+        evaluation_dataset.transform = test_transform
         train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
+        val_dataset = Subset(evaluation_dataset, val_dataset.indices)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
         val_loader.mean, val_loader.std = mean, std
     
@@ -212,13 +222,15 @@ def load_gtsrb(batch_size=64, normalise=True, train_transforms=[transforms.Rando
         file_names = train_dataset_ori._samples
         track_id_to_sample = [name[0].split("/")[-2] + "_" + name[0].split("/")[-1].split("_")[0] for name in file_names]
         track_ids = set(track_id_to_sample)
-        train_track_ids, val_track_ids = train_test_split(np.array(list(track_ids)), test_size=0.2, train_size=0.8)
+        train_track_ids, val_track_ids = train_test_split(np.array(sorted(track_ids)), test_size=0.2, train_size=0.8)
         train_ids = [i for i in range(len(track_id_to_sample)) if track_id_to_sample[i] in train_track_ids]
         val_ids = [i for i in range(len(track_id_to_sample)) if track_id_to_sample[i] in val_track_ids]
 
         
         train_dataset = Subset(train_dataset_ori, train_ids)
-        val_dataset = Subset(train_dataset_ori, val_ids)
+        evaluation_dataset = copy.copy(train_dataset_ori)
+        evaluation_dataset.transform = test_transform
+        val_dataset = Subset(evaluation_dataset, val_ids)
 
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
         val_loader.mean, val_loader.std = mean, std
@@ -359,7 +371,10 @@ def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transform
     train_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/train', transform=train_transform)
     test_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/val/images', transform=test_transform)
     if val_split:
+        evaluation_dataset = copy.copy(train_dataset)
+        evaluation_dataset.transform = test_transform
         train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
+        val_dataset = Subset(evaluation_dataset, val_dataset.indices)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
         val_loader.mean, val_loader.std = mean, std
     
