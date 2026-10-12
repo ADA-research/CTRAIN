@@ -192,7 +192,7 @@ def gls_train_model(original_model, hardened_model, train_loader, optimizer,
                         hardened_model, ptb, data, target, scheduler,
                         n_classes=n_classes, device=device, regularisation_decay=shi_reg_decay)
                 if l1_reg_weight:
-                    loss = loss + l1_reg_weight * get_l1_reg(hardened_model, device=device)
+                    loss = loss + l1_reg_weight * get_l1_reg(original_model, device=device)
                 return loss
 
             total += float(optimizer.step(closure))
