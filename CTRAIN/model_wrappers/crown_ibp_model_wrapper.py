@@ -17,7 +17,8 @@ class CrownIBPModelWrapper(CTRAINWrapper):
                  lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), gradient_clip=10, l1_reg_weight=0.000001,
                  shi_reg_weight=.5, shi_reg_decay=True, start_beta=1, end_beta=0,
                  loss_fusion=True, checkpoint_save_path=None, checkpoint_save_interval=10,
-                 bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda'), population_bn=False):
+                 bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda'), population_bn=False,
+                 start_kappa=0, end_kappa=0):
         """
         Initializes the CrownIBPModelWrapper.
 
@@ -31,12 +32,14 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             lr (float): Learning rate.
             warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is trained on clean loss.
             ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is gradually increased to the target train epsilon.
-            lr_decay_factor (float): Learning rate decay factor.
-            lr_decay_milestones (tuple): Milestones for learning rate decay.
+            lr_decay_kwargs (dict): Arguments for the learning-rate scheduler,
+                e.g. milestones and gamma for MultiStepLR.
             gradient_clip (float): Gradient clipping value.
             l1_reg_weight (float): L1 regularization weight.
             shi_reg_weight (float): Shi regularization weight.
             shi_reg_decay (bool): Whether to decay Shi regularization during the ramp up phase.
+            start_kappa (float): Initial clean-loss weight in [0, 1]; default 0.
+            end_kappa (float): Final clean-loss weight in [0, 1]; default 0.
             start_beta (float): Starting value of beta that trades off IBP and CROWN-IBP loss.
             end_beta (float): Ending value of beta.
             loss_fusion (bool): Whether to use loss fusion in loss calculation (saves memory).
@@ -46,7 +49,17 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             population_bn (bool): Recalibrate BatchNorm on training data after every epoch.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval, population_bn=population_bn)
+        if not (0 <= start_beta <= 1 and 0 <= end_beta <= 1):
+            raise ValueError('start_beta and end_beta must be finite values in [0, 1]')
+        if not (0 <= start_kappa <= 1 and 0 <= end_kappa <= 1):
+            raise ValueError('start_kappa and end_kappa must be finite values in [0, 1]')
+
+        super().__init__(
+            model, eps, input_shape, train_eps_factor, lr, optimizer_func,
+            lr_scheduler_func, lr_decay_kwargs, bound_opts, device,
+            checkpoint_save_path=checkpoint_save_path,
+            checkpoint_save_interval=checkpoint_save_interval, population_bn=population_bn,
+        )
         self.cert_train_method = 'crown_ibp'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -56,8 +69,8 @@ class CrownIBPModelWrapper(CTRAINWrapper):
         self.l1_reg_weight = l1_reg_weight
         self.shi_reg_weight = shi_reg_weight
         self.shi_reg_decay = shi_reg_decay
-        self.start_kappa = 0
-        self.end_kappa = 0
+        self.start_kappa = start_kappa
+        self.end_kappa = end_kappa
         self.start_beta = start_beta
         self.end_beta = end_beta
         self.optimizer_func = optimizer_func
@@ -68,40 +81,22 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             self.original_model.eval()
             self.bounded_model.eval()
             example_input = torch.ones(self.input_shape, device=device)
-            self.bound_opts['loss_fusion'] = True
-            self.loss_fusion_model = BoundedModule(model=CrossEntropyWrapper(self.original_model).eval(), global_input=(example_input, torch.zeros(1, dtype=torch.long)), bound_opts=self.bound_opts, device=device)
-            self.loss_fusion_optimizer = optimizer_func(self.loss_fusion_model.parameters(), lr=lr)
+            fusion_bound_opts = {**self.bound_opts, 'loss_fusion': True}
+            example_target = torch.zeros(len(example_input), dtype=torch.long, device=device)
+            self.loss_fusion_model = BoundedModule(
+                model=CrossEntropyWrapper(self.original_model).eval(),
+                global_input=(example_input, example_target),
+                bound_opts=fusion_bound_opts, device=device,
+            )
+            self.optimizer = optimizer_func(self.loss_fusion_model.parameters(), lr=lr)
+            self.loss_fusion_optimizer = self.optimizer
+            self.lr_scheduler = self.lr_scheduler_func(self.optimizer, **self.lr_decay_kwargs)
 
             if original_train:
                 self.original_model.train()
                 self.bounded_model.train()
                 self.loss_fusion_model.train()
     
-    def train(self):
-        """
-        Sets wrapper into training mode.
-
-        This method calls the `train` method on both the `original_model` and 
-        the `bounded_model` to set them into training mode
-        """
-        self.original_model.train()
-        self.bounded_model.train()
-        if self.loss_fusion:
-            self.loss_fusion_model.train()
-    
-    def eval(self):
-        """
-        Sets the model to evaluation mode.
-
-        This method sets both the original model and the bounded model to evaluation mode.
-        In evaluation mode, certain layers like dropout and batch normalization behave differently
-        compared to training mode, typically affecting the model's performance and predictions.
-        """
-        self.original_model.eval()
-        self.bounded_model.eval()
-        if self.loss_fusion:
-            self.loss_fusion_model.eval()
-            
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
         """
         Trains the model using the CROWN-IBP method.
@@ -130,7 +125,7 @@ class CrownIBPModelWrapper(CTRAINWrapper):
             eps_std=eps_std,
             eps_schedule=(self.warm_up_epochs, self.ramp_up_epochs),
             eps_scheduler_args={'start_kappa': self.start_kappa, 'end_kappa': self.end_kappa, 'start_beta': self.start_beta, 'end_beta': self.end_beta},
-            optimizer=self.optimizer if not self.loss_fusion else self.loss_fusion_optimizer,
+            optimizer=self.optimizer,
             lr_scheduler=self.lr_scheduler,
             n_classes=self.n_classes,
             loss_fusion=self.loss_fusion,

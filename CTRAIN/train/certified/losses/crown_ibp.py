@@ -8,6 +8,10 @@ from CTRAIN.train.certified.losses import get_loss_from_bounds
 def get_crown_ibp_loss(hardened_model, ptb, data, target, n_classes, criterion, beta, loss_fusion=False, return_bounds=False, return_stats=True):
     """
     Compute the CROWN-IBP loss.
+
+    For loss fusion, first call ``hardened_model(data, target)`` on the current
+    batch, as the trainer does. auto_LiRPA's fused CROWN backward pass needs the
+    current batch and label geometry established by that forward pass.
     
     Parameters:
         hardened_model (auto_LiRPA.BoundedModule): The bounded model to be trained.
@@ -34,9 +38,8 @@ def get_crown_ibp_loss(hardened_model, ptb, data, target, n_classes, criterion, 
         bound_upper=True if loss_fusion else False,
         loss_fusion=loss_fusion,
     )
-    if beta < 1e-5:
-        lb, ub = ilb, iub
-    else:
+    lb, ub = ilb, iub
+    if beta >= 1e-5:
         clb, cub = bound_crown_ibp(
             model=hardened_model,
             ptb=ptb,
@@ -47,10 +50,8 @@ def get_crown_ibp_loss(hardened_model, ptb, data, target, n_classes, criterion, 
             bound_upper=True if loss_fusion else False,
             loss_fusion=loss_fusion,
         )
-        if loss_fusion:
-            ub = cub * beta + iub * (1 - beta)
-        else:
-            lb = clb * beta + ilb * (1 - beta)
+        lb = clb * beta + ilb * (1 - beta) if clb is not None and ilb is not None else None
+        ub = cub * beta + iub * (1 - beta) if cub is not None and iub is not None else None
 
     if loss_fusion:
         exp_module = get_exp_module(hardened_model)

@@ -77,15 +77,16 @@ class CTRAINWrapper(nn.Module):
         model.eval()
         example_input = torch.ones(input_shape, device=device)
         self.n_classes = len(model(example_input)[0])
-        self.bound_opts = bound_opts
-        self.bounded_model = BoundedModule(model=self.original_model, global_input=example_input, bound_opts=bound_opts, device=device)
+        self.bound_opts = copy.deepcopy(bound_opts)
+        self.bounded_model = BoundedModule(model=self.original_model, global_input=example_input, bound_opts=self.bound_opts, device=device)
         self.input_shape = input_shape
 
         self.optimizer_func = optimizer_func
         self.optimizer = optimizer_func(self.bounded_model.parameters(), lr=lr)
 
         self.lr_scheduler_func = lr_scheduler_func
-        self.lr_scheduler = self.lr_scheduler_func(self.optimizer, **lr_decay_kwargs)
+        self.lr_decay_kwargs = copy.deepcopy(lr_decay_kwargs)
+        self.lr_scheduler = self.lr_scheduler_func(self.optimizer, **self.lr_decay_kwargs)
 
         self.epoch = 0
 
@@ -107,8 +108,7 @@ class CTRAINWrapper(nn.Module):
         This method calls the `train` method on both the `original_model` and
         the `bounded_model` to set them into training mode
         """
-        self.original_model.train(mode=mode)
-        self.bounded_model.train(mode=mode)
+        return super().train(mode)
 
     def eval(self):
         """
@@ -118,8 +118,7 @@ class CTRAINWrapper(nn.Module):
         In evaluation mode, certain layers like dropout and batch normalization behave differently
         compared to training mode, typically affecting the model's performance and predictions.
         """
-        self.original_model.eval()
-        self.bounded_model.eval()
+        return self.train(False)
 
     def forward(self, x):
         """
