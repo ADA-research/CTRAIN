@@ -1,4 +1,7 @@
 import argparse
+import copy
+import hashlib
+import json
 import sys
 from pathlib import Path
 
@@ -49,12 +52,15 @@ def build_model(network, input_shape, n_classes):
     raise ValueError(f"Unknown network: {network}")
 
 
-def build_wrapper(method, model, input_shape, eps, epochs, device):
+def build_wrapper(method, model, input_shape, eps, epochs, device, *, teacher=None,
+                  for_evaluation=False):
     from CTRAIN.model_wrappers import (
         CrownIBPModelWrapper,
         MTLIBPModelWrapper,
         SABRModelWrapper,
         ShiIBPModelWrapper,
+        CCIBPModelWrapper,
+        CCDistModelWrapper,
     )
 
     kwargs = {
@@ -64,6 +70,14 @@ def build_wrapper(method, model, input_shape, eps, epochs, device):
         "num_epochs": epochs,
         "device": device,
     }
+    if method == "cc_dist":
+        if for_evaluation:
+            return CCIBPModelWrapper(**kwargs, warm_up_epochs=0, ramp_up_epochs=0)
+        if teacher is None:
+            raise ValueError("CC-Dist HPO requires pretrained teacher weights")
+        return CCDistModelWrapper(**kwargs, teacher=teacher,
+                                 warm_up_epochs=min(1, epochs - 1),
+                                 ramp_up_epochs=min(70, epochs - 1))
     if method == "mtl_ibp":
         return MTLIBPModelWrapper(**kwargs)
     if method == "sabr":
@@ -77,11 +91,13 @@ def build_wrapper(method, model, input_shape, eps, epochs, device):
     raise ValueError(f"Unknown method: {method}")
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Run one CTRAIN multi-objective HPO experiment.")
     parser.add_argument("--dataset", required=True, choices=["cifar10", "mnist", "gtsrb", "tinyimagenet"])
     parser.add_argument("--network", required=True, choices=["cnn3", "cnn5", "cnn7", "cnn9", "cnn11", "wide_cnn7", "narrow_cnn7", "resnet18"])
-    parser.add_argument("--method", required=True, choices=["mtl_ibp", "sabr", "shi", "crown_ibp", "crown_ibp_nofusion"])
+    parser.add_argument("--method", required=True, choices=["mtl_ibp", "sabr", "shi", "crown_ibp", "crown_ibp_nofusion", "cc_dist"])
+    parser.add_argument("--teacher", type=Path, help="Native pretrained teacher checkpoint for CC-Dist.")
+    parser.add_argument("--teacher-sha256", help="Expected SHA256 of the teacher checkpoint.")
     parser.add_argument("--eps", required=True, type=float)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--epochs", type=int, required=True)
@@ -100,7 +116,18 @@ def main():
         default="papers/rethinking_evaluation_paradigms/results/hpo/main/optuna_studies",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.method == "cc_dist" and args.teacher is None:
+        parser.error("--method cc_dist requires --teacher")
+    if args.method != "cc_dist" and (args.teacher or args.teacher_sha256):
+        parser.error("Teacher options are only supported for CC-Dist")
+    teacher_metadata = None
+    if args.teacher is not None:
+        args.teacher = args.teacher.resolve()
+        digest = hashlib.sha256(args.teacher.read_bytes()).hexdigest()
+        if args.teacher_sha256 and digest != args.teacher_sha256:
+            raise ValueError("Teacher checkpoint SHA256 mismatch")
+        teacher_metadata = dict(path=str(args.teacher), sha256=digest)
 
     seed_ctrain(seed=args.seed)
     loaders, input_shape, n_classes = build_loaders(
@@ -111,6 +138,11 @@ def main():
     else:
         train_loader, hpo_loader = loaders
     model = build_model(args.network, input_shape, n_classes)
+    teacher = None
+    if args.teacher is not None:
+        teacher = copy.deepcopy(model)
+        saved = torch.load(args.teacher, map_location="cpu", weights_only=True)
+        teacher.load_state_dict(saved.get("model_state_dict", saved.get("model", saved)))
     wrapper = build_wrapper(
         args.method,
         model=model,
@@ -118,11 +150,24 @@ def main():
         eps=args.eps,
         epochs=args.epochs,
         device=torch.device(args.device),
+        teacher=teacher,
     )
 
     output_dir = Path(args.output_root) / (
         f"{args.dataset}_{args.network}_{args.method}_{args.eps}_{args.seed}"
     )
+    if teacher_metadata is not None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        manifest = dict(arguments={key: str(value) if isinstance(value, Path) else value
+                                   for key, value in vars(args).items()},
+                        teacher=teacher_metadata,
+                        selection_split="training_holdout" if args.val_split else "test",
+                        objectives=["natural_accuracy", "incomplete_certified_accuracy"
+                                    if not args.complete_verify else "complete_certified_accuracy"])
+        manifest_path = output_dir / "run_manifest.json"
+        if manifest_path.exists() and json.loads(manifest_path.read_text()) != manifest:
+            raise ValueError("Existing HPO manifest differs from this run")
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     wrapper.hpo(
         train_loader=train_loader,
         val_loader=hpo_loader,

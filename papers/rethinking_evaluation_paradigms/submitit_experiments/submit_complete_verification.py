@@ -96,6 +96,7 @@ def run_complete(job):
         eps=job["eps"],
         epochs=shared.DEFAULT_NUM_EPOCHS_FOR_WRAPPER,
         device=device,
+        for_evaluation=True,
     )
     wrapper.load_state_dict(
         torch.load(job["checkpoint_path"], map_location=device)

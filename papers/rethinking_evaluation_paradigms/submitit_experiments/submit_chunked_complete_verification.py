@@ -54,13 +54,13 @@ SUBMITIT_LOG_ROOT = PAPER_ROOT / "logs" / "submitit" / "complete_verification_ch
 # are skipped.
 KNOWN_DATASETS = ["cifar10", "mnist", "gtsrb", "tinyimagenet"]
 KNOWN_NETWORKS = ["cnn3", "cnn5", "cnn7", "cnn9", "cnn11", "wide_cnn7", "narrow_cnn7", "resnet18"]
-KNOWN_METHODS = ["mtl_ibp", "sabr", "shi", "crown_ibp", "crown_ibp_nofusion"]
+KNOWN_METHODS = ["mtl_ibp", "sabr", "shi", "crown_ibp", "crown_ibp_nofusion", "cc_dist"]
 
 # Optional filters. Leave empty to use everything found under HPO_RESULTS_ROOT.
 # DATASETS = ["cifar10", "mnist", "tinyimagenet"]
 DATASETS = []
 NETWORKS = ["cnn3", "cnn5", "cnn7", "cnn9", "cnn11", "wide_cnn7", "narrow_cnn7", "resnet18"]
-METHODS = ["mtl_ibp", "sabr", "shi", "crown_ibp", "crown_ibp_nofusion"]
+METHODS = ["mtl_ibp", "sabr", "shi", "crown_ibp", "crown_ibp_nofusion", "cc_dist"]
 EPS_VALUES = []  # Example: [2 / 255, 8 / 255, 0.3]
 SEEDS = []  # Example: [0, 1, 2]
 
@@ -548,6 +548,7 @@ def run_chunk(job):
         eps=eps,
         epochs=DEFAULT_NUM_EPOCHS_FOR_WRAPPER,
         device=device,
+        for_evaluation=True,
     )
     wrapper.load_state_dict(torch.load(job["checkpoint_path"], map_location=device))
     wrapper.eval()

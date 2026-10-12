@@ -433,6 +433,7 @@ def load_model(
         eps=float(metadata["epsilon"]),
         epochs=int(metadata["training_epochs"]),
         device=torch_device,
+        for_evaluation=True,
     )
     state_dict = torch.load(
         checkpoint,
