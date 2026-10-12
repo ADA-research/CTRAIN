@@ -12,6 +12,7 @@ CTRAIN integrates multiple state-of-the-art certified training approaches, which
 - TAPS ([Mao et al., 2023](https://proceedings.neurips.cc/paper_files/paper/2023/file/e8b0c97b34fdaf58b2f48f8cca85e76a-Paper-Conference.pdf))
 - STAPS (combination of SABR and TAPS, [Mao et al., 2023](https://proceedings.neurips.cc/paper_files/paper/2023/file/e8b0c97b34fdaf58b2f48f8cca85e76a-Paper-Conference.pdf))
 - MTL-IBP ([De Palma et al., 2023](https://arxiv.org/pdf/2305.13991))
+- [CC-Dist](cc_dist.md), feature distillation from adversarially trained teachers ([paper](https://arxiv.org/pdf/2602.02626v1)), with native PGD teacher training
 
 Furthermore, CTRAIN enables easy evaluation of the adversarial and certified robustness of a given neural network, using the following methods:
 
@@ -24,7 +25,7 @@ Furthermore, CTRAIN enables easy evaluation of the adversarial and certified rob
 ## Key Features
 CTRAIN has the goal of providing an unified, comprehensive, accessible and flexible framework for certified training. Key features include:
 
-- Standardised, modular and hihly-configurable implementations of popular and performant certified training methods based on the popular `auto_LiRPA` library
+- Standardised, modular and highly configurable implementations of popular and performant certified training methods based on the popular `auto_LiRPA` library
 - Unified and accessible interface through model wrappers
 - Based on PyTorch for easy integration into common machine learning pipelines
 - Seamless integration of sophisticated hyperparameter optimisation using SMAC3 ([Lindauer et al., 2022](https://www.jmlr.org/papers/volume23/21-0888/21-0888.pdf))
@@ -35,18 +36,26 @@ CTRAIN has the goal of providing an unified, comprehensive, accessible and flexi
 - Active development and maintenance by the Chair for Artificial Intelligence Methodology at RWTH Aachen University
 
 ## Installation and Quick Start
-First, install CTRAIN using `pip`:
+Install CTRAIN and its pinned Git dependencies (including auto_LiRPA):
+
 ```sh
 pip install CTRAIN
+ctrain-install-git-deps
 ```
-Or, to setup the package for development purposes, run:
+
+For development, run these commands from a checkout of the CTRAIN repository:
+
 ```sh
-git submodule init
-git submodule update
-pip install --no-deps git+https://github.com/KaidiXu/onnx2pytorch@8447c42c3192dad383e5598edc74dddac5706ee2
-pip install --no-deps git+https://github.com/Verified-Intelligence/auto_LiRPA.git@cf0169ce6bfb4fddd82cfff5c259c162a23ad03c"
+git submodule update --init --recursive
 pip install -e ".[dev]"
+ctrain-install-git-deps
 ```
+
+The package declares `optuna-integration[botorch]` for the default BoTorch HPO
+sampler. The Git dependency installer requires network access and installs the
+pinned revisions used by CTRAIN; see [README.md](https://github.com/ADA-research/CTRAIN#installation)
+for manual installation commands.
+
 Then, you can train and evaluate the standard CNN7 architecture proposed by Shi et al. on the CIFAR-10 dataset using the IBP certified training technique in 12 lines of code:
 ```python
 from CTRAIN.model_definitions import CNN7_Shi
