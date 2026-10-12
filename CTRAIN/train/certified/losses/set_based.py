@@ -31,10 +31,13 @@ def attack_zonotope(model, data, target, radius, data_min, data_max,
     search_lower = (data - search_radius).clamp(data_min, data_max)
     search_upper = (data + search_radius).clamp(data_min, data_max)
     positions = []
+    # Attack candidates are independent of the nominal batch; retain its graph
+    # for the later training loss, while holding these statistics fixed here.
+    search_statistics = None if bn_statistics is None else {
+        layer: (mean.detach(), variance.detach()) for layer, (mean, variance) in bn_statistics.items()}
     with preserve_model_state(model), torch.enable_grad():
         model.eval()
-        # CORA uses stored clean statistics and numeric BN backward on all FGSM
-        # candidates together. Standalone callers retain ordinary eval-mode PGD.
+        # Candidates share the nominal statistics without updating buffers.
         groups = [num_generators] if bn_statistics is not None else [1] * num_generators
         for count in groups:
             point = torch.cat([search_lower + torch.rand_like(data) * (search_upper - search_lower)
@@ -43,8 +46,7 @@ def attack_zonotope(model, data, target, radius, data_min, data_max,
                 logits = model(point)
             else:
                 enclosure = Zonotope(point, point.new_empty((len(point), 0, *point.shape[1:])), torch.zeros_like(point))
-                logits = bound_zonotope(model, enclosure, bn_statistics=bn_statistics, layers=layers,
-                                        bn_backward='numeric').c
+                logits = bound_zonotope(model, enclosure, bn_statistics=search_statistics, layers=layers).c
             gradient, = torch.autograd.grad(F.cross_entropy(logits, target.repeat(count)), point)
             repeats = (count, *([1] * (data.ndim - 1)))
             step = (torch.zeros_like(data) + search_radius).repeat(repeats)
@@ -64,8 +66,7 @@ def attack_zonotope(model, data, target, radius, data_min, data_max,
 def get_set_based_loss(model, data, target, eps, radius, data_min, data_max,
                        tau=.1, input_set='box', num_generators=8,
                        error_propagation='interval', pgd_eps_factor=1.,
-                       bn_statistics=None, layers=None, input_zonotope=None,
-                       bn_backward=None):
+                       bn_statistics=None, layers=None, input_zonotope=None):
     """eps is the scheduled radius BEFORE normalization; radius is in model units."""
     if not math.isfinite(eps) or eps < 0:
         raise ValueError('eps must be nonnegative and finite')
@@ -80,7 +81,7 @@ def get_set_based_loss(model, data, target, eps, radius, data_min, data_max,
     else:
         enclosure = attack_zonotope(model, data, target, radius, data_min, data_max,
                                     num_generators, pgd_eps_factor, bn_statistics, layers)
-    output = bound_zonotope(model, enclosure, error_propagation, bn_statistics, layers, bn_backward)
+    output = bound_zonotope(model, enclosure, error_propagation, bn_statistics, layers)
     ce = F.cross_entropy(output.c, target)
     if eps == 0:
         return ce

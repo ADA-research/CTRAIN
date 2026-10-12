@@ -14,30 +14,30 @@ from CTRAIN.util.util import preserve_model_state
 
 
 def clean_bn_statistics(model, data, layers):
-    """CORA clean statistics: biased variance, moving retention .99.
+    """Differentiable nominal BN statistics; biased variance, moving retention .99.
 
-    Called once per numeric warm-up batch or robust propagation chunk. Statistics
-    are stored without autograd; the set propagation's CORA adapter owns backward.
+    Called once per warm-up batch or robust propagation chunk. Buffer updates
+    are detached; statistics retain the caller's autograd context.
     """
     statistics = {}
-    with torch.no_grad():
-        for layer in layers:
-            if isinstance(layer, (nn.BatchNorm1d, nn.BatchNorm2d)):
-                dims = (0, *range(2, data.ndim))
-                if layer.training:
-                    mean, variance = data.mean(dims), data.var(dims, unbiased=False)
+    for layer in layers:
+        if isinstance(layer, (nn.BatchNorm1d, nn.BatchNorm2d)):
+            dims = (0, *range(2, data.ndim))
+            if layer.training:
+                mean, variance = data.mean(dims), data.var(dims, unbiased=False)
+                with torch.no_grad():
                     layer.running_mean.mul_(.99).add_(mean, alpha=.01)
                     layer.running_var.mul_(.99).add_(variance, alpha=.01)
                     layer.num_batches_tracked.add_(1)
-                else:
-                    mean, variance = layer.running_mean.clone(), layer.running_var.clone()
-                statistics[layer] = (mean, variance)
-                shape = (1, -1, *([1] * (data.ndim - 2)))
-                data = (data - mean.reshape(shape)) * torch.rsqrt(variance + layer.eps).reshape(shape)
-                if layer.affine:
-                    data = data * layer.weight.reshape(shape) + layer.bias.reshape(shape)
             else:
-                data = layer(data)
+                mean, variance = layer.running_mean.clone(), layer.running_var.clone()
+            statistics[layer] = (mean, variance)
+            shape = (1, -1, *([1] * (data.ndim - 2)))
+            data = (data - mean.reshape(shape)) * torch.rsqrt(variance + layer.eps).reshape(shape)
+            if layer.affine:
+                data = data * layer.weight.reshape(shape) + layer.bias.reshape(shape)
+        else:
+            data = layer(data)
     return statistics
 
 
@@ -93,8 +93,7 @@ def set_based_train_model(model, train_loader, optimizer, num_epochs, eps,
                     radius = loader_radius(current_eps, train_loader, data)
                     limits = loader_limits(train_loader, data)
                     optimizer.zero_grad(set_to_none=True)
-                    # CORA uses numeric warm-up on the whole loader batch, and
-                    # computes nominal BN statistics separately for each set chunk.
+                    # Warm-up uses the logical batch; robust BN statistics are chunk-local.
                     chunk_size = len(data) if current_eps == 0 else propagation_batch_size
                     for start in range(0, len(data), chunk_size):
                         chunk = data[start:start + chunk_size]
@@ -103,8 +102,7 @@ def set_based_train_model(model, train_loader, optimizer, num_epochs, eps,
                                                   radius, *limits, tau=tau, input_set=input_set,
                                                   num_generators=num_generators, error_propagation=error_propagation,
                                                   pgd_eps_factor=pgd_eps_factor, bn_statistics=statistics,
-                                                  layers=layers,
-                                                  bn_backward='numeric' if current_eps == 0 else error_propagation)
+                                                  layers=layers)
                         (loss * (len(chunk) / len(data))).backward()
                         total_loss += loss.item() * len(chunk)
                         if time.monotonic() - last_update >= 2:
