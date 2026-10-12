@@ -263,12 +263,13 @@ def expressive_ibp_train_model(
 
         synchronise_bn(original_model, hardened_model, train_loader, device, population_bn)
 
-        if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
-            save_checkpoint(
-                hardened_model, optimizer, running_loss, epoch + 1, results_path
-            )
-
         if lr_scheduler is not None and lr_decay_schedule_unit == "epoch":
             lr_scheduler.step()
+
+        if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
+            save_checkpoint(
+                hardened_model, optimizer, running_loss, epoch + 1, results_path,
+                lr_scheduler=lr_scheduler,
+            )
 
     return hardened_model

@@ -283,17 +283,25 @@ class CTRAINWrapper(nn.Module):
             val_loader (DataLoader, optional): DataLoader for the validation dataset. Defaults to None.
             end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
 
-        Loads model, optimizer and optional LR scheduler state, sets the starting
-        epoch, and resumes training. Legacy checkpoints omit scheduler state.
+        Loads model, optimizer and LR scheduler state, then resumes at the next
+        epoch. Legacy checkpoints without scheduler state are rejected. RNG and
+        data-loader state are not restored; this is not a bitwise replay.
         """
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        if 'lr_scheduler_state_dict' not in checkpoint:
+            raise ValueError(
+                "This legacy checkpoint has no LR scheduler state; it cannot resume the "
+                "training schedule reliably. Load its model_state_dict for inference instead."
+            )
         model_state_dict = checkpoint['model_state_dict']
         self.load_state_dict(model_state_dict)
+        from CTRAIN.train.certified.util import synchronise_bn
+        synchronise_bn(self.original_model, self.bounded_model, train_loader, self.device,
+                       loss_fusion_model=getattr(self, 'loss_fusion_model', None))
         self.epoch = checkpoint['epoch']
         optimizer_state_dict = checkpoint['optimizer_state_dict']
         self.optimizer.load_state_dict(optimizer_state_dict)
-        if 'lr_scheduler_state_dict' in checkpoint:
-            self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
+        self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
 
         return self.train_model(train_loader, val_loader, start_epoch=self.epoch, end_epoch=end_epoch)
 
