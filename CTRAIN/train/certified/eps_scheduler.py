@@ -30,25 +30,32 @@ class BaseScheduler():
             AssertionError: If num_epochs is incompatible with eps_schedule.
         """
         
-        if num_epochs is None and eps_schedule_unit=='epoch':
+        if eps_schedule_unit not in ('epoch', 'batch'):
+            raise ValueError("eps_schedule_unit must be 'epoch' or 'batch'")
+        if len(eps_schedule) not in (2, 3) or any(type(v) is not int or v < 0 for v in eps_schedule):
+            raise ValueError('eps_schedule must contain two or three nonnegative integer durations')
+        if num_epochs is None and eps_schedule_unit == 'epoch':
             num_epochs = sum(eps_schedule)
-        elif num_epochs is None:
-            assert False, "Please provide number of epochs!"
-        if eps_schedule_unit=='epoch':
-            if len(eps_schedule) == 3:
-                assert num_epochs == sum(eps_schedule), "Eps Schedule is incompatible with specified number of epochs. Please adjust!"
-            elif len(eps_schedule)==2:
-                assert num_epochs >= sum(eps_schedule), "Eps Schedule is incompatible with specified number of epochs. Please adjust!"
-            else:
-                assert False, "Eps Schedule is incompatible with specified number of epochs. Please adjust!"
-        
+        if type(num_epochs) is not int or num_epochs <= 0:
+            raise ValueError('num_epochs must be a positive integer')
+        if type(batches_per_epoch) is not int or batches_per_epoch <= 0:
+            raise ValueError('batches_per_epoch must be a positive integer')
+        if eps_schedule_unit == 'epoch' and (sum(eps_schedule) > num_epochs or
+                (len(eps_schedule) == 3 and sum(eps_schedule) != num_epochs)):
+            raise ValueError('eps_schedule is incompatible with num_epochs')
+        if not (0 <= start_eps <= eps < float('inf')):
+            raise ValueError('epsilon values must be finite and satisfy 0 <= start_eps <= eps')
+        if any(not 0 <= v <= 1 for v in (start_kappa, end_kappa, start_beta, end_beta)):
+            raise ValueError('kappa and beta values must be finite and in [0, 1]')
+        if not torch.isfinite(torch.as_tensor(std)).all() or (torch.as_tensor(std) <= 0).any():
+            raise ValueError('std must be finite and positive')
+
         self.num_epochs = num_epochs
         if len(eps_schedule) == 2:
             self.warm_up, self.ramp_up = eps_schedule
         elif len(eps_schedule) == 3:
             self.warm_up, self.ramp_up, _ = eps_schedule
         
-        print(self.warm_up, self.ramp_up)
         self.cur_eps = start_eps
         self.cur_kappa = self.start_kappa = start_kappa
         self.end_kappa = end_kappa
@@ -142,23 +149,21 @@ class LinearScheduler(BaseScheduler):
             eps_schedule=eps_schedule, 
             batches_per_epoch=batches_per_epoch, 
             start_beta=start_beta, 
-            end_beta=end_beta
+            end_beta=end_beta,
+            start_epoch=start_epoch,
         )
         
-        if start_epoch > 0:
+        if start_epoch > 0 or (self.warm_up == 0 and self.ramp_up == 0):
             self.batch_step()
     
     def batch_step(self, metric=None):
-        if self.warm_up < self.no_batches < (self.warm_up + self.ramp_up):
-            self.cur_eps += (self.eps / self.ramp_up)
-            kappa_step = (self.start_kappa - self.end_kappa) / self.ramp_up
-            self.cur_kappa -= kappa_step
-            beta_step = (self.start_beta - self.end_beta) / self.ramp_up
-            self.cur_beta -= beta_step
-        self.cur_eps = min(self.cur_eps, self.eps)
-        self.cur_kappa = max(self.cur_kappa, self.end_kappa)
+        progress = (float(self.no_batches >= self.warm_up) if self.ramp_up == 0 else
+                    min(1., max(0., (self.no_batches - self.warm_up) / self.ramp_up)))
+        self.cur_eps = self.start_eps + (self.eps - self.start_eps) * progress
+        self.cur_kappa = self.start_kappa + (self.end_kappa - self.start_kappa) * progress
+        self.cur_beta = self.start_beta + (self.end_beta - self.start_beta) * progress
         self.no_batches += 1
-    
+
 class SmoothedScheduler(BaseScheduler):
     """
     A scheduler that smoothly transitions epsilon, kappa, and beta values over the course of training.
@@ -199,42 +204,43 @@ class SmoothedScheduler(BaseScheduler):
             start_epoch=start_epoch,
             start_beta=start_beta, 
             end_beta=end_beta)
+        if not 0 < midpoint < 1 or not 1 < exponent < float('inf'):
+            raise ValueError('midpoint must be in (0, 1) and exponent must be finite and greater than 1')
         self.midpoint = midpoint
         self.exponent = exponent
-        if start_epoch > 0:
+        if start_epoch > 0 or (self.warm_up == 0 and self.ramp_up == 0):
             self.batch_step()
     
     
     def batch_step(self, metric=None):
-        init_value = self.start_eps
-        final_value = self.eps
-        beta = self.exponent
         step = self.no_batches
-        # Batch number for schedule start
         init_step = self.warm_up + 1
-        # Batch number for schedule end
         final_step = self.warm_up + self.ramp_up
-        # Batch number for switching from exponential to linear schedule
         mid_step = int((final_step - init_step) * self.midpoint) + init_step
-        t = (mid_step - init_step) ** (beta - 1.)
-        # find coefficient for exponential growth, such that at mid point the gradient is the same as a linear ramp to final value
-        alpha = (final_value - init_value) / ((final_step - mid_step) * beta * t + (mid_step - init_step) * t)
-        # value at switching point
-        mid_value = init_value + alpha * (mid_step - init_step) ** beta
-        # return init_value when we have not started
-        is_ramp = float(step > init_step)
-        # linear schedule after mid step
-        is_linear = float(step >= mid_step)
-        exp_value = init_value + alpha * float(step - init_step) ** beta
-        linear_value = min(mid_value + (final_value - mid_value) * (step - mid_step) / (final_step - mid_step), final_value)
-        self.cur_eps = is_ramp * ((1.0 - is_linear) * exp_value + is_linear * linear_value) + (1.0 - is_ramp) * init_value
-        self.cur_kappa = self.start_kappa * (1 - (self.cur_eps * (1-self.end_kappa)) / self.eps)
-        self.cur_beta = self.start_beta * (1 - (self.cur_eps * (1-self.end_beta)) / self.eps)
-        self.cur_eps = min(self.cur_eps, self.eps)
-        self.cur_kappa = max(self.cur_kappa, self.end_kappa)
-        self.cur_beta = max(self.cur_beta, self.end_beta)
+
+        if self.ramp_up == 0:
+            progress = float(step >= self.warm_up)
+        elif step <= self.warm_up:
+            progress = 0.
+        elif step >= final_step:
+            progress = 1.
+        elif mid_step <= init_step:
+            # Short ramps have no exponential segment; use a finite linear ramp.
+            progress = (step - self.warm_up) / self.ramp_up
+        elif step <= init_step:
+            progress = 0.
+        else:
+            power = (mid_step - init_step) ** (self.exponent - 1)
+            alpha = 1 / ((final_step - mid_step) * self.exponent * power +
+                         (mid_step - init_step) * power)
+            mid_value = alpha * (mid_step - init_step) ** self.exponent
+            progress = (alpha * (step - init_step) ** self.exponent if step < mid_step else
+                        mid_value + (1 - mid_value) * (step - mid_step) / (final_step - mid_step))
+
+        self.cur_eps = self.start_eps + (self.eps - self.start_eps) * progress
+        self.cur_kappa = self.start_kappa + (self.end_kappa - self.start_kappa) * progress
+        self.cur_beta = self.start_beta + (self.end_beta - self.start_beta) * progress
         self.no_batches += 1
-        # print(self.no_batches, self.cur_eps, self.cur_kappa)
 
 
 if __name__ == "__main__":

@@ -51,6 +51,33 @@ def raises(action, message):
         raise AssertionError(f'Expected ValueError containing {message!r}')
 
 
+def schedules():
+    for scheduler_type in (LinearScheduler, SmoothedScheduler):
+        for ramp in (0, 1, 2, 4, 10):
+            for eps in (0., .2):
+                args = dict(num_epochs=12, eps=eps, mean=0., std=1., start_kappa=.8,
+                            end_kappa=.2, start_beta=.7, end_beta=.3, eps_schedule=(1, ramp),
+                            eps_schedule_unit='epoch', batches_per_epoch=2)
+                full = scheduler_type(**args)
+                values = []
+                for step in range(24):
+                    values.append((full.get_cur_eps(False), full.get_cur_kappa(), full.get_cur_beta()))
+                    if step % 2 == 0 and step:
+                        resumed = scheduler_type(**args, start_epoch=step // 2)
+                        torch.testing.assert_close(torch.tensor(values[-1]), torch.tensor([
+                            resumed.get_cur_eps(False), resumed.get_cur_kappa(), resumed.get_cur_beta()]))
+                    full.batch_step()
+                assert all(np.isfinite(value).all() for value in values)
+                torch.testing.assert_close(torch.tensor(values[-1]), torch.tensor([eps, .2, .3]))
+                assert values[0] == (0., .8, .7)
+        immediate = scheduler_type(num_epochs=1, eps=.2, mean=0., std=1.,
+                                   eps_schedule=(0, 0), batches_per_epoch=1)
+        assert immediate.get_cur_eps(False) == .2
+        offset = scheduler_type(num_epochs=2, eps=.2, start_eps=.1, mean=0., std=1.,
+                                eps_schedule=(0, 2), batches_per_epoch=2)
+        for _ in range(5):
+            offset.batch_step()
+        assert offset.get_cur_eps(False) == .2
 
 
 def attack_counterexamples():
@@ -85,4 +112,5 @@ if __name__ == "__main__":
     torch.set_num_threads(1)
     torch.manual_seed(0)
     attack_counterexamples()
+    schedules()
     print("Shared training and verification regressions passed")
