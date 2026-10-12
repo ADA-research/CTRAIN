@@ -603,24 +603,26 @@ class CTRAINWrapper(nn.Module):
         if sampler != "botorch":
             raise ValueError("sampler must be 'botorch', 'nsgaii', or an Optuna sampler instance")
         try:
-            from optuna.integration import BoTorchSampler
+            from optuna_integration.botorch import BoTorchSampler
         except (ImportError, ModuleNotFoundError) as exc:
             raise ImportError(
                 "The BoTorch sampler requires optuna-integration with BoTorch support. "
                 "Install optuna-integration[botorch] or use sampler='nsgaii'."
             ) from exc
-        return BoTorchSampler(constraints_func=constraints_func, seed=seed, device=str(self.device))
+        return BoTorchSampler(constraints_func=constraints_func, seed=seed, device=torch.device(self.device))
 
     def _get_optuna_single_objective_sampler(self, optuna, sampler, seed):
         if not isinstance(sampler, str):
             return sampler
+        if sampler == "botorch":
+            return self._get_optuna_sampler(optuna, sampler, None, seed)
         if sampler == "tpe":
             return optuna.samplers.TPESampler(seed=seed)
         if sampler == "random":
             return optuna.samplers.RandomSampler(seed=seed)
         if sampler == "nsgaii":
             return optuna.samplers.NSGAIISampler(seed=seed)
-        raise ValueError("sampler must be 'tpe', 'random', 'nsgaii', or an Optuna sampler instance")
+        raise ValueError("sampler must be 'botorch', 'tpe', 'random', 'nsgaii', or an Optuna sampler instance")
 
     def _constrained_pareto_trials(self, trials):
         completed_trials = [

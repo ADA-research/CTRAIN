@@ -12,8 +12,15 @@ class ShiIBPModelWrapper(CTRAINWrapper):
     Wrapper class for training models using SHI-IBP method. For details, see Shi et al. (2021) Fast certified robust training with short warmup. https://proceedings.neurips.cc/paper/2021/file/988f9153ac4fd966ea302dd9ab9bae15-Paper.pdf
     """
     
-    def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), gradient_clip=10, l1_reg_weight=0.000001, shi_reg_weight=.5, shi_reg_decay=True, checkpoint_save_path=None, checkpoint_save_interval=10,
-    bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda'), population_bn=False):
+    def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1,
+                 optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1,
+                 ramp_up_epochs=70, lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR,
+                 lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), gradient_clip=10,
+                 l1_reg_weight=0.000001, shi_reg_weight=.5, shi_reg_decay=True,
+                 checkpoint_save_path=None, checkpoint_save_interval=10,
+                 bound_opts=dict(conv_mode='patches', relu='adaptive'),
+                 device=torch.device('cuda'), population_bn=False,
+                 start_kappa=0, end_kappa=0):
         """
         Initializes the ShiIBPModelWrapper.
 
@@ -27,8 +34,8 @@ class ShiIBPModelWrapper(CTRAINWrapper):
             lr (float): Learning rate.
             warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is trained on clean loss.
             ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is gradually increased to the target train epsilon.
-            lr_decay_factor (float): Learning rate decay factor.
-            lr_decay_milestones (tuple): Milestones for learning rate decay.
+            lr_decay_kwargs (dict): Arguments for the learning-rate scheduler,
+                e.g. milestones and gamma for MultiStepLR.
             gradient_clip (float): Gradient clipping value.
             l1_reg_weight (float): L1 regularization weight.
             shi_reg_weight (float): SHI regularization weight.
@@ -39,7 +46,15 @@ class ShiIBPModelWrapper(CTRAINWrapper):
             population_bn (bool): Recalibrate BatchNorm on training data after every epoch.
             device (torch.device): Device to run the training on.
         """
-        super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval, population_bn=population_bn)
+        if not (0 <= start_kappa <= 1 and 0 <= end_kappa <= 1):
+            raise ValueError('start_kappa and end_kappa must be finite values in [0, 1]')
+
+        super().__init__(
+            model, eps, input_shape, train_eps_factor, lr, optimizer_func,
+            lr_scheduler_func, lr_decay_kwargs, bound_opts, device,
+            checkpoint_save_path=checkpoint_save_path,
+            checkpoint_save_interval=checkpoint_save_interval, population_bn=population_bn,
+        )
         self.cert_train_method = 'shi'
         self.num_epochs = num_epochs
         self.lr = lr
@@ -49,8 +64,8 @@ class ShiIBPModelWrapper(CTRAINWrapper):
         self.l1_reg_weight = l1_reg_weight
         self.shi_reg_weight = shi_reg_weight
         self.shi_reg_decay = shi_reg_decay
-        self.start_kappa = 0
-        self.end_kappa = 0
+        self.start_kappa = start_kappa
+        self.end_kappa = end_kappa
         self.optimizer_func = optimizer_func
         
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):

@@ -219,6 +219,51 @@ def crown_bounds_and_models():
             assert model(torch.zeros(2, 1, size, size)).shape == (2, 3)
 
 
+def hpo_and_gls():
+    from optuna_integration.botorch import BoTorchSampler
+    loader = loader_for()
+    for wrapper_type in (ShiIBPModelWrapper, CrownIBPModelWrapper):
+        wrapper = wrapper_type(Toy(), (1, 2, 2), .1, 1, device='cpu', warm_up_epochs=0,
+                               ramp_up_epochs=1, start_kappa=.7, end_kappa=.2)
+        sampler = wrapper._get_optuna_single_objective_sampler(optuna, 'botorch', 0)
+        assert isinstance(sampler, BoTorchSampler) and sampler._device == torch.device('cpu')
+        with tempfile.TemporaryDirectory() as root:
+            # This runs a real bounded training epoch and real incomplete evaluation.
+            result = wrapper.hpo_single_objective(loader, loader, budget_trials=1,
+                                                  eval_samples=2, output_dir=root, load_best=False)
+            assert np.isfinite(result['objective_value'])
+            assert Path(result['checkpoint_path']).is_file()
+
+    # Exercise a GP-guided candidate, beyond BoTorch's initial random trials.
+    study = optuna.create_study(sampler=BoTorchSampler(n_startup_trials=2, seed=0,
+                                                       device=torch.device('cpu')))
+    study.optimize(lambda trial: (trial.suggest_float('x', -1., 1.) - .3) ** 2, n_trials=3)
+    assert len(study.trials) == 3 and all(np.isfinite(trial.value) for trial in study.trials)
+
+    for wrapper_type in (TAPSModelWrapper, STAPSModelWrapper):
+        wrapper = wrapper_type(Toy(), (1, 2, 2), .1, 1, device='cpu', warm_up_epochs=0,
+                               ramp_up_epochs=1, block_sizes=(2, 2))
+        config = dict(get_config_space(wrapper, 1, torch.tensor(.1)).get_default_configuration())
+        config['taps:block_split_point'] = .99
+        config['l1_reg_weight'], config['shi_reg_weight'] = 1e-8, 0.
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / 'nets').mkdir()
+            loss, _ = wrapper._hpo_runner(config, 0, 1, loader, loader, root, cert_eval_samples=2)
+            assert np.isfinite(loss)
+
+    # With fixed zero noise, the GLS L1 term must affect the actual weight update.
+    original = Toy()
+    models = []
+    for weight in (0., .2):
+        wrapper = GLSModelWrapper(copy.deepcopy(original), (1, 2, 2), 0., 1, device='cpu',
+                                  warm_up_epochs=0, ramp_up_epochs=0, shi_init=False,
+                                  l1_reg_weight=weight, optimizer_func=torch.optim.SGD, lr=.1)
+        with patch('torch.randn_like', side_effect=torch.zeros_like):
+            wrapper.train_model(loader)
+        models.append([p.detach().clone() for p in wrapper.parameters()])
+    assert any(not torch.equal(a, b) for a, b in zip(*models))
+
+
 if __name__ == "__main__":
     torch.set_num_threads(1)
     torch.manual_seed(0)
@@ -227,4 +272,5 @@ if __name__ == "__main__":
     validation_transforms()
     crown_bounds_and_models()
     checkpoint_and_modes()
+    hpo_and_gls()
     print("Shared training and verification regressions passed")
