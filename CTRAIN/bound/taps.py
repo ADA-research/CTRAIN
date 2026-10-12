@@ -1,11 +1,85 @@
 import math
 import torch
+from torch import nn
 from auto_LiRPA import PerturbationLpNorm
+from auto_LiRPA.operators.normalization import BoundBatchNormalization
 
 from CTRAIN.bound import bound_ibp, bound_sabr
 from CTRAIN.util import construct_c
 from CTRAIN.bound.util import validate_hybrid_options
 from CTRAIN.util.util import preserve_model_state
+
+
+class _BoundGraphBlock(nn.Module):
+    """A view of existing LiRPA nodes, with no conversion or copied BN state."""
+
+    def __init__(self, graph, end, start=None):
+        super().__init__()
+        object.__setattr__(self, 'graph', graph)
+        object.__setattr__(self, 'start', start)
+        object.__setattr__(self, 'end', end)
+        nodes = []
+        def visit(node):
+            if node is start or node in nodes:
+                return
+            nodes.append(node)
+            for parent in node.inputs:
+                visit(parent)
+        visit(end)
+        self.operators = nn.ModuleList(nodes)
+        self.train(graph.training)
+
+    def forward(self, data):
+        if self.start is None:
+            return self.graph(data, final_node_name=self.end.name)
+        # LiRPA has no forward-from-intermediate API. Seed its existing forward
+        # cache at the cut and invalidate only the suffix, including parameters.
+        for node in self.operators:
+            if hasattr(node, 'forward_value'):
+                del node.forward_value
+        self.start.forward_value = data
+        # Latent point batches set current BN statistics for the loss, while
+        # inference running buffers continue to follow clean/SABR forwards.
+        batchnorms = [node for node in self.operators
+                      if isinstance(node, BoundBatchNormalization) and node.training]
+        momenta = [node.momentum for node in batchnorms]
+        try:
+            for node in batchnorms:
+                node.momentum = 0
+            return self.graph.get_forward_value(self.end)
+        finally:
+            for node, momentum in zip(batchnorms, momenta):
+                node.momentum = momentum
+
+    def compute_bounds(self, x, **kwargs):
+        if self.start is not None:
+            latent = x[0]
+            if latent.ptb.x_L is None or latent.ptb.x_U is None:
+                raise ValueError('Classifier bounds require explicit latent lower/upper bounds')
+            kwargs['interm_bounds'] = {self.start.name: (latent.ptb.x_L, latent.ptb.x_U)}
+            x = (self.graph[self.graph.input_name[0]].value,)
+        return self.graph.compute_bounds(x=x, final_node_name=self.end.name, **kwargs)
+
+
+def split_bound_graph(graph, block_sizes, layers):
+    """Use one converted graph for sequential TAPS/STAPS feature/head blocks."""
+    if (len(block_sizes) != 2
+            or any(type(size) is not int or size <= 0 for size in block_sizes)
+            or sum(block_sizes) != len(layers)):
+        raise ValueError('TAPS/STAPS require two positive block sizes covering every layer')
+    if sum(index is not None for index in graph.input_index) != 1:
+        raise ValueError('TAPS/STAPS require a sequential single-input bound graph')
+    chain, node = [], graph[graph.output_name[0]]
+    while node.name != graph.input_name[0]:
+        if not node.inputs or any(parent.from_input for parent in node.inputs[1:]):
+            raise ValueError('TAPS/STAPS require a sequential single-input bound graph')
+        chain.append(node)
+        node = node.inputs[0]
+    chain.reverse()
+    if len(chain) != len(layers):
+        raise ValueError('TAPS/STAPS require one bound operator per sequential layer')
+    cut = chain[block_sizes[0] - 1]
+    return [_BoundGraphBlock(graph, cut), _BoundGraphBlock(graph, chain[-1], cut)]
 
 
 def bound_taps(original_model, hardened_model, bounded_blocks, data, target, n_classes, ptb, device='cuda', pgd_steps=20, pgd_restarts=1, pgd_step_size=.2,

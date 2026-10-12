@@ -135,6 +135,57 @@ def validation_transforms():
         assert train.dataset.dataset.transform is not val.dataset.dataset.transform
 
 
+def checkpoint_and_modes():
+    loader = loader_for()
+    for wrapper_type, extra in [(ShiIBPModelWrapper, {}),
+                                (CrownIBPModelWrapper, {'loss_fusion': True})]:
+        with tempfile.TemporaryDirectory() as root:
+            opts = {'conv_mode': 'patches', 'relu': 'adaptive'}
+            args = dict(input_shape=(1, 2, 2), eps=.1, num_epochs=3, device='cpu',
+                        warm_up_epochs=0, ramp_up_epochs=2, l1_reg_weight=0, shi_reg_weight=0,
+                        optimizer_func=torch.optim.SGD, lr=.1,
+                        lr_decay_kwargs={'milestones': (1,), 'gamma': .1}, bound_opts=opts, **extra)
+            torch.manual_seed(12)
+            full = wrapper_type(Toy(), checkpoint_save_path=root, checkpoint_save_interval=1, **args)
+            assert full.eval() is full and full.train(False) is full
+            assert all(not module.training for module in full.modules())
+            assert full.train() is full and all(module.training for module in full.modules())
+            assert full.lr_scheduler.optimizer is full.optimizer
+            assert 'loss_fusion' not in opts and 'loss_fusion' not in full.bound_opts
+            full.train_model(loader)
+            checkpoint = torch.load(Path(root) / '1_checkpoint.pt', weights_only=False)
+            assert checkpoint['lr_scheduler_state_dict']['last_epoch'] == 1
+            assert abs(checkpoint['optimizer_state_dict']['param_groups'][0]['lr'] - .01) < 1e-9
+            resumed = wrapper_type(Toy(), **args)
+            resumed.resume_from_checkpoint(Path(root) / '1_checkpoint.pt', loader)
+            assert resumed.lr_scheduler.state_dict() == full.lr_scheduler.state_dict()
+            for actual, expected in zip(resumed.parameters(), full.parameters()):
+                torch.testing.assert_close(actual, expected)
+            del checkpoint['lr_scheduler_state_dict']
+            legacy = Path(root) / 'legacy.pt'
+            torch.save(checkpoint, legacy)
+            raises(lambda: resumed.resume_from_checkpoint(legacy, loader), 'legacy checkpoint')
+
+    for wrapper_type in (SABRModelWrapper, MTLIBPModelWrapper, TAPSModelWrapper, STAPSModelWrapper):
+        extra = {'block_sizes': (2, 2)} if wrapper_type in (TAPSModelWrapper, STAPSModelWrapper) else {}
+        args = dict(input_shape=(1, 2, 2), eps=.1, num_epochs=3, device='cpu',
+                    warm_up_epochs=0, ramp_up_epochs=2, l1_reg_weight=0, shi_reg_weight=0,
+                    optimizer_func=torch.optim.SGD, lr=.1, pgd_steps=1,
+                    lr_decay_kwargs={'milestones': (1,), 'gamma': .1}, **extra)
+        with tempfile.TemporaryDirectory() as root:
+            torch.manual_seed(12)
+            full = wrapper_type(Toy(), checkpoint_save_path=root, checkpoint_save_interval=1, **args)
+            full.train_model(loader, end_epoch=1)
+            continuation_rng = torch.get_rng_state()
+            full.train_model(loader, start_epoch=1)
+
+            resumed = wrapper_type(Toy(), **args)
+            # Check the trajectory with identical attack randomness supplied by the test.
+            torch.set_rng_state(continuation_rng)
+            resumed.resume_from_checkpoint(Path(root) / '1_checkpoint.pt', loader)
+            assert resumed.lr_scheduler.state_dict() == full.lr_scheduler.state_dict()
+            for actual, expected in zip(resumed.parameters(), full.parameters()):
+                torch.testing.assert_close(actual, expected)
 
 
 def crown_bounds_and_models():
@@ -175,4 +226,5 @@ if __name__ == "__main__":
     schedules()
     validation_transforms()
     crown_bounds_and_models()
+    checkpoint_and_modes()
     print("Shared training and verification regressions passed")

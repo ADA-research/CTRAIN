@@ -4,10 +4,9 @@ import copy
 
 from smac.utils.configspace import get_config_hash
 
-from auto_LiRPA.bound_general import BoundedModule
 from CTRAIN.model_wrappers.model_wrapper import CTRAINWrapper
 from CTRAIN.train.certified import taps_train_model
-from CTRAIN.train.certified.util import split_network
+from CTRAIN.bound.taps import split_bound_graph
 from CTRAIN.util import seed_ctrain
 from CTRAIN.bound.util import validate_hybrid_options
 
@@ -92,18 +91,8 @@ class TAPSModelWrapper(CTRAINWrapper):
         self.bounded_model.eval()
         
         assert block_sizes is not None, "For TAPS training we require a network split!"
-        dummy_input = torch.zeros(self.input_shape, device=device)
-        blocks = split_network(self.original_model, block_sizes=block_sizes, network_input=dummy_input, device=device)
-        if len(blocks) != 2:
-            raise NotImplementedError("Currently we only support two blocks (feature extractor +  classifier) for TAPS/STAPS")
-        features, classifier = blocks
-        features.eval()
-        classifier.eval()
-        self.bounded_model.bounded_blocks = [
-            BoundedModule(features, global_input=dummy_input, bound_opts=bound_opts, device=device),
-            BoundedModule(classifier, global_input=torch.zeros_like(features(dummy_input), device=device), bound_opts=bound_opts, device=device)
-        ]
-        self.bounded_model.original_blocks = [features, classifier]
+        self.bounded_model.bounded_blocks = split_bound_graph(
+            self.bounded_model, block_sizes, self.original_model.layers)
         
         if ori_train:
             self.original_model.train()
@@ -189,7 +178,8 @@ class TAPSModelWrapper(CTRAINWrapper):
         optimizer_func = self._optimizer_from_config(config)
 
         no_layers = len(self.original_model.layers)
-        feature_extractor_size = math.ceil(config['taps:block_split_point'] * no_layers)
+        feature_extractor_size = min(no_layers - 1, max(1,
+            math.ceil(config['taps:block_split_point'] * no_layers)))
         classifier_size = no_layers - feature_extractor_size
         block_sizes = (feature_extractor_size, classifier_size)
                 
