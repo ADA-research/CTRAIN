@@ -108,6 +108,51 @@ def attack_counterexamples():
     raises(lambda: pgd_attack(model, data, target, data, data, restarts=0, device='cpu'), 'restarts')
 
 
+def verification_identity():
+    loader = loader_for()
+    model = Toy().train()
+    with torch.no_grad():
+        model.layers[-1].weight.zero_()
+        model.layers[-1].bias.copy_(torch.tensor([1., 0.]))
+    def certify(**kwargs):
+        count = kwargs['test_samples']
+        return count, count, torch.ones(count, dtype=torch.bool), {
+            i: {'method': 'IBP', 'running_time': 0.} for i in range(count)}
+    with tempfile.TemporaryDirectory() as root, patch('CTRAIN.eval.eval.eval_adaptive', side_effect=certify):
+        def evaluate(**kw):
+            return eval_complete(model, kw.pop('eps', .1), kw.pop('loader', loader), n_classes=2,
+                                 input_shape=(1, 1, 2, 2), device='cpu', results_path=root, **kw)
+        assert evaluate() == (1., 1.)
+        assert model.training
+        assert evaluate(warm_start=True) == (1., 1.)
+        raises(lambda: evaluate(eps=-.1), 'radius must be finite and nonnegative')
+        raises(lambda: evaluate(eps=.2, warm_start=True), 'do not match')
+        altered = loader_for(loader.dataset.tensors[0] + .01)
+        raises(lambda: evaluate(loader=altered, warm_start=True), 'do not match')
+        altered = loader_for()
+        altered.dataset.tensors[1][0] = 1
+        raises(lambda: evaluate(loader=altered, warm_start=True), 'do not match')
+        loader.min = torch.tensor(-.1)
+        raises(lambda: evaluate(warm_start=True), 'do not match')
+        loader.min = torch.tensor(0.)
+        with torch.no_grad():
+            model.layers[-1].bias[0] += 1
+        raises(lambda: evaluate(warm_start=True), 'do not match')
+        assert model.training
+        (Path(root) / 'results.json.manifest.json').unlink()
+        raises(lambda: evaluate(warm_start=True), 'no identity manifest')
+        reverse = DataLoader(loader.dataset, batch_size=2, sampler=[3, 2, 1, 0])
+        raises(lambda: evaluate(loader=reverse), 'sequential loader')
+
+    reverse = DataLoader(loader.dataset, batch_size=2, sampler=[3, 2, 1, 0])
+    reverse.min, reverse.max = loader.min, loader.max
+    seen = []
+    def bound(**kw):
+        seen.append(kw['data'][0, 0, 0, 0].item())
+        return torch.ones(1, 1), None
+    with patch('CTRAIN.eval.eval.bound_crown', side_effect=bound):
+        assert eval_crown(model, .1, reverse, n_classes=2, test_samples=1, device='cpu')[:2] == (1, 1)
+    assert seen == [loader.dataset.tensors[0][3, 0, 0, 0].item()]
 
 
 def validation_transforms():
@@ -273,4 +318,5 @@ if __name__ == "__main__":
     crown_bounds_and_models()
     checkpoint_and_modes()
     hpo_and_gls()
+    verification_identity()
     print("Shared training and verification regressions passed")

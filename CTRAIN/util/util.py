@@ -80,7 +80,13 @@ def export_onnx(model, file_name, batch_size, input_shape):
                 raise RuntimeError(failure)
             try:
                 # Never cast the caller or the exported graph to float64.
-                reference_model = copy.deepcopy(model).to(device='cpu', dtype=torch.float64)
+                from auto_LiRPA import BoundedTensor
+                # Bound prechecks leave BoundedTensor centers cached on LiRPA
+                # nodes. The unperturbed reference only needs their nominal data.
+                memo = {id(value): value.detach().as_subclass(torch.Tensor).clone()
+                        for module in model.modules() for value in vars(module).values()
+                        if isinstance(value, BoundedTensor)}
+                reference_model = copy.deepcopy(model, memo).to(device='cpu', dtype=torch.float64)
                 reference_model.eval()
                 reference_output = reference_model(x.to(device='cpu', dtype=torch.float64)).detach().cpu().numpy()
             except Exception as exc:

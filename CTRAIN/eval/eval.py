@@ -1,9 +1,12 @@
+import hashlib
 import json
+import tempfile
+from pathlib import Path
 import os
 import time
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, Subset, TensorDataset, SequentialSampler
 import numpy as np
 
 import shutil
@@ -43,23 +46,19 @@ def redirect_stdout_to_file(filename):
         with redirect_stdout(file):
             yield
 
-
 def write_json_atomic(filename, payload):
     tmp_filename = f"{filename}.tmp"
     with open(tmp_filename, "w") as f:
         json.dump(payload, f, indent=2)
     os.replace(tmp_filename, filename)
 
-
 def _canonical_methods(methods):
     if isinstance(methods, str):
         return methods.replace("_", "-")
     return [method.replace("_", "-") if isinstance(method, str) else method for method in methods]
 
-
 def _to_device_tensor(value, device):
     return value.to(device) if torch.is_tensor(value) else torch.as_tensor(value, device=device)
-
 
 def eval_acc(model, test_loader, test_samples=np.inf, device=None):
     device = torch.device(device) if device is not None else torch.device(
@@ -94,7 +93,6 @@ def eval_acc(model, test_loader, test_samples=np.inf, device=None):
             correct += (predicted == target).sum().item()
 
     return correct / total
-
 
 def eval_ibp(model, eps, data_loader, n_classes=10, test_samples=np.inf, device="cuda"):
     """
@@ -161,7 +159,6 @@ def eval_ibp(model, eps, data_loader, n_classes=10, test_samples=np.inf, device=
         results.update(batch_results)
 
     return certified, total_images, results
-
 
 def eval_crown_ibp(
     model, eps, data_loader, n_classes=10, test_samples=np.inf, device="cuda"
@@ -232,7 +229,6 @@ def eval_crown_ibp(
 
     return certified, total_images, results
 
-
 def eval_crown(
     model, eps, data_loader, n_classes=10, test_samples=np.inf, device="cuda"
 ):
@@ -250,54 +246,9 @@ def eval_crown(
     Returns:
         (tuple): A tuple containing the number of certified samples, the total number of images evaluated and per-instance result and running time.
     """
-    # IMPORTANT: Data Loader Batch Size must match Bounding Batch Size when using CROWN for evaluation (not important for IBP)
-    crown_data_loader = DataLoader(data_loader.dataset, batch_size=1, shuffle=False)
-    crown_data_loader.max, crown_data_loader.min, crown_data_loader.std = (
-        data_loader.max.to(device),
-        data_loader.min.to(device),
-        data_loader.std.to(device),
-    )
-    certified = 0
-    total_images = 0
-    results = {
-        i: {"result": None, "method": "CROWN", "running_time": None}
-        for i in range(min(len(crown_data_loader.dataset), test_samples))
-    }
-    for batch_idx, (data, targets) in tqdm(enumerate(crown_data_loader)):
-        if total_images >= test_samples:
-            continue
-        data, targets = data.to(device), targets.to(device)
-        eps_device = _to_device_tensor(eps, device)
-        ptb = PerturbationLpNorm(
-            eps=eps_device,
-            norm=np.inf,
-            x_L=torch.clamp(data - eps_device, crown_data_loader.min, crown_data_loader.max),
-            x_U=torch.clamp(data + eps_device, crown_data_loader.min, crown_data_loader.max),
-        )
-        start_time_crown = time.time()
-        lb, ub = bound_crown(
-            model=model,
-            ptb=ptb,
-            data=data,
-            target=targets,
-            n_classes=n_classes,
-            reuse_input=False,
-        )
-        end_time_crown = time.time()
-        no_certified = torch.sum((lb > 0).all(dim=1)).item()
-        # no_falsified = torch.sum((ub < 0).any(dim=1)).item()
-        certified += no_certified
-
-        total_images += len(targets)
-
-        results[batch_idx] = {
-            "result": 'unsat' if (lb > 0).all(dim=1).cpu().item() else None,
-            "method": "CROWN",
-            "running_time": (end_time_crown - start_time_crown) / len(targets),
-        }
-
-    return certified, total_images, results
-
+    certified, total, _, results = eval_adaptive(
+        model, eps, data_loader, n_classes, test_samples, device, methods=['CROWN'])
+    return int(certified), total, results
 
 def eval_alpha_crown(
     model,
@@ -319,7 +270,6 @@ def eval_alpha_crown(
         model, eps, data_loader, n_classes, test_samples, device,
         methods=['ALPHA-CROWN'], alpha_iterations=alpha_iterations)
     return int(certified), total, results
-
 
 def eval_complete(
     model,
@@ -359,13 +309,19 @@ def eval_complete(
         separate_abcrown_process (bool, optional): Whether to run ABCROWN in a separate process. Default is False.
         device (str, optional): Device to run the evaluation on. Default is 'cuda'.
         results_path (str, optional): Path to save the results of the ABCROWN evaluation. Default is "./abCROWN_results".
-        warm_start (bool, optional): Whether to reuse existing per-instance results.
+        warm_start (bool, optional): Reuse results only when the identity manifest matches.
         engine (str): "abcrown" (default) or "neuralsat".
         neuralsat_command (list): NeuralSAT argv prefix; None uses the bundled solver.
         neuralsat_batch_size (int): NeuralSAT maximum parallel branches (default 1000).
 
     Returns:
         (tuple): A tuple containing the certified accuracy and the adversarial accuracy.
+
+    Requires a sequential loader with drop_last=False. Captures the evaluated
+    inputs in CPU memory so every screening/solver stage uses identical tensors.
+    A sidecar manifest binds cached records to exported model bytes, transformed
+    inputs, labels, classes, clipping bounds and radius. Legacy caches need a
+    fresh run. Caller modes and gradient flags are restored on failure.
     """
 
     if engine not in ("abcrown", "neuralsat"):
@@ -377,267 +333,269 @@ def eval_complete(
             raise ValueError("abcrown_config_dict cannot be used with NeuralSAT")
     method_name = "abCROWN" if engine == "abcrown" else "neuralsat"
 
-    eps_std = eps_std.to(device)
+    with tempfile.TemporaryDirectory(prefix=f'ctrain-{method_name}-') as tmp_root, preserve_model_state(model):
+        if not isinstance(data_loader.sampler, SequentialSampler) or data_loader.drop_last or data_loader.batch_size is None:
+            raise ValueError('Complete verification requires a sequential loader with a batch size and drop_last=False')
+        if test_samples <= 0 or (test_samples != np.inf and
+                (not np.isfinite(test_samples) or int(test_samples) != test_samples)):
+            raise ValueError('test_samples must be a positive integer or infinity')
+        eps_std = torch.as_tensor(eps_std, device=device)
+        if not torch.isfinite(eps_std).all() or (eps_std < 0).any():
+            raise ValueError('Verification radius must be finite and nonnegative')
+        input_shape = list(input_shape)
+        if len(input_shape) == 3:
+            input_shape = [1, *input_shape]
+        model.eval()
 
-    os.makedirs(results_path, exist_ok=True)
-    os.makedirs(f"{results_path}/{method_name}_logs/", exist_ok=True)
-    test_limit = min(int(test_samples), len(data_loader.dataset)) if test_samples < np.inf else len(data_loader.dataset)
-    start_idx = max(0, int(start_idx))
-    end_idx = test_limit if end_idx is None else min(test_limit, int(end_idx))
-    if start_idx >= end_idx:
-        raise ValueError(f"Invalid verification chunk [{start_idx}, {end_idx}) for test_limit={test_limit}")
-    results_file = os.path.join(results_path, results_filename)
-    print(f"Complete verification chunk: [{start_idx}, {end_idx}) -> {results_file}")
+        os.makedirs(results_path, exist_ok=True)
+        os.makedirs(f"{results_path}/{method_name}_logs/", exist_ok=True)
+        test_limit = min(int(test_samples), len(data_loader.dataset)) if test_samples < np.inf else len(data_loader.dataset)
+        start_idx = max(0, int(start_idx))
+        end_idx = test_limit if end_idx is None else min(test_limit, int(end_idx))
+        if start_idx >= end_idx:
+            raise ValueError(f"Invalid verification chunk [{start_idx}, {end_idx}) for test_limit={test_limit}")
+        results_file = os.path.join(results_path, results_filename)
+        print(f"Complete verification chunk: [{start_idx}, {end_idx}) -> {results_file}")
 
-    if warm_start and os.path.exists(results_file):
-        with open(results_file, "r") as f:
-            results = json.load(f)
+        # Freeze transformed inputs so every stage certifies exactly the same region.
+        samples, labels, seen = [], [], 0
+        for data, targets in data_loader:
+            count = min(len(targets), test_limit - seen)
+            samples.append(data[:count].detach().cpu())
+            labels.append(targets[:count].detach().cpu())
+            seen += count
+            if seen == test_limit:
+                break
+        if seen != test_limit:
+            raise ValueError('Verification loader did not yield the requested samples')
+        captured = TensorDataset(torch.cat(samples), torch.cat(labels))
+        del samples, labels
+        metadata = {name: getattr(data_loader, name) for name in
+                    ('mean', 'std', 'min', 'max', 'normalised') if hasattr(data_loader, name)}
+        data_loader = DataLoader(captured, batch_size=data_loader.batch_size, shuffle=False)
+        for name, value in metadata.items():
+            setattr(data_loader, name, value)
 
-        print(f"Loaded {len(results)} results from {results_file}")
-        results = {int(k): v for k, v in results.items()}
+        model_onnx_path = os.path.join(tmp_root, 'model.onnx')
+        export_onnx(model=model, file_name=model_onnx_path, batch_size=1, input_shape=input_shape)
+        digest = hashlib.sha256()
+        for value in (*captured.tensors, eps_std, data_loader.min, data_loader.max, data_loader.std):
+            value = torch.as_tensor(value).detach().cpu().contiguous()
+            digest.update(str((value.dtype, tuple(value.shape))).encode())
+            digest.update(value.reshape(-1).view(torch.uint8).numpy())
+        manifest = {'version': 1, 'engine': engine, 'n_classes': n_classes,
+                    'inputs_sha256': digest.hexdigest(),
+                    'model_sha256': hashlib.sha256(Path(model_onnx_path).read_bytes()).hexdigest()}
+        manifest_file = results_file + '.manifest.json'
+
+        if warm_start and os.path.exists(results_file):
+            if not os.path.exists(manifest_file):
+                raise ValueError('Legacy verification results have no identity manifest; rerun with warm_start=False')
+            with open(manifest_file) as file:
+                previous = json.load(file)
+            if previous.get('engine') != engine:
+                raise ValueError('Warm-start results belong to a different verification engine')
+            if previous != manifest:
+                raise ValueError('Warm-start results do not match the model, inputs, labels or perturbation region')
+            with open(results_file, "r") as f:
+                results = json.load(f)
+
+            print(f"Loaded {len(results)} results from {results_file}")
+            results = {int(k): v for k, v in results.items()}
+            for idx, item in results.items():
+                if item.get("method") not in (None, method_name, "clean_classification", "IBP", "CROWN-IBP", "CROWN", "PGD"):
+                    raise ValueError("Warm-start results belong to a different verification engine")
+                if item.get('running_time') is None:
+                    item['running_time'] = 0
+        else:
+            results = {}
+            # Clear old certificates before binding this file to a new identity.
+            write_json_atomic(results_file, results)
+            write_json_atomic(manifest_file, manifest)
+
+        for idx in range(start_idx, end_idx):
+            results.setdefault(idx, {"result": None, "method": None, "running_time": 0})
+
+        adv_sample_found = torch.zeros(test_limit, device=device, dtype=torch.bool)
+        certified = torch.zeros(test_limit, device=device, dtype=torch.bool)
         for idx, item in results.items():
-            if item.get("method") not in (None, method_name, "clean_classification", "IBP", "CROWN-IBP", "CROWN", "PGD"):
-                raise ValueError("Warm-start results belong to a different verification engine")
-            if item.get('running_time') is None:
-                item['running_time'] = 0
-    else:
-        results = {}
-
-    for idx in range(start_idx, end_idx):
-        results.setdefault(idx, {"result": None, "method": None, "running_time": 0})
-
-    adv_sample_found = torch.zeros(test_limit, device=device, dtype=torch.bool)
-    certified = torch.zeros(test_limit, device=device, dtype=torch.bool)
-    for idx, item in results.items():
-        if idx >= test_limit:
-            continue
-        if item.get("result") == "sat":
-            adv_sample_found[idx] = True
-        elif item.get("result") == "unsat":
-            certified[idx] = True
-    no_certified = torch.sum(certified).item()
-
-    write_json_atomic(results_file, results)
-
-    total_images = 0
-
-    batch_size = data_loader.batch_size
-
-    def subset_loader(indices):
-        loader = DataLoader(
-            Subset(data_loader.dataset, indices),
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=getattr(data_loader, "num_workers", 0),
-        )
-        for name in ("mean", "std", "min", "max", "normalised"):
-            if hasattr(data_loader, name):
-                setattr(loader, name, getattr(data_loader, name))
-        return loader
-
-    model.eval()
-    pending = [
-        idx for idx in range(start_idx, end_idx)
-        if results[idx].get("result") not in ("sat", "unsat", "timeout")
-    ]
-    for idx in pending:
-        results[idx]["result"] = None
-    clean_pending = []
-    seen = 0
-    with torch.no_grad():
-        for data, targets in subset_loader(pending):
-            correct = model(data.to(device)).argmax(1).cpu() == targets
-            for local_idx, is_correct in enumerate(correct):
-                idx = pending[seen + local_idx]
-                if is_correct:
-                    clean_pending.append(idx)
-                else:
-                    results[idx] = {"result": "sat", "method": "clean_classification", "running_time": 0}
-                    adv_sample_found[idx] = True
-            seen += len(targets)
-
-    if clean_pending:
-        _, _, incomplete_certified, incomplete_results = eval_adaptive(
-            model=model,
-            eps=eps_std,
-            data_loader=subset_loader(clean_pending),
-            n_classes=n_classes,
-            test_samples=len(clean_pending),
-            device=device,
-            methods=["IBP", "CROWN"],
-        )
-        for local_idx, idx in enumerate(clean_pending):
-            record = incomplete_results[local_idx]
-            results[idx] = {
-                "result": "unsat" if incomplete_certified[local_idx] else None,
-                "method": record.get("method"),
-                "running_time": record.get("running_time") or 0,
-            }
-            if incomplete_certified[local_idx]:
-                certified[idx] = True
-
-    pgd_pending = [idx for idx in clean_pending if not certified[idx]]
-    if pgd_pending:
-        _, pgd_found, pgd_results = eval_adversarial(
-            model=model,
-            data_loader=subset_loader(pgd_pending),
-            eps=eps_std,
-            n_classes=n_classes,
-            device=device,
-            test_samples=len(pgd_pending),
-            return_adv_indices=True,
-            early_stopping=True,
-        )
-        for local_idx, idx in enumerate(pgd_pending):
-            pgd_record = pgd_results[local_idx]
-            running_time = results[idx]["running_time"] + (pgd_record.get("running_time") or 0)
-            if pgd_found[local_idx]:
-                results[idx] = {"result": "sat", "method": "PGD", "running_time": running_time}
+            if idx < 0 or idx >= test_limit:
+                continue
+            if item.get("result") == "sat":
                 adv_sample_found[idx] = True
-            else:
-                results[idx]["running_time"] = running_time
+            elif item.get("result") == "unsat":
+                certified[idx] = True
+        no_certified = torch.sum(certified).item()
 
-    write_json_atomic(results_file, results)
-    no_certified = torch.sum(certified).item()
-    unresolved = [
-        idx for idx in range(start_idx, end_idx)
-        if results[idx].get("result") not in ("sat", "unsat", "timeout")
-    ]
+        write_json_atomic(results_file, results)
 
-    std_config = get_abcrown_standard_conf(timeout=timeout, no_cores=no_cores) if engine == "abcrown" else {}
-    if engine == "abcrown":
-        std_config["solver"]["batch_size"] = abcrown_batch_size
-    if abcrown_config_dict is not None:
-        def update_config(base_config, custom_config):
-            for key, value in custom_config.items():
-                if isinstance(value, dict) and key in base_config:
-                    update_config(base_config[key], value)
-                else:
-                    base_config[key] = value
+        total_images = 0
 
-        update_config(std_config, abcrown_config_dict)
-    if engine == "abcrown":
-        std_config["bab"]["hugetensor_allocator"] = False
+        batch_size = data_loader.batch_size
 
-    tmp_root = f"/tmp/{method_name}_{os.getpid()}_{start_idx}_{end_idx}"
-    os.makedirs(tmp_root, exist_ok=True)
-    model_onnx_path = f"{tmp_root}/model.onnx"
+        def subset_loader(indices):
+            loader = DataLoader(
+                Subset(data_loader.dataset, indices),
+                batch_size=batch_size,
+                shuffle=False,
+                num_workers=getattr(data_loader, "num_workers", 0),
+            )
+            for name in ("mean", "std", "min", "max", "normalised"):
+                if hasattr(data_loader, name):
+                    setattr(loader, name, getattr(data_loader, name))
+            return loader
 
-    if unresolved:
-        export_onnx(
-            model=model,
-            file_name=model_onnx_path,
-            batch_size=1,
-            input_shape=input_shape,
-        )
-
-    for batch_idx, (data, targets) in tqdm(enumerate(data_loader if unresolved else ())):
-        batch_start = batch_idx * batch_size
-        batch_end = batch_start + len(targets)
-        if batch_start >= end_idx:
-            break
-        if batch_end <= start_idx:
-            continue
-        local_positions = [
-            i for i in range(len(targets))
-            if start_idx <= batch_start + i < end_idx
+        model.eval()
+        pending = [
+            idx for idx in range(start_idx, end_idx)
+            if results[idx].get("result") not in ("sat", "unsat", "timeout")
         ]
-        global_indices = [batch_start + i for i in local_positions]
-        if not local_positions:
-            continue
-        data = data[local_positions]
-        targets = targets[local_positions]
-        total_images += len(targets)
-        targets = targets.to(device)
-        data = data.to(device)
+        for idx in pending:
+            results[idx]["result"] = None
+        clean_pending = []
+        seen = 0
+        with torch.no_grad():
+            for data, targets in subset_loader(pending):
+                correct = model(data.to(device)).argmax(1).cpu() == targets
+                for local_idx, is_correct in enumerate(correct):
+                    idx = pending[seen + local_idx]
+                    if is_correct:
+                        clean_pending.append(idx)
+                    else:
+                        results[idx] = {"result": "sat", "method": "clean_classification", "running_time": 0}
+                        adv_sample_found[idx] = True
+                seen += len(targets)
 
-        print(f"BATCH {batch_idx}, global indices {global_indices[0]}:{global_indices[-1] + 1}")
+        if clean_pending:
+            _, _, incomplete_certified, incomplete_results = eval_adaptive(
+                model=model,
+                eps=eps_std,
+                data_loader=subset_loader(clean_pending),
+                n_classes=n_classes,
+                test_samples=len(clean_pending),
+                device=device,
+                methods=["IBP", "CROWN"],
+            )
+            for local_idx, idx in enumerate(clean_pending):
+                record = incomplete_results[local_idx]
+                results[idx] = {
+                    "result": "unsat" if incomplete_certified[local_idx] else None,
+                    "method": record.get("method"),
+                    "running_time": record.get("running_time") or 0,
+                }
+                if incomplete_certified[local_idx]:
+                    certified[idx] = True
 
-        # clean_pred = torch.argmax(model(data), dim=1)
-        # clean_correct = clean_pred == targets
+        pgd_pending = [idx for idx in clean_pending if not certified[idx]]
+        if pgd_pending:
+            _, pgd_found, pgd_results = eval_adversarial(
+                model=model,
+                data_loader=subset_loader(pgd_pending),
+                eps=eps_std,
+                n_classes=n_classes,
+                device=device,
+                test_samples=len(pgd_pending),
+                return_adv_indices=True,
+                early_stopping=True,
+            )
+            for local_idx, idx in enumerate(pgd_pending):
+                pgd_record = pgd_results[local_idx]
+                running_time = results[idx]["running_time"] + (pgd_record.get("running_time") or 0)
+                if pgd_found[local_idx]:
+                    results[idx] = {"result": "sat", "method": "PGD", "running_time": running_time}
+                    adv_sample_found[idx] = True
+                else:
+                    results[idx]["running_time"] = running_time
 
-        # for pred_idx, correct_pred in enumerate(clean_correct):
-        #     if not correct_pred:
-        #         results[batch_idx * batch_size + pred_idx] = {
-        #             "result": 'sat',
-        #             "method": "clean_classification",
-        #             "running_time": 0,
-        #         }
-        #         adv_sample_found[batch_idx * batch_size + pred_idx] = True
+        write_json_atomic(results_file, results)
+        no_certified = torch.sum(certified).item()
+        unresolved = [
+            idx for idx in range(start_idx, end_idx)
+            if results[idx].get("result") not in ("sat", "unsat", "timeout")
+        ]
 
-        vnnlib_path = f"{tmp_root}/vnnlib_{batch_idx}"
-        os.makedirs(vnnlib_path, exist_ok=True)
+        std_config = get_abcrown_standard_conf(timeout=timeout, no_cores=no_cores) if engine == "abcrown" else {}
+        if engine == "abcrown":
+            std_config["solver"]["batch_size"] = abcrown_batch_size
+        if abcrown_config_dict is not None:
+            def update_config(base_config, custom_config):
+                for key, value in custom_config.items():
+                    if isinstance(value, dict) and key in base_config:
+                        update_config(base_config[key], value)
+                    else:
+                        base_config[key] = value
 
-        eps_std = eps_std.to("cpu")
+            update_config(std_config, abcrown_config_dict)
+        if engine == "abcrown":
+            std_config["bab"]["hugetensor_allocator"] = False
 
-        vnnlib_batch = instances_to_vnnlib(
-            indices=[
-                i
+        for batch_idx, (data, targets) in tqdm(enumerate(data_loader if unresolved else ())):
+            batch_start = batch_idx * batch_size
+            batch_end = batch_start + len(targets)
+            if batch_start >= end_idx:
+                break
+            if batch_end <= start_idx:
+                continue
+            local_positions = [
+                i for i in range(len(targets))
+                if start_idx <= batch_start + i < end_idx
+            ]
+            global_indices = [batch_start + i for i in local_positions]
+            if not local_positions:
+                continue
+            data = data[local_positions]
+            targets = targets[local_positions]
+            total_images += len(targets)
+            targets = targets.to(device)
+            data = data.to(device)
+
+            print(f"BATCH {batch_idx}, global indices {global_indices[0]}:{global_indices[-1] + 1}")
+
+            vnnlib_path = f"{tmp_root}/vnnlib_{batch_idx}"
+            os.makedirs(vnnlib_path, exist_ok=True)
+
+            eps_std = eps_std.to("cpu")
+
+            vnnlib_batch = instances_to_vnnlib(
+                indices=[
+                    i
+                    for i in range(len(targets))
+                    if not certified[global_indices[i]]
+                    and not adv_sample_found[global_indices[i]]
+                ],
+                data=[(img, target) for img, target in zip(data, targets)],
+                vnnlib_path=vnnlib_path,
+                experiment_name="Experiment",
+                eps=eps_std * data_loader.std,
+                eps_temp=eps_std,
+                data_min=data_loader.min,
+                data_max=data_loader.max,
+                no_classes=n_classes,
+            )
+            vnnlib_indices = [
+                global_indices[i]
                 for i in range(len(targets))
                 if not certified[global_indices[i]]
                 and not adv_sample_found[global_indices[i]]
-                # and clean_correct[i]
-            ],
-            data=[(img, target) for img, target in zip(data, targets)],
-            vnnlib_path=vnnlib_path,
-            experiment_name="Experiment",
-            eps=eps_std * data_loader.std,
-            eps_temp=eps_std,
-            data_min=data_loader.min,
-            data_max=data_loader.max,
-            no_classes=n_classes,
-        )
-        vnnlib_indices = [
-            global_indices[i]
-            for i in range(len(targets))
-            if not certified[global_indices[i]]
-            and not adv_sample_found[global_indices[i]]
-            # and clean_correct[i]
-        ]
-        print(vnnlib_indices)
-        print(adv_sample_found[global_indices[0] : global_indices[-1] + 1])
-        print(certified[global_indices[0] : global_indices[-1] + 1])
-        for idx, vnn_instance in zip(vnnlib_indices, vnnlib_batch):
-            if results[idx]["result"] in ("sat", "unsat", "timeout"):
-                print(f"Skipping instance {idx} as it already has a result: {results[idx]['result']}")
-                continue
-            if idx >= test_limit:
-                print(f"Skipping instance {idx} as it exceeds test_samples {test_samples}")
-                continue
-            if engine == "neuralsat":
-                running_time, result = neuralsat_eval(
-                    model_onnx_path, vnn_instance, neuralsat_command,
-                    timeout=timeout, device=device, batch_size=neuralsat_batch_size,
-                    log_path=f"{results_path}/{method_name}_logs/{idx}.log",
-                )
-            elif separate_abcrown_process:
-                running_time, result = limited_abcrown_eval(
-                    # work_dir='/tmp/abCROWN',
-                    config=std_config,
-                    seed=42,
-                    instance=vnn_instance,
-                    vnnlib_path=vnnlib_path,
-                    model_path=None,
-                    model_name=None,
-                    model_onnx_path=model_onnx_path,
-                    input_shape=[-1] + input_shape[1:4],
-                    timeout=timeout,
-                    no_cores=no_cores,
-                    par_factor=1,
-                )
-            else:
-                # rand_no = np.random.rand()
-                # if rand_no < 0.5:
-                #     running_time, result = 10.0, 'sat'  # Placeholder for actual result
-                # elif rand_no < 0.9:
-                #     running_time, result = 600.0, 'timeout'
-                # else:
-                #     running_time, result = 10.0, 'unsat'
-                torch.cuda.empty_cache()
-                gc.collect()
-                with redirect_stdout_to_file(f"{results_path}/abCROWN_logs/{idx}.log"):
-                    running_time, result = abcrown_eval(
-                        # work_dir='/tmp/abCROWN',
+            ]
+            print(vnnlib_indices)
+            print(adv_sample_found[global_indices[0] : global_indices[-1] + 1])
+            print(certified[global_indices[0] : global_indices[-1] + 1])
+            for idx, vnn_instance in zip(vnnlib_indices, vnnlib_batch):
+                if results[idx]["result"] in ("sat", "unsat", "timeout"):
+                    print(f"Skipping instance {idx} as it already has a result: {results[idx]['result']}")
+                    continue
+                if idx >= test_limit:
+                    print(f"Skipping instance {idx} as it exceeds test_samples {test_samples}")
+                    continue
+                if engine == "neuralsat":
+                    running_time, result = neuralsat_eval(
+                        model_onnx_path, vnn_instance, neuralsat_command,
+                        timeout=timeout, device=device, batch_size=neuralsat_batch_size,
+                        log_path=f"{results_path}/{method_name}_logs/{idx}.log",
+                    )
+                elif separate_abcrown_process:
+                    running_time, result = limited_abcrown_eval(
                         config=std_config,
                         seed=42,
                         instance=vnn_instance,
@@ -645,71 +603,62 @@ def eval_complete(
                         model_path=None,
                         model_name=None,
                         model_onnx_path=model_onnx_path,
-                        input_shape=[-1] + input_shape[1:4],
+                        input_shape=[-1, *input_shape[1:]],
                         timeout=timeout,
                         no_cores=no_cores,
                         par_factor=1,
                     )
-            torch.cuda.empty_cache()
-            gc.collect()
-            print(f"Instance {idx} finished with result {result} in {running_time:.2f} seconds")
-            if result == "unsat":
-                no_certified += 1
-                certified[idx] = True
-            if result == "sat":
-                adv_sample_found[idx] = True
+                else:
+                    torch.cuda.empty_cache()
+                    gc.collect()
+                    with redirect_stdout_to_file(f"{results_path}/abCROWN_logs/{idx}.log"):
+                        running_time, result = abcrown_eval(
+                            config=std_config,
+                            seed=42,
+                            instance=vnn_instance,
+                            vnnlib_path=vnnlib_path,
+                            model_path=None,
+                            model_name=None,
+                            model_onnx_path=model_onnx_path,
+                            input_shape=[-1, *input_shape[1:]],
+                            timeout=timeout,
+                            no_cores=no_cores,
+                            par_factor=1,
+                        )
+                torch.cuda.empty_cache()
+                gc.collect()
+                print(f"Instance {idx} finished with result {result} in {running_time:.2f} seconds")
+                if result == "unsat":
+                    no_certified += 1
+                    certified[idx] = True
+                if result == "sat":
+                    adv_sample_found[idx] = True
 
-            results[idx] = {
-                "result": result,
-                "method": method_name,
-                "running_time": running_time + results[idx]["running_time"],
-            }
-            write_json_atomic(results_file, results)
+                results[idx] = {
+                    "result": result,
+                    "method": method_name,
+                    "running_time": running_time + results[idx]["running_time"],
+                }
+                write_json_atomic(results_file, results)
 
+            shutil.rmtree(vnnlib_path)
 
+        write_json_atomic(results_file, results)
 
-        shutil.rmtree(vnnlib_path)
+        chunk_results = {idx: results[idx] for idx in range(start_idx, end_idx)}
+        no_certified = sum(1 for item in chunk_results.values() if item["result"] == "unsat")
+        no_counterexample = sum(1 for item in chunk_results.values() if item["result"] == "sat")
 
-    # with torch.no_grad():
-    #     for batch_idx, (data, targets) in tqdm(enumerate(data_loader)):
-    #         targets = targets.to(device)
-    #         data = data.to(device)
+        print(certified)
+        print(no_certified)
 
-    #         # print(f"BATCH {batch_idx}")
+        chunk_total = len(chunk_results)
+        certified_acc = no_certified / chunk_total
+        adv_acc = (chunk_total - no_counterexample) / chunk_total
+        if torch.is_tensor(adv_acc):
+            adv_acc = adv_acc.item()
 
-    #         clean_pred = torch.argmax(model(data), dim=1)
-    #         clean_correct = clean_pred == targets
-    #         # print(clean_correct)
-
-    #         for pred_idx, correct_pred in enumerate(clean_correct):
-    #             if not correct_pred:
-    #                 results[batch_idx * batch_size + pred_idx] = {
-    #                     "result": 'sat',
-    #                     "method": "clean_classification",
-    #                     "running_time": 0,
-    #                 }
-    #                 adv_sample_found[batch_idx * batch_size + pred_idx] = True
-
-    write_json_atomic(results_file, results)
-
-    chunk_results = {idx: results[idx] for idx in range(start_idx, end_idx)}
-    no_certified = sum(1 for item in chunk_results.values() if item["result"] == "unsat")
-    no_counterexample = sum(1 for item in chunk_results.values() if item["result"] == "sat")
-
-    print(certified)
-    print(no_certified)
-
-
-    chunk_total = len(chunk_results)
-    certified_acc = no_certified / chunk_total
-    adv_acc = (chunk_total - no_counterexample) / chunk_total
-    if torch.is_tensor(adv_acc):
-        adv_acc = adv_acc.item()
-
-    shutil.rmtree(tmp_root, ignore_errors=True)
-
-    return certified_acc, adv_acc
-
+        return certified_acc, adv_acc
 
 def eval_complete_abcrown(*args, **kwargs):
     """Backward-compatible alpha-beta-CROWN evaluation entry point."""
@@ -792,7 +741,6 @@ def eval_adaptive(
                                       running_time=record['running_time'] + elapsed)
             seen += count
     return certified[:seen].sum(), seen, certified[:seen], results
-
 
 # TODO: can we maybe spare no_classes?
 def eval_certified(
@@ -878,7 +826,6 @@ def eval_certified(
             if torch.is_tensor(certified)
             else certified / total_images
         ), results
-
 
 def eval_adversarial(
     model,
@@ -985,7 +932,6 @@ def eval_adversarial(
 
     return adv_accuracy
 
-
 def eval_model(
     model,
     data_loader,
@@ -1044,7 +990,6 @@ def eval_model(
         )
 
         return std_acc, cert_acc, adv_acc
-
 
 def eval_epoch(
     model,

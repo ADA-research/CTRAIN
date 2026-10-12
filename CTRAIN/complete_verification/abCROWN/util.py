@@ -1,3 +1,5 @@
+import os
+
 import torch
 
 import yaml
@@ -421,7 +423,7 @@ def instances_to_vnnlib(indices, data, vnnlib_path, experiment_name, eps, eps_te
         data_max = torch.as_tensor(data_max).cpu()
         print(f'idx_{idx}_eps_{eps}')
         # Record the results: vnn-lib specification.
-        filename = vnnlib_path + f"idx_{idx}-eps{eps}.vnnlib"
+        filename = os.path.join(vnnlib_path, f"idx_{idx}-eps{eps}.vnnlib")
         comment = f"Adversarial robustness property for {experiment_name}. l_inf radius: {eps}, " \
                 f"Test Image {idx}."
         comment = ' '.join(comment.splitlines()).strip()
