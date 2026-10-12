@@ -1,8 +1,10 @@
-import torch
-import torch.optim as optim
-import numpy as np
+import math
 
-def pgd_attack(model, data, target, x_L, x_U, restarts=1, step_size=.2, n_steps=200, early_stopping=True, device='cuda', decay_factor=.1, decay_checkpoints=()):
+import torch
+
+def pgd_attack(model, data, target, x_L, x_U, restarts=1, step_size=.2,
+               n_steps=200, early_stopping=True, device='cuda',
+               decay_factor=.1, decay_checkpoints=()):
     """
     Performs the Projected Gradient Descent (PGD) attack on the given model and data.
 
@@ -21,89 +23,62 @@ def pgd_attack(model, data, target, x_L, x_U, restarts=1, step_size=.2, n_steps=
         decay_checkpoints (tuple, optional): The checkpoints at which to decay the step size. Default is ().
 
     Returns:
-        torch.Tensor: The generated adversarial examples.
+        torch.Tensor: The best successful candidate per input, or the largest
+            cross-entropy candidate if none succeeded. Checks nominal inputs,
+            random initializations and every update, including with n_steps=0.
     """
-    x_L, x_U = x_L.to(device).detach().clone(), x_U.to(device).detach().clone()
-    if data is None:
-        data = ((x_L + x_U) / 2).to(device)
-    
-    lr_scale = torch.max((x_U-x_L)/2)
-    
-    adversarial_examples = data.detach().clone()
-    example_found = torch.zeros(data.shape[0], dtype=torch.bool, device=device)
-    best_loss = torch.full((data.shape[0],), -np.inf, dtype=data.dtype, device=device)
-    
-    # TODO: Also support margin loss (although not used in TAPS/SABR/MTL-IBP)
+    if type(restarts) is not int or restarts <= 0:
+        raise ValueError('restarts must be a positive integer')
+    if type(n_steps) is not int or n_steps < 0:
+        raise ValueError('n_steps must be a nonnegative integer')
+    if not math.isfinite(step_size) or step_size < 0:
+        raise ValueError('step_size must be finite and nonnegative')
+
+    x_L, x_U = x_L.to(device).detach(), x_U.to(device).detach()
+    if not torch.isfinite(x_L).all() or not torch.isfinite(x_U).all() or (x_L > x_U).any():
+        raise ValueError('PGD requires finite, ordered input bounds')
+    data = (x_L + x_U) / 2 if data is None else data.to(device).detach()
+    target = target.to(device)
+    lr_scale = torch.max((x_U - x_L) / 2)
+
+    adversarial_examples = torch.clamp(data, x_L, x_U).clone()
+    example_found = torch.zeros(len(data), dtype=torch.bool, device=device)
+    best_loss = torch.full((len(data),), -torch.inf, dtype=data.dtype, device=device)
     loss_fn = torch.nn.CrossEntropyLoss(reduction="none")
-    for restart_idx in range(restarts):
-        
+
+    def record(inputs, outputs, indices):
+        losses = loss_fn(outputs, target[indices]).detach()
+        successful = outputs.detach().argmax(1) != target[indices]
+        # A higher CE at a correctly classified point must not erase a counterexample.
+        improve = (successful & ~example_found[indices]) | (
+            (successful == example_found[indices]) & (losses > best_loss[indices]))
+        selected = indices[improve]
+        adversarial_examples[selected] = inputs[improve].detach()
+        best_loss[selected] = losses[improve]
+        example_found[indices] |= successful
+
+    with torch.no_grad():
+        record(adversarial_examples, model(adversarial_examples), torch.arange(len(data), device=device))
+
+    for _ in range(restarts):
         if early_stopping and example_found.all():
             break
-
-        random_init = x_L + torch.rand(data.shape, device=device, dtype=data.dtype) * (x_U - x_L)
-        attack_input = random_init.detach().clone()     
-                        
-        grad_cleaner = optim.SGD([attack_input], lr=1e-3)
+        attack_input = x_L + torch.rand(data.shape, device=device, dtype=data.dtype) * (x_U - x_L)
         with torch.enable_grad():
-            for step in range(n_steps):
-                grad_cleaner.zero_grad()
-                
-                if early_stopping:
-                    active_indices = torch.where(~example_found)[0]
-                    current_attack_input = attack_input[active_indices]
-                    target_active = target[active_indices]
-                    x_L_active = x_L[active_indices]
-                    x_U_active = x_U[active_indices]
-                else:
-                    active_indices = None
-                    current_attack_input = attack_input
-                    target_active = target
-                    x_L_active = x_L
-                    x_U_active = x_U
-                
-                current_attack_input.requires_grad = True
-
-                model_out = model(current_attack_input)
-                
-                loss = loss_fn(model_out, target_active)
-                grad = torch.autograd.grad(loss.sum(), current_attack_input)[0]
-
-                if len(decay_checkpoints) > 0:
-                    no_passed_checkpoints = len([checkpoint for checkpoint in decay_checkpoints if step >= checkpoint])
-                    decay = decay_factor ** no_passed_checkpoints
-                else:
-                    decay = 1
-                    
-                step_input_change = step_size * lr_scale * decay * grad.sign()
-                
-                current_attack_input = torch.clamp(current_attack_input.detach() + step_input_change, x_L_active, x_U_active)
-                if early_stopping:
-                    attack_input[active_indices] = current_attack_input.detach()
-                else:
-                    attack_input = current_attack_input
-
-                adv_out = model(current_attack_input)
-                
-                adv_loss = loss_fn(adv_out, target_active)
-                
-                if early_stopping:
-                    improvement_idx = adv_loss > best_loss[active_indices]
-                    improved_indices = active_indices[improvement_idx]
-                    best_loss[improved_indices] = adv_loss[improvement_idx].detach()
-                    adversarial_examples[improved_indices] = current_attack_input[improvement_idx].detach()
-                    
-                    misclassified = ~torch.argmax(adv_out.detach(), dim=1).eq(target_active)
-                    example_found[active_indices[misclassified]] = True
-                    
-                else:
-                    improvement_idx = adv_loss > best_loss
-                    best_loss[improvement_idx] = adv_loss[improvement_idx].detach()
-                    adversarial_examples[improvement_idx] = current_attack_input[improvement_idx].detach()
-                    
-                    example_found[~torch.argmax(adv_out.detach(), dim=1).eq(target)] = True
-                    
-                if early_stopping and example_found.all():
+            for step in range(n_steps + 1):
+                indices = torch.where(~example_found)[0] if early_stopping else torch.arange(len(data), device=device)
+                if not len(indices):
                     break
-                
-    grad_cleaner.zero_grad()
+                inputs = attack_input[indices].detach().requires_grad_(True)
+                outputs = model(inputs)
+                record(inputs, outputs, indices)
+                if step == n_steps or (early_stopping and example_found.all()):
+                    break
+                loss = loss_fn(outputs, target[indices]).sum()
+                grad = torch.autograd.grad(loss, inputs)[0]
+                decay = decay_factor ** sum(step >= checkpoint for checkpoint in decay_checkpoints)
+                attack_input[indices] = torch.clamp(
+                    inputs.detach() + step_size * lr_scale * decay * grad.sign(),
+                    x_L[indices], x_U[indices]).detach()
+
     return adversarial_examples.detach()
