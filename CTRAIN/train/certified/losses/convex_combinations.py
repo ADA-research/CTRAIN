@@ -15,7 +15,7 @@ def validate_expressive_options(alpha, loss_type=None):
     if not math.isfinite(alpha) or not 0 <= alpha <= 1:
         raise ValueError('alpha must be finite and in [0, 1]')
 
-def get_expressive_ibp_loss(hardened_model, original_model, ptb, data, target, n_classes, criterion, alpha, return_bounds=False, return_stats=False, restarts=1, step_size=.2, n_steps=200, pgd_ptb=None, early_stopping=False, decay_checkpoints=(), decay_factor=.1, device='cuda', relu_upper_retention=1.0, pgd_eps_factor=1.0, data_min=None, data_max=None, eps=None, loss_type=None, *, loss_combination):
+def get_expressive_ibp_loss(hardened_model, original_model, ptb, data, target, n_classes, criterion, alpha, return_bounds=False, return_stats=False, restarts=1, step_size=.2, n_steps=200, pgd_ptb=None, early_stopping=False, decay_checkpoints=(), decay_factor=.1, device='cuda', relu_upper_retention=1.0, pgd_eps_factor=1.0, data_min=None, data_max=None, eps=None, loss_type=None, *, loss_combination, teacher_features=None, distillation_weight=None):
     """
     Compute shared PGD/IBP components and apply the supplied loss combination.
 
@@ -77,6 +77,9 @@ def get_expressive_ibp_loss(hardened_model, original_model, ptb, data, target, n
         )
 
     adv_output = hardened_model(x_adv)
+    if teacher_features is not None:
+        feature_node = hardened_model[hardened_model.output_name[0]].inputs[0]
+        adv_features = feature_node.forward_value
     adv_loss = criterion(adv_output, target).mean()
 
     robust_loss, lb, ub = get_ibp_loss(
@@ -98,12 +101,18 @@ def get_expressive_ibp_loss(hardened_model, original_model, ptb, data, target, n
         loss = loss_combination(alpha, robust_loss, adv_loss, lb, adv_output,
                                 data, target, n_classes, criterion)
 
+    if teacher_features is not None:
+        from CTRAIN.train.certified.losses.cc_dist import feature_distillation_loss
+        loss = loss + feature_distillation_loss(
+            adv_features, feature_node.lower, feature_node.upper,
+            teacher_features, alpha, distillation_weight)
+
     return_tuple = (loss,)
 
     if return_bounds:
         return_tuple = return_tuple + (lb, ub)
     if return_stats:
-        robust_err = torch.sum((lb < 0).any(dim=1)).item() / data.size(0)
+        robust_err = torch.sum(~(lb > 0).all(dim=1)).item() / data.size(0)
         adv_err = torch.sum(torch.argmax(adv_output, dim=1) != target).item() / data.size(0)
         return_tuple = return_tuple + (robust_err, adv_err)
 

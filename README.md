@@ -51,7 +51,7 @@ accuracy trade-off.
 - Unified certified training wrappers for IBP-style methods built on
   [`auto_LiRPA`](https://proceedings.neurips.cc/paper/2020/file/0cbc5671ae26f67871cb914d81ef8fc1-Paper.pdf).
 - Implementations of popular certified training methods, including IBP,
-  CROWN-IBP, SABR, TAPS, STAPS, and MTL-IBP.
+  CROWN-IBP, SABR, TAPS, STAPS, MTL-IBP, CC-IBP, Exp-IBP, and CC-Dist.
 - PyTorch-native model definitions, dataset loaders, and training utilities
   for easy integration into existing research code.
 - Adversarial evaluation with PGD, incomplete verification with IBP/CROWN
@@ -74,7 +74,8 @@ Certified training:
 - TAPS ([Mao et al., 2023](https://proceedings.neurips.cc/paper_files/paper/2023/file/e8b0c97b34fdaf58b2f48f8cca85e76a-Paper-Conference.pdf))
 - STAPS, combining SABR and TAPS
   ([Mao et al., 2023](https://proceedings.neurips.cc/paper_files/paper/2023/file/e8b0c97b34fdaf58b2f48f8cca85e76a-Paper-Conference.pdf))
-- MTL-IBP ([De Palma et al., 2023](https://arxiv.org/pdf/2305.13991))
+- MTL-IBP, CC-IBP, and Exp-IBP ([De Palma et al., 2024](https://arxiv.org/pdf/2305.13991)); see the [expressive loss guide](docs/expressive_losses.md).
+- CC-Dist ([Learning Better Certified Models from Empirically-Robust Teachers, 2026](https://arxiv.org/pdf/2602.02626v1)), with native PGD teacher training; see the [CC-Dist guide](docs/cc_dist.md).
 
 Evaluation:
 

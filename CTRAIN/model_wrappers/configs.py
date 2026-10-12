@@ -26,6 +26,13 @@ def get_config_space(model_wrapper, epochs, eps, defaults=dict()):
         return build_staps_config_space(epochs, eps, defaults=defaults)
     elif model_wrapper.cert_train_method == 'mtl_ibp':
         return build_mtl_ibp_config_space(epochs, eps, defaults=defaults)
+    elif model_wrapper.cert_train_method == 'cc_dist':
+        space = build_cc_ibp_config_space(epochs, eps, defaults=defaults)
+        layers = getattr(model_wrapper.original_model, 'layers', model_wrapper.original_model)
+        width = layers[-1].in_features
+        space.add(Float('cc_dist:distillation_weight', (.1 / width, 50 / width), log=True,
+                        default=defaults.get('distillation_weight', 5 / width)))
+        return space
     elif model_wrapper.cert_train_method == 'cc_ibp':
         return build_cc_ibp_config_space(epochs, eps, defaults=defaults)
     elif model_wrapper.cert_train_method == 'exp_ibp':

@@ -8,7 +8,7 @@ from CTRAIN.train.certified.eps_scheduler import SmoothedScheduler
 from CTRAIN.train.certified.losses.convex_combinations import validate_expressive_options
 from CTRAIN.train.certified.initialisation import ibp_init_shi
 from CTRAIN.train.certified.regularisers import get_shi_regulariser
-from CTRAIN.util import save_checkpoint
+from CTRAIN.util import save_checkpoint, construct_c
 from CTRAIN.train.certified.util import synchronise_bn
 from CTRAIN.train.certified.regularisers import get_l1_reg
 from CTRAIN.train.certified.progress import progress_bar, update_progress, log_epoch_summary
@@ -51,6 +51,7 @@ def expressive_ibp_train_model(
     *,
     loss_func,
     method,
+    clean_forward=True,
 ):
     """
     Train an expressive IBP objective using the supplied method loss.
@@ -99,7 +100,7 @@ def expressive_ibp_train_model(
     """
 
     validate_hybrid_options(relu_upper_retention, pgd_eps_factor)
-    validate_expressive_options(alpha, method)
+    validate_expressive_options(alpha, 'cc_ibp' if method == 'cc_dist' else method)
     if end_epoch is None:
         end_epoch = num_epochs
 
@@ -158,12 +159,13 @@ def expressive_ibp_train_model(
 
             optimizer.zero_grad()
 
-            clean_output = hardened_model(data)
-            clean_loss = criterion(clean_output, target).mean()
-            regular_err = torch.sum(
-                torch.argmax(clean_output, dim=1) != target
-            ).item() / data.size(0)
-            epoch_nat_err += regular_err
+            if clean_forward or eps_scheduler.get_cur_eps(normalise=False) == 0.0:
+                clean_output = hardened_model(data)
+                clean_loss = criterion(clean_output, target).mean()
+                regular_err = torch.sum(
+                    torch.argmax(clean_output, dim=1) != target
+                ).item() / data.size(0)
+                epoch_nat_err += regular_err
 
             if eps_scheduler.get_cur_eps(normalise=False) != 0.0:
 
@@ -194,6 +196,10 @@ def expressive_ibp_train_model(
 
             else:
                 loss = clean_loss
+                epoch_adv_err += regular_err
+                clean_margins = torch.bmm(construct_c(data, target, n_classes),
+                                          clean_output.detach().unsqueeze(-1)).squeeze(-1)
+                epoch_rob_err += torch.sum(~(clean_margins > 0).all(dim=1)).item() / data.size(0)
 
             if eps_scheduler.get_cur_eps(normalise=False) != eps_scheduler.get_max_eps(
                 normalise=False
@@ -227,7 +233,7 @@ def expressive_ibp_train_model(
             loss.backward()
             if gradient_clip is not None:
                 nn.utils.clip_grad_norm_(
-                    original_model.parameters(), max_norm=gradient_clip
+                    original_model.parameters(), max_norm=gradient_clip, error_if_nonfinite=True
                 )
             optimizer.step()
 
@@ -236,7 +242,7 @@ def expressive_ibp_train_model(
             update_progress(
                 progress,
                 loss=running_loss / completed_batches,
-                nat_acc=1 - epoch_nat_err / completed_batches,
+                nat_acc=1 - epoch_nat_err / completed_batches if clean_forward else None,
                 adv_acc=1 - epoch_adv_err / completed_batches,
                 **{"cert_acc" if relu_upper_retention == 1 else "robust_acc":
                    1 - epoch_rob_err / completed_batches},
@@ -256,7 +262,7 @@ def expressive_ibp_train_model(
             epoch=epoch,
             num_epochs=num_epochs,
             loss=running_loss / len(train_loader),
-            nat_acc=train_acc_nat,
+            nat_acc=train_acc_nat if clean_forward else None,
             adv_acc=train_acc_adv,
             **{"cert_acc" if relu_upper_retention == 1 else "robust_acc": train_acc_cert},
         )

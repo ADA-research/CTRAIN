@@ -1,6 +1,8 @@
 site_name: CTRAIN Documentation
 nav:
   - Home: index.md
+  - Expressive Losses: expressive_losses.md
+  - CC-Dist: cc_dist.md
   - Examples:
     - Certified Training: examples/certified_training.ipynb
     - Model Evaluation: examples/model_evaluation.ipynb
@@ -20,21 +22,32 @@ nav:
       - eval: api/eval/eval.md
       - model_definitions: api/model_definitions/model_definitions.md
       - model_wrappers:
+        - CC-Dist: api/model_wrappers/cc_dist_model_wrapper.md
+        - PGD Teachers: api/model_wrappers/pgd_model_wrapper.md
         - CROWN IBP: api/model_wrappers/crown_ibp_model_wrapper.md
+        - Expressive IBP: api/model_wrappers/expressive_ibp_model_wrapper.md
         - MTL IBP: api/model_wrappers/mtl_ibp_model_wrapper.md
+        - CC IBP: api/model_wrappers/cc_ibp_model_wrapper.md
+        - Exp IBP: api/model_wrappers/exp_ibp_model_wrapper.md
         - SABR: api/model_wrappers/sabr_model_wrapper.md
         - SHI IBP: api/model_wrappers/shi_ibp_model_wrapper.md
         - TAPS: api/model_wrappers/taps_model_wrapper.md
         - STAPS: api/model_wrappers/staps_model_wrapper.md
         - CTRAIN: api/model_wrappers/ctrain_wrapper.md
       - train:
+        - adversarial:
+          - PGD Teachers: api/train/adversarial/pgd.md
         - certified:
+          - CC-Dist: api/train/certified/cc_dist.md
           - IBP: api/train/certified/ibp.md
           - CROWN IBP: api/train/certified/crown_ibp.md
           - SABR: api/train/certified/sabr.md
           - TAPS: api/train/certified/taps.md
           - STAPS: api/train/certified/staps.md
+          - Expressive IBP: api/train/certified/expressive_ibp.md
           - MTL-IBP: api/train/certified/mtl_ibp.md
+          - CC-IBP: api/train/certified/cc_ibp.md
+          - Exp-IBP: api/train/certified/exp_ibp.md
           - util: api/train/certified/util.md
           - eps_scheduler: api/train/certified/eps_scheduler.md
           - initialisation:
@@ -43,6 +56,7 @@ nav:
             - shi: api/train/certified/regularisers/shi.md
             - l1: api/train/certified/regularisers/l1.md
           - losses:
+            - CC-Dist: api/train/certified/losses/cc_dist.md
             - convex_combinations: api/train/certified/losses/convex_combinations.md
             - crown_ibp: api/train/certified/losses/crown_ibp.md
             - ibp: api/train/certified/losses/ibp.md

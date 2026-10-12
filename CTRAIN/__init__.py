@@ -1,4 +1,6 @@
 _MODEL_WRAPPER_EXPORTS = {
+    "PGDModelWrapper": "CTRAIN.model_wrappers",
+    "CCDistModelWrapper": "CTRAIN.model_wrappers",
     "ExpressiveIBPModelWrapper": "CTRAIN.model_wrappers",
     "GLSModelWrapper": "CTRAIN.model_wrappers",
     "IBPRModelWrapper": "CTRAIN.model_wrappers",

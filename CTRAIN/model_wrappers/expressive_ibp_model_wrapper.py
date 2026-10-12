@@ -15,6 +15,8 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
     _loss_type = None
     _alpha_name = None
     _loss_func = None
+    _trainer = staticmethod(expressive_ibp_train_model)
+    _clean_forward = True
 
     def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,
                  lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90)), gradient_clip=10, l1_reg_weight=0.000001,
@@ -98,8 +100,9 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
         eps_std = self.train_eps / train_loader.std if train_loader.normalised else torch.tensor(self.train_eps)
         eps_std = torch.reshape(eps_std, (*eps_std.shape, 1, 1))
 
-        trained_model = expressive_ibp_train_model(
+        trained_model = self._trainer(
             loss_func=self._loss_func, method=self.cert_train_method,
+            clean_forward=self._clean_forward,
             original_model=self.original_model,
             hardened_model=self.bounded_model,
             train_loader=train_loader,
@@ -132,7 +135,11 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
             device=self.device
         )
 
+        self.epoch = self.num_epochs if end_epoch is None else end_epoch
         return trained_model
+
+    def _hpo_extra_options(self, config):
+        return {}
 
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1, adv_loss_weight=1, cert_loss_weight=1, complete_verify=False):
         """
@@ -158,7 +165,7 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
 
         optimizer_func = self._optimizer_from_config(config)
 
-        prefix = self.cert_train_method
+        prefix = self._loss_type
         model_wrapper = type(self)(
             model=copy.deepcopy(self.original_model),
             input_shape=self.input_shape,
@@ -188,6 +195,7 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
             pgd_eps_factor=config[f'{prefix}:pgd_eps_factor'],
             pgd_alpha_decay_factor=self.pgd_alpha_decay_factor,
             pgd_decay_milestones=self.pgd_decay_milestones,
+            **self._hpo_extra_options(config),
         )
 
         model_wrapper.train_model(train_loader=train_loader)

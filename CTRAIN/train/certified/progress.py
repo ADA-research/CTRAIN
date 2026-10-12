@@ -47,8 +47,9 @@ def log_epoch_summary(epoch, num_epochs, loss, nat_acc, cert_acc=None, adv_acc=N
     parts = [
         f"Epoch [{epoch + 1}/{num_epochs}]",
         f"loss={_as_float(loss):.4f}",
-        f"nat_acc={_as_float(nat_acc):.4f}",
     ]
+    if nat_acc is not None:
+        parts.append(f"nat_acc={_as_float(nat_acc):.4f}")
     if adv_acc is not None:
         parts.append(f"adv_acc={_as_float(adv_acc):.4f}")
     if cert_acc is not None:

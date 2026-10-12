@@ -4,6 +4,8 @@ from importlib import import_module
 
 
 _EXPORTS = {
+    "PGDModelWrapper": ".pgd_model_wrapper",
+    "CCDistModelWrapper": ".cc_dist_model_wrapper",
     "ExpressiveIBPModelWrapper": ".expressive_ibp_model_wrapper",
     "GLSModelWrapper": ".gls_model_wrapper",
     "IBPRModelWrapper": ".ibp_r_model_wrapper",

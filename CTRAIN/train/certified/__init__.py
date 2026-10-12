@@ -4,6 +4,7 @@ from CTRAIN.train.certified.sabr import sabr_train_model
 from CTRAIN.train.certified.taps import taps_train_model
 from CTRAIN.train.certified.mtl_ibp import mtl_ibp_train_model
 from CTRAIN.train.certified.cc_ibp import cc_ibp_train_model
+from CTRAIN.train.certified.cc_dist import cc_dist_train_model
 from CTRAIN.train.certified.exp_ibp import exp_ibp_train_model
 from CTRAIN.train.certified.staps import staps_train_model
 from CTRAIN.train.certified.set_based import set_based_train_model
