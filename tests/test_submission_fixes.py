@@ -135,10 +135,44 @@ def validation_transforms():
         assert train.dataset.dataset.transform is not val.dataset.dataset.transform
 
 
+
+
+def crown_bounds_and_models():
+    loader = loader_for()
+    data, targets = next(iter(loader))
+    for fusion in (False, True):
+        wrapper = CrownIBPModelWrapper(Toy(), (1, 2, 2), .1, 2, device='cpu',
+                                      warm_up_epochs=0, ramp_up_epochs=1, loss_fusion=fusion)
+        for beta in (0., .5, 1.):
+            if fusion:
+                wrapper.loss_fusion_model(data, targets)
+            else:
+                wrapper.bounded_model(data)
+            ptb = PerturbationLpNorm(norm=np.inf, eps=.1, x_L=data-.1, x_U=data+.1)
+            loss, lower, upper = get_crown_ibp_loss(
+                wrapper.loss_fusion_model if fusion else wrapper.bounded_model,
+                ptb, data, targets, 2, nn.CrossEntropyLoss(), beta,
+                loss_fusion=fusion, return_bounds=True, return_stats=False)
+            assert torch.isfinite(loss)
+            assert lower is not None
+            if fusion:
+                assert upper is not None and torch.isfinite(upper).all()
+            gradients = torch.autograd.grad(loss, tuple(wrapper.parameters()), allow_unused=True)
+            assert any(g is not None and torch.isfinite(g).all() for g in gradients)
+    for model_type in (GowalConvMed, GowalConvLarge):
+        assert model_type(n_classes=7)(torch.zeros(2, 1, 28, 28)).shape == (2, 7)
+    for size in (28, 29, 55, 57):
+        for downsample in (False, True):
+            model = CNN7_Shi((1, size, size), width=2, linear_size=4, n_classes=3,
+                             downsample_final=downsample).eval()
+            assert model(torch.zeros(2, 1, size, size)).shape == (2, 3)
+
+
 if __name__ == "__main__":
     torch.set_num_threads(1)
     torch.manual_seed(0)
     attack_counterexamples()
     schedules()
     validation_transforms()
+    crown_bounds_and_models()
     print("Shared training and verification regressions passed")

@@ -79,7 +79,7 @@ class GowalConvMed(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(512, 512),
             nn.ReLU(inplace=True),
-            nn.Linear(512, 10)
+            nn.Linear(512, n_classes)
         )
     
     def forward(self, x):
@@ -122,7 +122,7 @@ class GowalConvLarge(nn.Module):
             nn.Flatten(),
             nn.Linear(linear_in, 512),
             nn.ReLU(inplace=True),
-            nn.Linear(512, 10)
+            nn.Linear(512, n_classes)
         )
     
     def forward(self, x):

@@ -25,7 +25,7 @@ class CNN7_Shi(nn.Module):
         in_channels = in_shape[0]
         in_dim  = in_shape[1]
         final_stride = 2 if downsample_final else 1
-        feature_dim = in_dim // (2 * final_stride)
+        feature_dim = (in_dim + 2 * final_stride - 1) // (2 * final_stride)
         
         self.layers = nn.Sequential(
             nn.Conv2d(in_channels, width, kernel_size=(3,3), stride=1, padding=1),
