@@ -115,6 +115,13 @@ pip install -e ".[dev]"
 ctrain-install-git-deps
 ```
 
+## Case studies
+
+[Portable case studies](case_studies/README.md) cover controller safety, ACAS Xu
+repair and MNIST addition consistency. Each has a separate
+experiment folder and a [documentation notebook](docs/examples/case_studies/index.md),
+with CPU execution checks and explicit real-data instructions.
+
 ## 🧪 Quick Start
 
 Train and evaluate a CNN7 model on CIFAR-10 with the Shi-style IBP wrapper:

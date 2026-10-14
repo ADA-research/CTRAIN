@@ -9,6 +9,11 @@ nav:
     - Model Evaluation: examples/model_evaluation.ipynb
     - Hyperparameter Optimisation: examples/hyperparameter_optimisation.ipynb
     - Pareto-front Models: examples/pareto_front_models.md
+    - Case Studies:
+      - Overview: examples/case_studies/index.md
+      - Controller Safety: examples/case_studies/controller.ipynb
+      - ACAS Xu Repair: examples/case_studies/acasxu.ipynb
+      - MNIST Addition: examples/case_studies/mnist_addition.ipynb
   - API Reference:
       - attacks:
         - pgd: api/attacks/pgd.md

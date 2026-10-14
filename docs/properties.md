@@ -107,7 +107,7 @@ wrappers; `IBP` here denotes the property-bound objective.
 The controller, ACAS repair, and MNIST-addition runners accept, for example:
 
 ```bash
-PYTHONPATH=. ../venv/bin/python examples/properties/controller.py --smoke \
+python -m case_studies.controller.run --smoke \
   --method SABR --training-options '{"subselection_ratio": 0.2, "pgd_steps": 12}' \
   --output /tmp/controller-sabr-new
 ```
@@ -218,7 +218,7 @@ proved by this path, in addition to mocked status-handling regressions.
 
 ## Case studies and evidence
 
-See [the example instructions](../examples/properties/README.md) for commands.
+See [the case-study notebooks](examples/case_studies/index.md) for commands.
 The experimental MNIST addition example learns independent classification heads
 for the two operand digits (10 classes each) and their sum (19 classes). Three
 cross-entropy losses supervise `[a,b,a+b]`, while VNNLIB specifies exact consistency

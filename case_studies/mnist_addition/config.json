@@ -1,0 +1,20 @@
+{
+  "output": "runs/case_studies/mnist_addition/seed_1",
+  "data_root": "data",
+  "download": false,
+  "device": "cpu",
+  "seed": 1,
+  "epochs": 100,
+  "train_pairs": 60000,
+  "test_pairs": 128,
+  "property_boxes": 64,
+  "batch_size": 128,
+  "property_batch_size": 4,
+  "width": 64,
+  "lr": 0.001,
+  "property_weight": 10.0,
+  "weight_ramp_epochs": 30,
+  "epsilon": 0.02,
+  "method": "CROWN-IBP",
+  "eval_method": "CROWN"
+}
