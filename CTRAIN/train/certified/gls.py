@@ -84,8 +84,12 @@ class GLSOptimizer(torch.optim.Optimizer):
             self.zero_grad(set_to_none=True)
             with torch.enable_grad() if backward else torch.no_grad():
                 loss = closure()
+                if not torch.isfinite(loss):
+                    raise FloatingPointError('Non-finite GLS loss')
                 if backward:
                     loss.backward()
+                    if any(p.grad is not None and not torch.isfinite(p.grad).all() for p in params):
+                        raise FloatingPointError('Non-finite GLS gradients')
                     # The released RGS implementation clips each sample's
                     # gradient before averaging, not the averaged gradient.
                     if self.gradient_clip is not None:
@@ -97,6 +101,8 @@ class GLSOptimizer(torch.optim.Optimizer):
                 restore()
                 with torch.no_grad():
                     baseline = closure().detach()
+                    if not torch.isfinite(baseline):
+                        raise FloatingPointError('Non-finite GLS baseline loss')
             count = self.samples if self.estimator == 'rgs' else self.samples // 2
             for _ in range(count):
                 noise = [torch.randn_like(s) * s.detach() for s in self.scales]

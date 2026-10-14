@@ -105,9 +105,12 @@ def bound_sabr(hardened_model, original_model, data, target, eps, subselection_r
             return lb, ub, adv_output
         return lb, ub
 
-def get_propagation_region(model, data, target, subselection_ratio, step_size, n_steps, restarts, x_L=None, x_U=None, data_min=None, data_max=None, eps=None, early_stopping=True, decay_factor=.1, decay_checkpoints=(4, 7), pgd_x_L=None, pgd_x_U=None):
+def get_propagation_region(model, data, target, subselection_ratio, step_size, n_steps, restarts, x_L=None, x_U=None, data_min=None, data_max=None, eps=None, early_stopping=True, decay_factor=.1, decay_checkpoints=(4, 7), pgd_x_L=None, pgd_x_U=None, *, loss_fn=None, is_success=None):
     """
     Get the shrinked propagation region for the SABR method. This is done by performing a PGD attack on the model and taking the resulting adversarial examples as the center of a smaller propagation region.
+
+    Optional loss_fn and is_success callbacks are forwarded to pgd_attack for
+    general-property objectives; their defaults retain classification attacks.
 
     Parameters:
         model (torch.nn.Module): The neural network model.
@@ -156,6 +159,7 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
     if torch.any(attack_x_L > attack_x_U):
         raise ValueError("PGD lower bounds must not exceed upper bounds")
 
+    attack_options = {} if loss_fn is None and is_success is None else dict(loss_fn=loss_fn, is_success=is_success)
     x_adv = pgd_attack(
         model=model,
         data=data,
@@ -168,7 +172,8 @@ def get_propagation_region(model, data, target, subselection_ratio, step_size, n
         early_stopping=early_stopping,
         device=device,
         decay_checkpoints=decay_checkpoints,
-        decay_factor=decay_factor
+        decay_factor=decay_factor,
+        **attack_options
     )
 
     propagation_inputs = torch.clamp(x_adv, x_L + tau, x_U - tau) # called midpoints in SABR code

@@ -1,4 +1,5 @@
 _MODEL_WRAPPER_EXPORTS = {
+    "PropertyModelWrapper": "CTRAIN.model_wrappers",
     "PGDModelWrapper": "CTRAIN.model_wrappers",
     "CCDistModelWrapper": "CTRAIN.model_wrappers",
     "ExpressiveIBPModelWrapper": "CTRAIN.model_wrappers",

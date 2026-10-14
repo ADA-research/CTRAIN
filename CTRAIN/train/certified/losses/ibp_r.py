@@ -29,6 +29,17 @@ def validate_ibp_r_options(rho, pgd_steps, pgd_restarts, pgd_alpha,
         raise ValueError("PGD decay milestones must be nonnegative integers")
 
 
+def relu_area(model, data):
+    """Sum unstable ReLU triangle areas per example from fresh IBP intervals."""
+    area = data.new_zeros(len(data))
+    for node in model.modules():
+        if isinstance(node, BoundRelu):
+            lower, upper = node.inputs[0].lower, node.inputs[0].upper
+            area = area + ((-lower).clamp(min=0) * upper.clamp(min=0)
+                           / 2).reshape(len(data), -1).sum(1)
+    return area
+
+
 def get_ibp_r_loss(hardened_model, original_model, ptb, data, target,
                    kappa=1.0, rho=2e-4, regularisation_mask=False,
                    pgd_steps=8, pgd_alpha=.25, pgd_restarts=1,
@@ -76,11 +87,7 @@ def get_ibp_r_loss(hardened_model, original_model, ptb, data, target,
         # Fresh auto_LiRPA intervals: never use attack or previous-batch caches.
         bound_ibp(hardened_model, ptb, data, None, bound_upper=True,
                   relu_upper_retention=relu_upper_retention)
-        for node in hardened_model.modules():
-            if isinstance(node, BoundRelu):
-                lower, upper = node.inputs[0].lower, node.inputs[0].upper
-                area = area + ((-lower).clamp(min=0) * upper.clamp(min=0)
-                               / 2).reshape(len(data), -1).sum(1)
+        area = relu_area(hardened_model, data)
         if regularisation_mask:
             area = area * (adv_output.detach().argmax(1) == target)
     return (1 - kappa) * clean_loss + kappa * (adv_loss + rho * area.mean()), adv_output

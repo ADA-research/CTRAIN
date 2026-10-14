@@ -4,6 +4,7 @@ from importlib import import_module
 
 
 _EXPORTS = {
+    "PropertyModelWrapper": ".certified.property_model_wrapper",
     "PGDModelWrapper": ".pgd_model_wrapper",
     "CCDistModelWrapper": ".cc_dist_model_wrapper",
     "ExpressiveIBPModelWrapper": ".expressive_ibp_model_wrapper",

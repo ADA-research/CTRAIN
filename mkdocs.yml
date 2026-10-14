@@ -3,6 +3,7 @@ nav:
   - Home: index.md
   - Expressive Losses: expressive_losses.md
   - CC-Dist: cc_dist.md
+  - General Properties: properties.md
   - Examples:
     - Certified Training: examples/certified_training.ipynb
     - Model Evaluation: examples/model_evaluation.ipynb
@@ -22,6 +23,7 @@ nav:
       - eval: api/eval/eval.md
       - model_definitions: api/model_definitions/model_definitions.md
       - model_wrappers:
+        - General Properties: api/model_wrappers/property_model_wrapper.md
         - CC-Dist: api/model_wrappers/cc_dist_model_wrapper.md
         - PGD Teachers: api/model_wrappers/pgd_model_wrapper.md
         - CROWN IBP: api/model_wrappers/crown_ibp_model_wrapper.md
@@ -38,6 +40,7 @@ nav:
         - adversarial:
           - PGD Teachers: api/train/adversarial/pgd.md
         - certified:
+          - General Properties: api/train/certified/properties.md
           - CC-Dist: api/train/certified/cc_dist.md
           - IBP: api/train/certified/ibp.md
           - CROWN IBP: api/train/certified/crown_ibp.md

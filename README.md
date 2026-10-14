@@ -54,6 +54,8 @@ accuracy trade-off.
   CROWN-IBP, SABR, TAPS, STAPS, MTL-IBP, CC-IBP, Exp-IBP, and CC-Dist.
 - PyTorch-native model definitions, dataset loaders, and training utilities
   for easy integration into existing research code.
+- An experimental [general output-property workflow](docs/properties.md) with
+  affine comparisons, conjunctions, disjunctions, and certified property training.
 - Adversarial evaluation with PGD, incomplete verification with IBP/CROWN
   variants, and complete verification through alpha-beta-CROWN.
 - Method-specific configuration spaces and a common wrapper API for training,
