@@ -2,6 +2,7 @@
 import copy
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import torch
 from torch import nn
@@ -12,6 +13,7 @@ from CTRAIN.model_wrappers import PropertyModelWrapper as ExportedWrapper
 from CTRAIN.properties import And, Or, Outputs, Box, PropertySpec
 from CTRAIN.eval.properties import partition_state, validate_partition
 from CTRAIN.train.certified import property_train_model
+from CTRAIN.train.certified.losses.property_methods import get_property_training_loss
 
 
 def loader():
@@ -37,6 +39,13 @@ def main():
     torch.set_num_threads(1)
     assert PropertyModelWrapper is ExportedWrapper
     assert callable(property_train_model)
+    for match, expected in ((False, [4, 4]), (True, [3, 1])):
+        independent = wrapper(match_property_batch_size=match)
+        training = DataLoader(loader().dataset, batch_size=3)
+        with patch('CTRAIN.train.certified.properties.get_property_training_loss',
+                   wraps=get_property_training_loss) as penalty:
+            independent.train_model(training, end_epoch=1)
+        assert [len(call.args[2]) for call in penalty.call_args_list] == expected
     model = nn.Linear(1, 1).double()
     with torch.no_grad():
         model.weight.fill_(.1)
@@ -102,7 +111,7 @@ def main():
         assert resumed.lr_scheduler.state_dict() == full.lr_scheduler.state_dict()
         for name, value in full.original_model.state_dict().items():
             torch.testing.assert_close(value, resumed.original_model.state_dict()[name], rtol=0, atol=0)
-    print('Property wrapper imports, Boolean/affine bounds, gradients, refinement and checkpoint resumption passed')
+    print('Property wrapper separate batch sizes, bounds, gradients, refinement and checkpoint resumption passed')
 
 
 if __name__ == '__main__':

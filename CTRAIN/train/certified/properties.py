@@ -5,12 +5,14 @@ while a selected bound or adversarial loss trains the formula on sampled regions
 `PropertyModelWrapper` supplies configuration and owns all resumable state.
 """
 import copy
+import json
 import math
 import torch
 from torch import nn
-from CTRAIN.eval.properties import evaluate_cells, refine_partition
+from CTRAIN.eval.properties import evaluate_cells, refine_partition, certify_property_dataset
 from CTRAIN.train.certified.losses.property_methods import get_property_training_loss
 from CTRAIN.util.util import preserve_model_state
+from CTRAIN.train.certified.progress import progress_bar, tqdm
 
 
 def _recalibrate(wrapper, loader):
@@ -54,12 +56,13 @@ def _task_value(wrapper, loader):
     return total / count
 
 
-def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=None, end_epoch=None):
+def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=None, end_epoch=None, *, epoch_metrics=None):
     """Optimize task and property losses, then freshly bound the whole cover.
 
     For each task batch, sample covering cells with replacement according to
-    their stored weights. Group those cells by specification, compute lower
-    margins using the selected training strategy. IBP/CROWN use full regions;
+    their stored weights. A lazy property dataset instead samples uniformly from
+    all its boxes with replacement. Group cells by specification and compute
+    lower margins using the selected training strategy. IBP/CROWN use full regions;
     MTL/CC/Exp combine adversarial and IBP components; SABR bounds contained
     subregions; PGD uses adversarial points; IBP-R adds unstable ReLU areas;
     GLS uses its existing Gaussian optimizer with a fixed sampled cover per
@@ -71,8 +74,10 @@ def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=Non
     The default hinge penalty is `sum(max(0, margin - training_margin))`;
     cross-entropy uses the padded-margin loss. Training margins may be bounds
     or adversarial point margins, depending on the selected strategy.
-    The optional ramp reaches one after `weight_ramp_epochs`; zero ramp epochs
-    apply the full weight immediately. Cells describe whole input regions;
+    The first `warm_up_epochs` optimize only the task loss, without sampling or
+    evaluating properties. The ramp starts afterward and reaches one after
+    `weight_ramp_epochs`; zero ramp epochs apply the full weight after warm-up.
+    Both phases are included in `num_epochs`. Cells describe whole input regions;
     the strategy chooses its training computation within them. Splitting preserves a parent's total
     sampling weight, so refinement does not overweight difficult regions.
 
@@ -100,6 +105,8 @@ def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=Non
         start_epoch (int | None): Zero-based start, defaulting to `wrapper.epoch`.
             Must match that count; use `load_checkpoint` for resumption.
         end_epoch (int | None): Exclusive end, defaulting to `wrapper.num_epochs`.
+        epoch_metrics (callable | None): Task-model diagnostics returned as a
+            JSON metrics dict; recorded/displayed without affecting selection.
 
     Returns:
         torch.nn.Module: The task model. With validation, restore selected
@@ -112,6 +119,8 @@ def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=Non
             empty, or a saved explicit loader generator cannot be restored.
         FloatingPointError: Training loss or model gradients are non-finite.
     """
+    if epoch_metrics is not None and not callable(epoch_metrics):
+        raise ValueError('epoch_metrics must be callable')
     if wrapper.inference_selected:
         raise ValueError('Load an epoch checkpoint before resuming a validation-selected model')
     start = wrapper.epoch if start_epoch is None else start_epoch
@@ -133,19 +142,36 @@ def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=Non
             model.eval()  # fixed-statistics, deterministic property training
         for epoch in range(start, end):
             task_total, property_total, count = 0., 0., 0
-            for batch_index, (data, target) in enumerate(train_loader):
+            progress = progress_bar(train_loader, epoch, wrapper.num_epochs, None,
+                                    method=f'Properties {wrapper.training_method}')
+            for batch_index, (data, target) in enumerate(progress):
                 wrapper.optimizer.zero_grad(set_to_none=True)
-                weights = torch.tensor([c['probability'] for c in wrapper.partition])
-                # Regions are sampled independently of this task-data batch.
-                sampled = torch.multinomial(weights, wrapper.property_batch_size, replacement=True).tolist()
-                fraction = (min(1., (epoch + (batch_index + 1) / len(train_loader)) / wrapper.weight_ramp_epochs)
-                            if wrapper.weight_ramp_epochs else 1.)
+                if epoch < wrapper.warm_up_epochs:
+                    fraction = 0.
+                else:
+                    elapsed = epoch - wrapper.warm_up_epochs + (batch_index + 1) / len(train_loader)
+                    fraction = min(1., elapsed / wrapper.weight_ramp_epochs) if wrapper.weight_ramp_epochs else 1.
+                property_active = wrapper.property_weight > 0 and fraction > 0
+                sample_count = len(data) if wrapper.match_property_batch_size else wrapper.property_batch_size
+                batch_boxes, sampled = None, []
+                if property_active and wrapper.property_dataset is None:
+                    weights = torch.tensor([c['probability'] for c in wrapper.partition])
+                    sampled = torch.multinomial(weights, sample_count, replacement=True).tolist()
+                    batch_boxes = None
+                elif property_active:
+                    # Uniform sampling with replacement from the entire lazy
+                    # box pool, independently of the current task batch.
+                    indices = torch.randint(len(wrapper.property_dataset),
+                                            (sample_count,)).tolist()
+                    batch_boxes = [wrapper.property_dataset[i] for i in indices]
                 def closure():
                     output = wrapper.original_model(data.to(wrapper.reference))
                     labels = target.to(wrapper.reference) if target.is_floating_point() else target.to(wrapper.device)
                     task = wrapper.task_loss(output, labels).mean()
                     property_term = task.new_zeros(())
-                    for p in (range(len(wrapper.properties)) if wrapper.property_weight else ()):
+                    if batch_boxes is not None:
+                        property_term = get_property_training_loss(wrapper, 0, batch_boxes)
+                    for p in (range(len(wrapper.properties)) if property_active and batch_boxes is None else ()):
                         cells = [wrapper.partition[i] for i in sampled if wrapper.partition[i]['property'] == p]
                         if cells:
                             term = get_property_training_loss(wrapper, p, [c['box'] for c in cells])
@@ -172,6 +198,9 @@ def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=Non
                 task_total += float(task.detach()) * len(data)
                 property_total += float(property_term.detach()) * len(data)
                 count += len(data)
+                progress.set_postfix(task=f'{task_total / count:.4g}',
+                                     property=f'{property_total / count:.4g}', refresh=False)
+            progress.close()
             if wrapper.lr_scheduler is not None:
                 wrapper.lr_scheduler.step()
             options = wrapper.training_options
@@ -180,18 +209,32 @@ def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=Non
                     for scale in wrapper.optimizer.scales:
                         scale.mul_(options['sigma_decay_factor'])
             _recalibrate(wrapper, train_loader)
-            rows, _ = evaluate_cells(wrapper.bounds, wrapper.partition, wrapper.bound_method,
-                                     wrapper.property_batch_size)
-            if wrapper.refinement:
-                wrapper.partition = refine_partition(wrapper.partition, rows, wrapper.properties,
-                    wrapper.split_count, wrapper.max_cells, wrapper.max_depth)
+            if epoch < wrapper.warm_up_epochs:
+                # Warm-up is task-only, including diagnostics and refinement.
+                minimum, certified = -float('inf'), None
+                certified_count = None
+                cell_count = len(wrapper.property_dataset) if wrapper.property_dataset is not None else len(wrapper.partition)
+            elif wrapper.property_dataset is not None:
+                coverage = certify_property_dataset(wrapper, method=wrapper.bound_method)
+                minimum = coverage['minimum_lower_bound']
+                minimum = minimum if minimum is not None else -float('inf')
+                certified, cell_count = coverage['certified'], coverage['total_boxes']
+                certified_count = coverage['certified_count']
+            else:
                 rows, _ = evaluate_cells(wrapper.bounds, wrapper.partition, wrapper.bound_method,
                                          wrapper.property_batch_size)
+                if wrapper.refinement:
+                    wrapper.partition = refine_partition(wrapper.partition, rows, wrapper.properties,
+                        wrapper.split_count, wrapper.max_cells, wrapper.max_depth)
+                    rows, _ = evaluate_cells(wrapper.bounds, wrapper.partition, wrapper.bound_method,
+                                             wrapper.property_batch_size)
+                minimum = min((r['minimum_lower_bound'] if r['minimum_lower_bound'] is not None
+                               else -float('inf')) for r in rows)
+                certified, cell_count = all(r['outcome'] == 'certified' for r in rows), len(rows)
+                certified_count = sum(r['outcome'] == 'certified' for r in rows)
             valid = _task_value(wrapper, val_loader) if val_loader is not None else None
-            minimum = min((r['minimum_lower_bound'] if r['minimum_lower_bound'] is not None
-                           else -float('inf')) for r in rows)
-            certified = all(r['outcome'] == 'certified' for r in rows)
-            if val_loader is not None:
+            if (val_loader is not None and epoch >= wrapper.warm_up_epochs
+                    and epoch + 1 >= wrapper.warm_up_epochs + wrapper.weight_ramp_epochs):
                 # Prefer a complete certificate over any partial-cover score.
                 score = (int(certified), -valid if certified else minimum, -valid)
                 if wrapper.best_score is None or score > wrapper.best_score:
@@ -199,11 +242,34 @@ def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=Non
             wrapper.epoch = epoch + 1
             entry = dict(epoch=wrapper.epoch, task_loss=task_total / count,
                          property_loss=property_total / count, validation_loss=valid,
-                         certified=certified, cells=len(rows),
+                         phase=('warm_up' if epoch < wrapper.warm_up_epochs else
+                                'weight_ramp' if epoch < wrapper.warm_up_epochs + wrapper.weight_ramp_epochs
+                                else 'full_weight'),
+                         effective_property_weight=wrapper.property_weight * fraction,
+                         property_evaluated=epoch >= wrapper.warm_up_epochs,
+                         certified=certified, cells=cell_count,
+                         certified_count=certified_count,
+                         certified_fraction=None if certified_count is None else certified_count / cell_count,
                          minimum_lower_bound=minimum if math.isfinite(minimum) else None)
+            if epoch_metrics is not None:
+                with torch.no_grad(), preserve_model_state(wrapper.original_model):
+                    wrapper.original_model.eval()
+                    entry['metrics'] = epoch_metrics(wrapper.original_model)
+                if not isinstance(entry['metrics'], dict):
+                    raise ValueError('epoch_metrics must return a metrics dict')
+                json.dumps(entry['metrics'], allow_nan=False)
             wrapper.history.append(entry)
-            print(f'Property epoch {wrapper.epoch}/{wrapper.num_epochs}: task={entry["task_loss"]:.6g} '
-                  f'property={entry["property_loss"]:.6g} certified={certified} cells={len(rows)}', flush=True)
+            certificate = ('not evaluated (warm-up)' if certified_count is None else
+                           f'{certified_count}/{cell_count} ({entry["certified_fraction"]:.1%})')
+            metrics = ' ' + json.dumps(entry['metrics'], allow_nan=False) if 'metrics' in entry else ''
+            tqdm.write(f'Property epoch {wrapper.epoch}/{wrapper.num_epochs}: task={entry["task_loss"]:.6g} '
+                       f'property={entry["property_loss"]:.6g} certified={certificate}{metrics}')
+            if wrapper.checkpoint_path is not None:
+                wrapper.checkpoint_path.mkdir(parents=True, exist_ok=True)
+                history_path = wrapper.checkpoint_path / 'history.json'
+                temporary = history_path.with_suffix('.json.tmp')
+                temporary.write_text(json.dumps(wrapper.history, indent=2, allow_nan=False))
+                temporary.replace(history_path)
             if wrapper.checkpoint_path is not None and (
                     wrapper.epoch % wrapper.checkpoint_save_interval == 0 or wrapper.epoch == end):
                 wrapper.save_checkpoint(wrapper.checkpoint_path / f'{wrapper.epoch}_checkpoint.pt', train_loader)

@@ -121,6 +121,8 @@ def main():
     parser.add_argument('--output', type=Path, default=Path('/tmp/ctrain-property-controller'))
     parser.add_argument('--device', default='cpu')
     parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--warm-up-epochs', type=int, default=0)
+    parser.add_argument('--weight-ramp-epochs', type=int, default=0)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
@@ -131,6 +133,10 @@ def main():
     parser.add_argument('--complete', action='store_true')
     parser.add_argument('--max-cells', type=int, default=1024)
     args = parser.parse_args()
+    budget = 2 if args.smoke else args.epochs
+    if (args.warm_up_epochs < 0 or args.weight_ramp_epochs < 0
+            or args.warm_up_epochs + args.weight_ramp_epochs > budget):
+        parser.error('warm-up and weight ramp must be nonnegative and fit the epoch budget')
     try:
         resolve_training_options(args.method, args.training_options)
     except ValueError as error:
@@ -139,6 +145,7 @@ def main():
         parser.error('epochs and max-cells must be positive')
     spec = controller_property()
     config = dict(case='controller', seed=args.seed, teacher=args.teacher, method=args.method,
+                  warm_up_epochs=args.warm_up_epochs, weight_ramp_epochs=args.weight_ramp_epochs,
                   epochs=2 if args.smoke else args.epochs, smoke=args.smoke, training_options=args.training_options, properties=[spec.to_dict()])
     if args.dry_run:
         print(json.dumps(config, indent=2)); return
@@ -151,6 +158,7 @@ def main():
         num_epochs=config['epochs'], verification_model=ControllerDynamics(model),
         verification_input_shape=(4,), device=args.device, bound_method=args.method if args.method in ('IBP', 'CROWN-IBP', 'CROWN') else 'CROWN',
         training_method=args.method, training_options=args.training_options,
+        warm_up_epochs=args.warm_up_epochs, weight_ramp_epochs=args.weight_ramp_epochs,
         property_weight=20., refinement=True, property_batch_size=16,
         max_cells=args.max_cells, checkpoint_save_path=args.output / 'checkpoints')
     config.update(training=wrapper.configuration, source=source_provenance())

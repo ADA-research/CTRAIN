@@ -214,7 +214,8 @@ def run(args):
         epoch_selection='final epoch, no validation-selected weights',
         bound_semantics='sound atomic affine LiRPA bounds with monotone Boolean reduction',
         search_space=dict(lr=[1e-5, 3e-3], property_weight=[1e-4, 100.], margin=[1e-5, 1e-2],
-                          weight_ramp_epochs=[0, args.epochs // 2], bound_method=methods,
+                          warm_up_epochs=[0, min(5, args.epochs - 1)],
+                          weight_ramp_epochs=[0, min(args.epochs // 2, args.epochs - min(5, args.epochs - 1))], bound_method=methods,
                           property_batch_size=[8, 32]))
     configuration['search_space'].update(PROPERTY_METHOD_SEARCH_SPACE.get(methods[0], {}))
     configuration['source']['sha256']['case_studies/acasxu/hpo.py'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
@@ -246,7 +247,8 @@ def run(args):
         parameters = dict(lr=trial.suggest_float('lr', 1e-5, 3e-3, log=True),
             property_weight=trial.suggest_float('property_weight', 1e-4, 100., log=True),
             margin=trial.suggest_float('margin', 1e-5, 1e-2, log=True),
-            weight_ramp_epochs=trial.suggest_int('weight_ramp_epochs', 0, args.epochs // 2),
+            warm_up_epochs=trial.suggest_int('warm_up_epochs', *configuration['search_space']['warm_up_epochs']),
+            weight_ramp_epochs=trial.suggest_int('weight_ramp_epochs', *configuration['search_space']['weight_ramp_epochs']),
             bound_method=trial.suggest_categorical('bound_method', methods),
             property_batch_size=trial.suggest_categorical('property_batch_size', [8, 32]))
         parameters['training_options'] = sample_training_options(
@@ -282,7 +284,7 @@ def run(args):
         storage=f'sqlite:///{args.output.resolve()}/optuna_study.db')
     for weight in (.001, .1, 10.):
         study.enqueue_trial(dict(lr=1e-4, property_weight=weight, margin=.001,
-                                 weight_ramp_epochs=0, bound_method=methods[0] if getattr(args, 'training_method', None) else 'CROWN-IBP', property_batch_size=32))
+                                 warm_up_epochs=0, weight_ramp_epochs=0, bound_method=methods[0] if getattr(args, 'training_method', None) else 'CROWN-IBP', property_batch_size=32))
     study.optimize(objective, n_trials=args.trials, gc_after_trial=True)
     selected = max(records, key=lambda r: (r['cover_certified'], *objective_values(r['selection'])))
     final = args.output / 'final'

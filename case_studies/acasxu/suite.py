@@ -17,6 +17,8 @@ def main():
     parser.add_argument('--cases', nargs='+', default=['2_1:2', '3_9:2', '4_5:2', '5_9:2'],
                         help='NETWORK:PROPERTY pairs, e.g. 4_5:2; all properties assigned to each selected network are trained')
     parser.add_argument('--epochs', type=int, default=20)
+    parser.add_argument('--warm-up-epochs', type=int, default=0)
+    parser.add_argument('--weight-ramp-epochs', type=int, default=0)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--device', default='cpu')
     parser.add_argument('--training-options', type=json.loads, default={})
@@ -36,6 +38,9 @@ def main():
         parser.error(str(error))
     if min(args.epochs, args.samples, args.max_cells, args.alpha_iterations) < 1:
         parser.error('epochs, samples, max-cells and alpha-iterations must be positive')
+    if (args.warm_up_epochs < 0 or args.weight_ramp_epochs < 0
+            or args.warm_up_epochs + args.weight_ramp_epochs > args.epochs):
+        parser.error('warm-up and weight ramp must be nonnegative and fit epochs')
     if len(set(args.cases)) != len(args.cases) or len(set(args.evaluation_methods)) != len(args.evaluation_methods):
         parser.error('cases and evaluation methods must not contain duplicates')
     if args.output.exists():
@@ -68,7 +73,8 @@ def main():
         run = output / f'acasxu_{network}_all_properties_seed{args.seed}'
         commands.append([sys.executable, '-m', 'case_studies.acasxu.run',
             '--model', str(model), '--specification', str(specification), '--output', str(run),
-            '--epochs', str(args.epochs), '--seed', str(args.seed), '--device', args.device,
+            '--epochs', str(args.epochs), '--warm-up-epochs', str(args.warm_up_epochs),
+            '--weight-ramp-epochs', str(args.weight_ramp_epochs), '--seed', str(args.seed), '--device', args.device,
             '--method', args.training_method, '--training-options', json.dumps(args.training_options)])
         if additional:
             commands[-1] += ['--additional-specifications', *map(str, additional)]

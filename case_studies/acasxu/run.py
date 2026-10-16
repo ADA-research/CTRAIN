@@ -31,6 +31,8 @@ def main():
     parser.add_argument('--device', default='cpu')
     parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--warm-up-epochs', type=int, default=0)
+    parser.add_argument('--weight-ramp-epochs', type=int, default=0)
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--complete', action='store_true')
@@ -38,6 +40,10 @@ def main():
     parser.add_argument('--training-options', type=json.loads, default={},
                         help='JSON parameters for the selected training method')
     args = parser.parse_args()
+    budget = 2 if args.smoke else args.epochs
+    if (args.warm_up_epochs < 0 or args.weight_ramp_epochs < 0
+            or args.warm_up_epochs + args.weight_ramp_epochs > budget):
+        parser.error('warm-up and weight ramp must be nonnegative and fit the epoch budget')
     try:
         resolve_training_options(args.method, args.training_options)
     except ValueError as error:
@@ -58,6 +64,7 @@ def main():
     if not custom and args.input_shape is not None:
         parser.error('--input-shape applies to user-selected networks')
     config = dict(case=f'acasxu_property_{args.case}', source=SOURCE, seed=args.seed,
+                  warm_up_epochs=args.warm_up_epochs, weight_ramp_epochs=args.weight_ramp_epochs,
                   epochs=2 if args.smoke else args.epochs, smoke=args.smoke, method=args.method, training_options=args.training_options,
                   protocol='repair; cross-entropy fidelity to source-model advisories',
                   fidelity_loss='cross_entropy(-scores, source_scores.argmin(dim=1))',
@@ -126,6 +133,7 @@ def main():
     wrapper = PropertyModelWrapper(model, tuple(box.lower.shape), properties=specs, task_loss=advisory_cross_entropy,
         num_epochs=config['epochs'], device=args.device, bound_method=args.method if args.method in ('IBP', 'CROWN-IBP', 'CROWN') else 'CROWN',
         training_method=args.method, training_options=args.training_options,
+        warm_up_epochs=args.warm_up_epochs, weight_ramp_epochs=args.weight_ramp_epochs,
         refinement=True, property_batch_size=8, max_cells=32 if args.smoke else 1024,
         checkpoint_save_path=args.output / 'checkpoints')
     config.update(training=wrapper.configuration, source_code=source_provenance(),

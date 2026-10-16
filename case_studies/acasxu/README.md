@@ -21,6 +21,12 @@ Use `--additional-specifications FILE ...` to train assigned properties jointly.
 only for files already expressing the desired property. `--method` and
 `--training-options` select the general-property training strategy.
 
+`--warm-up-epochs N` trains only advisory fidelity initially, then
+`--weight-ramp-epochs R` increases the property weight over the following R
+epochs. Both phases fit inside `--epochs`. Warm-up skips property sampling,
+attacks and epoch certification. Both flags default to zero and are also
+forwarded by the suite runner.
+
 The two released presets (properties 7 and 8) can be downloaded explicitly from
 VNN-COMP 2021 using an immutable, full 40-character revision:
 
@@ -47,7 +53,9 @@ slopes. The suite comparison uses incomplete verification only.
 
 HPO creates a separate study per network, using 4,096 fidelity inputs, independent
 selection/test streams and 32,768 probes per source box. It tunes learning rate,
-property weight, hinge margin, weight ramp and property batch size. MTL-IBP also
+property weight, hinge margin, warm-up, weight ramp and property batch size.
+At the default 40 epochs, warm-up ranges from 0–5 epochs and the subsequent
+weight ramp from 0–20; shorter budgets reduce the ranges to fit. MTL-IBP also
 tunes `alpha` in [0, 1]; SABR tunes the coordinatewise half-width ratio
 `subselection_ratio` logarithmically in [0.01, 1]. Other method options stay fixed.
 The search is Optuna TPE with ten startup trials, three enqueued configurations

@@ -21,3 +21,8 @@ complete verification; the bundled verifier and its dependencies are required.
 sample establishes a certificate. The saved `config.json`, `results.json`,
 `model.pt` and epoch checkpoints retain the declared property and code provenance.
 The smoke uses synthetic data and two epochs; it is not a controller benchmark score.
+
+`--warm-up-epochs N` trains only the teacher task loss for N epochs;
+`--weight-ramp-epochs R` then increases the property weight over R epochs.
+Both phases count toward `--epochs` and default to zero. Validation-based
+epoch selection starts after the ramp completes.

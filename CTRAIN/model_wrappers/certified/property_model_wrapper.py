@@ -4,6 +4,7 @@ The wrapper owns the model, bounds, optimizer and resumable state. The epoch
 loop lives in `CTRAIN.train.certified.properties.property_train_model`.
 """
 import copy
+import json
 import math
 import random
 import warnings
@@ -11,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch import nn
-from CTRAIN.properties import PropertySpec
+from CTRAIN.properties import PropertySpec, Box
 from CTRAIN.bound.properties import PropertyBounds, METHODS
 from CTRAIN.eval.properties import initial_partition, partition_state, restore_partition, validate_partition
 from CTRAIN.properties.training import TRAINING_METHODS, resolve_training_options
@@ -71,10 +72,18 @@ class PropertyModelWrapper(nn.Module):
         property_weight (float): Nonnegative multiplier of the property loss.
         margin (float): Positive target lower margin for the hinge penalty.
             Logical certification instead requires a lower margin above zero.
-        weight_ramp_epochs (int): Epochs for linearly increasing the property
-            weight from zero to `property_weight`. Zero applies it immediately.
+        warm_up_epochs (int): Initial epochs optimizing only the task loss.
+            No property regions, bounds or attacks are computed in this phase.
+            Defaults to zero. Included in `num_epochs`.
+        weight_ramp_epochs (int): Epochs after warm-up for linearly increasing
+            the property weight from zero to `property_weight`. Zero applies
+            the full weight immediately after warm-up. Included in `num_epochs`.
         property_batch_size (int): Number of covering cells sampled with
             replacement per task batch; also the bound-evaluation batch size.
+        match_property_batch_size (bool): Sample as many property boxes as
+            actual task examples in each update, including the final partial
+            batch. `property_batch_size` still controls bound-evaluation batching.
+            Defaults to False, keeping property and task batch sizes independent.
         refinement (bool): Split uncertified cells after each epoch, then
             reevaluate the refined cover. Defaults to False.
         split_count (int): Maximum number of cells split per epoch. Each split
@@ -95,12 +104,19 @@ class PropertyModelWrapper(nn.Module):
             remains sound but can be weaker for disjunctions. Defaults to matrix
             convolution and adaptive ReLU bounds. Automatic parameter-gradient
             toggling is disabled so evaluation-mode training can differentiate.
+        property_dataset (Sequence[Box] | None): Optional finite, indexable box
+            pool generated on demand for a single property formula. Must expose
+            `to_dict()` with a JSON-compatible reconstruction descriptor and
+            content hashes. The specification's domains initialize the bound
+            graph; this dataset defines the training and certification regions.
+            Sampling is uniform with replacement. Refinement is unsupported.
 
     Attributes:
         original_model (torch.nn.Module): Task model sharing verification weights.
         partition (list[dict]): Covering cells with lineage and sampling weights.
             Every original box starts with equal weight; overlapping boxes are
-            still separate sampling regions.
+            still separate sampling regions. Empty when `property_dataset`
+            supplies the regions on demand.
         epoch (int): Number of completed trajectory epochs.
         history (list[dict]): Per-epoch task/property losses, validation loss,
             whole-cover certification flag, cell count and minimum lower bound.
@@ -117,7 +133,8 @@ class PropertyModelWrapper(nn.Module):
                  weight_ramp_epochs=0, property_batch_size=32, refinement=False,
                  split_count=8, max_cells=1024, max_depth=12, population_bn=False,
                  checkpoint_save_path=None, checkpoint_save_interval=10, bound_opts=None,
-                 training_method=None, training_options=None):
+                 training_method=None, training_options=None, property_dataset=None,
+                 warm_up_epochs=0, match_property_batch_size=False):
         super().__init__()
         training_method, training_options = resolve_training_options(
             bound_method if training_method is None else training_method, training_options)
@@ -133,11 +150,14 @@ class PropertyModelWrapper(nn.Module):
                                 checkpoint_save_interval=checkpoint_save_interval).items():
             if type(value) is not int or value < 1:
                 raise ValueError(f'{name} must be a positive integer')
-        for name, value in dict(max_depth=max_depth, weight_ramp_epochs=weight_ramp_epochs).items():
+        for name, value in dict(max_depth=max_depth, weight_ramp_epochs=weight_ramp_epochs,
+                                warm_up_epochs=warm_up_epochs).items():
             if type(value) is not int or value < 0:
                 raise ValueError(f'{name} must be a nonnegative integer')
-        if weight_ramp_epochs > num_epochs or bound_method not in METHODS:
-            raise ValueError('Invalid ramp duration or bound method')
+        if warm_up_epochs + weight_ramp_epochs > num_epochs or bound_method not in METHODS:
+            raise ValueError('Warm-up and weight ramp must fit num_epochs; bound method must be supported')
+        if type(match_property_batch_size) is not bool:
+            raise ValueError('match_property_batch_size must be bool')
         for name, value in dict(lr=lr, margin=margin, property_weight=property_weight).items():
             if isinstance(value, bool) or not math.isfinite(value) or value < 0 or (name != 'property_weight' and value == 0):
                 raise ValueError(f'Invalid {name}')
@@ -162,6 +182,15 @@ class PropertyModelWrapper(nn.Module):
         if self.reference is None or not self.reference.is_floating_point():
             raise ValueError('Task model requires floating-point trainable parameters')
         self.device, self.properties = torch.device(device), properties
+        self.property_dataset = property_dataset
+        if property_dataset is not None:
+            if len(properties) != 1 or refinement or not len(property_dataset):
+                raise ValueError('A lazy property dataset requires one formula, nonempty boxes and no refinement')
+            if not callable(getattr(property_dataset, 'to_dict', None)):
+                raise ValueError('A lazy property dataset requires a serializable reconstruction descriptor')
+            first = property_dataset[0]
+            if not isinstance(first, Box) or tuple(first.lower.shape) != self.verification_input_shape:
+                raise ValueError('Property dataset must yield Box objects in verification input coordinates')
         self.task_loss = task_loss.to(device) if isinstance(task_loss, nn.Module) else task_loss
         self.bounds = PropertyBounds(self.verification_model, self.verification_input_shape,
                                      properties, bound_opts)
@@ -183,12 +212,14 @@ class PropertyModelWrapper(nn.Module):
         self.num_epochs, self.bound_method = num_epochs, bound_method
         self.property_weight, self.margin = property_weight, margin
         self.weight_ramp_epochs, self.property_batch_size = weight_ramp_epochs, property_batch_size
+        self.warm_up_epochs = warm_up_epochs
+        self.match_property_batch_size = match_property_batch_size
         self.refinement, self.split_count = refinement, split_count
         self.max_cells, self.max_depth = max_cells, max_depth
         self.population_bn = population_bn
         self.checkpoint_path = None if checkpoint_save_path is None else Path(checkpoint_save_path)
         self.checkpoint_save_interval = checkpoint_save_interval
-        self.partition = initial_partition(properties)
+        self.partition = initial_partition(properties) if property_dataset is None else []
         self.epoch, self.history = 0, []
         self.best_score, self.best_weights = None, None
         self.inference_selected = False
@@ -197,18 +228,22 @@ class PropertyModelWrapper(nn.Module):
             input_shape=list(self.input_shape), verification_input_shape=list(self.verification_input_shape),
             num_epochs=num_epochs, bound_method=bound_method, margin=margin,
             property_weight=property_weight, weight_ramp_epochs=weight_ramp_epochs,
+            warm_up_epochs=warm_up_epochs,
+            match_property_batch_size=match_property_batch_size,
             property_batch_size=property_batch_size, refinement=refinement,
             split_count=split_count, max_cells=max_cells, max_depth=max_depth,
             population_bn=population_bn, lr=lr, optimizer=optimizer_func.__name__,
             scheduler=None if lr_scheduler_func is None else lr_scheduler_func.__name__,
             scheduler_kwargs=lr_scheduler_kwargs or {}, bound_opts=bound_opts or {})
         self.configuration.update(training_method=training_method, training_options=copy.deepcopy(training_options))
+        if property_dataset is not None:
+            self.configuration['property_dataset'] = json.loads(json.dumps(property_dataset.to_dict(), allow_nan=False))
 
     def forward(self, inputs):
         """Return task-model predictions, without appending property margins."""
         return self.original_model(inputs)
 
-    def train_model(self, train_loader, val_loader=None, start_epoch=None, end_epoch=None):
+    def train_model(self, train_loader, val_loader=None, start_epoch=None, end_epoch=None, *, epoch_metrics=None):
         """Run the property trainer and return the task model.
 
         Args:
@@ -223,6 +258,10 @@ class PropertyModelWrapper(nn.Module):
                 checkpoint rather than skipping optimizer or partition state.
             end_epoch (int | None): Exclusive ending epoch; defaults to
                 `num_epochs`. Supports a partial trajectory run.
+            epoch_metrics (callable | None): Optional function of the task model
+                returning a JSON-serializable metrics dict after each epoch.
+                These diagnostics do not participate in model selection.
+                History is logged to `checkpoint_save_path/history.json` each epoch.
 
         Returns:
             torch.nn.Module: Validation-selected task model when a validation
@@ -230,7 +269,8 @@ class PropertyModelWrapper(nn.Module):
             caller mode is restored. Optimizer state is not rewound on selection.
         """
         from CTRAIN.train.certified.properties import property_train_model
-        return property_train_model(self, train_loader, val_loader, start_epoch, end_epoch)
+        return property_train_model(self, train_loader, val_loader, start_epoch, end_epoch,
+                                    epoch_metrics=epoch_metrics)
 
     def certify_properties(self, **kwargs):
         """Compute fresh bounds on every obligation in the declared domain cover.
@@ -249,6 +289,11 @@ class PropertyModelWrapper(nn.Module):
         solver time limit per unresolved cell. Evaluation refinement does not
         replace the stored training partition.
 
+        For a lazy `property_dataset`, the default evaluates every dataset box
+        and returns aggregate counts and margins. Refinement and complete
+        verification require explicit `properties=[...]`. Checkpoints retain
+        the dataset descriptor rather than its materialized boxes.
+
         Returns:
             dict: Whole-cover `certified` flag, per-property summaries, per-cell
             bounds/outcomes, method, elapsed time and numerical scope. All cells
@@ -257,6 +302,8 @@ class PropertyModelWrapper(nn.Module):
             floating-point certificates, without a directed-rounding proof.
         """
         from CTRAIN.eval.properties import certify_properties
+        if self.property_dataset is not None and kwargs.get('properties') is None:
+            kwargs.setdefault('refine', False)
         return certify_properties(self, **kwargs)
 
     def save_checkpoint(self, path, train_loader=None):
@@ -318,13 +365,18 @@ class PropertyModelWrapper(nn.Module):
         # Only load trusted local training checkpoints (they include Python RNG state).
         state = torch.load(path, map_location='cpu', weights_only=False)
         configuration = copy.deepcopy(state['configuration'])
+        configuration.setdefault('warm_up_epochs', 0)
+        configuration.setdefault('match_property_batch_size', False)
         configuration.setdefault('training_method', configuration['bound_method'])
         configuration['training_method'], configuration['training_options'] = resolve_training_options(
             configuration['training_method'], configuration.get('training_options'))
         if configuration != self.configuration:
             raise ValueError('Checkpoint property/training configuration differs')
         partition = restore_partition(state['partition'])
-        validate_partition(partition, self.properties)
+        if self.property_dataset is None:
+            validate_partition(partition, self.properties)
+        elif partition:
+            raise ValueError('Lazy property datasets must not contain a stored explicit partition')
         self.original_model.load_state_dict(state['model'])
         self.optimizer.load_state_dict(state['optimizer'])
         if self.lr_scheduler is not None:

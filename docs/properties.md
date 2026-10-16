@@ -27,13 +27,52 @@ wrapper = PropertyModelWrapper(
     model, (2,), properties=[property_spec], task_loss=torch.nn.MSELoss(),
     num_epochs=50, bound_method='CROWN-IBP', property_weight=20.,
     refinement=True,
+    warm_up_epochs=5, weight_ramp_epochs=20,
 )
 # train_loader and val_loader yield (input, target) pairs.
 # wrapper.train_model(train_loader, val_loader)
 # report = wrapper.certify_properties(method='CROWN-IBP')
 ```
 
+The schedule fits inside `num_epochs`: first `warm_up_epochs` optimize the task
+loss alone, then `weight_ramp_epochs` linearly increase the property-loss weight,
+then the remaining epochs use the full weight. Both durations default to zero.
+Warm-up computes no property samples, attacks, losses, certification scans or
+refinement. Its history records `certified=None` and `property_evaluated=False`.
+The ramp is updated per batch and starts after warm-up; zero ramp applies the
+full weight at the first update after warm-up. Property regions retain their
+declared size. Validation-based epoch selection starts once the ramp finishes.
+Checkpoint resumption continues the schedule from the restored epoch; old
+checkpoints without `warm_up_epochs` are interpreted as zero warm-up.
+
+All case-study training runners accept `--warm-up-epochs` and
+`--weight-ramp-epochs`. MNIST and ACAS HPO tune warm-up over 0–5 epochs (capped
+for short runs) and retain the property-weight ramp search, with ranges that
+fit the total epoch budget. Fixed baselines retain their configured schedules.
+
 ## Choosing a training strategy
+
+Large collections sharing one formula can supply a `property_dataset` to
+`PropertyModelWrapper`. This finite, indexable object returns a `Box` for each
+index and exposes `to_dict()` with reconstruction settings and content hashes.
+The single `PropertySpec` supplies the formula and an initial domain for graph
+construction; the dataset supplies the full training and certification domain
+collection. Boxes are sampled uniformly with replacement, independently of task
+batches, and generated only when needed. No VNNLIB files or full endpoint pool
+are required. MNIST addition uses this mode for every training pair.
+
+Epoch diagnostics and `wrapper.certify_properties()` evaluate every dataset box
+in batches and return aggregate results. Dataset mode does not support adaptive
+refinement or complete verification; pass explicit `properties=[...]` to certify
+selected regions with those features. Checkpoints save the dataset descriptor
+and RNG state; the caller reconstructs the same dataset before loading, and
+configuration comparison rejects differing descriptors. The generic wrapper
+supports separate task and property batch sizes. `match_property_batch_size=True`
+instead samples one property box per task example, including partial batches.
+MNIST keeps these sizes independent: `--batch-size` controls task examples
+and `--property-batch-size` controls independently sampled property boxes per
+update, including partial task batches. HPO keeps both sizes fixed rather than
+tuning them.
 
 Robustness wrappers still accept `eps`; they do not require a property object.
 Wrapper implementations live in `CTRAIN.model_wrappers.certified` and

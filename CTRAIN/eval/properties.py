@@ -14,6 +14,45 @@ def initial_partition(specs):
             for p, spec in enumerate(specs) for d, box in enumerate(spec.domains)]
 
 
+def certify_property_dataset(wrapper, method='CROWN', results_path=None):
+    """Fresh full-box bounds over every region of a lazy property dataset.
+
+    Return aggregate results without materializing all box endpoints or changing
+    the random sampling stream. Detailed per-cell/refinement reports use the
+    ordinary explicit-property API.
+    """
+    from CTRAIN.bound.properties import CERTIFICATION_METHODS
+    if method not in CERTIFICATION_METHODS:
+        raise ValueError('Invalid certification method')
+    start = time.monotonic()
+    dataset = wrapper.property_dataset
+    count, certified_count, minimum = len(dataset), 0, float('inf')
+    with preserve_model_state(wrapper.verification_model, *wrapper.bounds.modules), torch.no_grad():
+        wrapper.verification_model.eval()
+        for offset in range(0, count, wrapper.property_batch_size):
+            boxes = [dataset[i] for i in range(offset, min(offset + wrapper.property_batch_size, count))]
+            lower = wrapper.bounds(0, boxes, method).detach()
+            finite = torch.isfinite(lower).all(dim=1)
+            certified_count += int((finite & (lower > 0).all(dim=1)).sum())
+            minimum = min(minimum, float(lower.min()) if finite.all() else -float('inf'))
+    report = dict(certified=certified_count == count, certified_count=certified_count,
+                  total_boxes=count, certified_fraction=certified_count / count,
+                  minimum_lower_bound=minimum if math.isfinite(minimum) else None,
+                  properties=[dict(name=wrapper.properties[0].name, certified=certified_count == count)],
+                  property_dataset=wrapper.configuration['property_dataset'],
+                  method=method, seconds=time.monotonic() - start,
+                  scope='all boxes in the declared property dataset',
+                  bound_strategy='fresh full-box bounds; no input refinement',
+                  numerical_semantics='floating-point LiRPA; no directed-rounding proof')
+    if results_path is not None:
+        import json
+        from pathlib import Path
+        directory = Path(results_path)
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / 'results.json').write_text(json.dumps(report, indent=2, allow_nan=False))
+    return report
+
+
 def partition_state(cells):
     return [dict(c, box=c['box'].to_dict()) for c in cells]
 
@@ -228,6 +267,11 @@ def certify_properties(wrapper, method='CROWN', refine=True, complete=False,
     from CTRAIN.bound.properties import CERTIFICATION_METHODS
     if method not in CERTIFICATION_METHODS or type(refine) is not bool or type(complete) is not bool:
         raise ValueError('Invalid certification method or flags')
+    if wrapper.property_dataset is not None and properties is None:
+        if refine or complete:
+            raise ValueError('Lazy property datasets support full-box bounds without refinement '
+                             'or complete verification; supply explicit properties for those modes')
+        return certify_property_dataset(wrapper, method, results_path)
     max_cells = wrapper.max_cells if max_cells is None else max_cells
     max_depth = wrapper.max_depth if max_depth is None else max_depth
     if type(max_cells) is not int or max_cells < 1 or type(max_depth) is not int or max_depth < 0:

@@ -32,6 +32,7 @@ def source_provenance():
         'CTRAIN/train/certified/losses/ibp_r.py',
         'CTRAIN/train/certified/losses/convex_combinations.py',
         'CTRAIN/train/certified/properties.py', 'CTRAIN/train/certified/losses/properties.py',
+        'CTRAIN/train/certified/progress.py',
         'CTRAIN/model_definitions/models_properties.py',
         'case_studies/common.py',
         'case_studies/controller/run.py', 'case_studies/acasxu/run.py',

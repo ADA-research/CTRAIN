@@ -21,7 +21,7 @@ def progress_bar(iterable, epoch, num_epochs, eps, method=None, disable=False):
     return tqdm(
         iterable,
         total=len(iterable),
-        desc=f"{prefix} eps={format_eps(eps)}",
+        desc=prefix if eps is None else f"{prefix} eps={format_eps(eps)}",
         leave=False,
         dynamic_ncols=True,
         disable=disable,
