@@ -33,7 +33,7 @@ are rejected: choose a fresh `--output` for each run. Dataset downloads are expl
 |---|---|---|
 | Controller safety | [controller](controller/README.md) | [Controller](../docs/examples/case_studies/controller.ipynb) |
 | ACAS Xu repair | [acasxu](acasxu/README.md) | [ACAS Xu](../docs/examples/case_studies/acasxu.ipynb) |
-| MNIST addition consistency and prediction stability | [mnist_addition](mnist_addition/README.md) | [MNIST addition](../docs/examples/case_studies/mnist_addition.ipynb) |
+| MNIST arithmetic classification/regression and classification swap equivariance | [mnist_addition](mnist_addition/README.md) | [MNIST addition](../docs/examples/case_studies/mnist_addition.ipynb) |
 
 These folders contain portable Python entry points, without scheduler integration,
 trained weights, downloaded data or historical run outputs. The notebooks start

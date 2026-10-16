@@ -1,4 +1,4 @@
-"""Adapt the ICML Pareto-search protocol to MNIST argmax arithmetic consistency."""
+"""Adapt the ICML Pareto-search protocol to MNIST arithmetic or swap properties."""
 import argparse
 import csv
 import copy
@@ -57,10 +57,9 @@ def comparison(records, hpo_arm='hpo'):
                                'test metrics never change membership or representative choices')
 
 
-def load_data(args, selection_split, eval_pairs, *, property_boxes=None):
+def load_data(args, selection_split, eval_pairs):
     """Split source images before pairing, so neither operand leaks into holdout."""
     pools, raw, provenance = {}, {}, {}
-    training_boxes = args.property_boxes if property_boxes is None else property_boxes
     for original_split in ('train', 'test'):
         images, labels = mnist_source(args, original_split == 'train',
                                      DATA_SEED + (original_split == 'test'),
@@ -79,8 +78,9 @@ def load_data(args, selection_split, eval_pairs, *, property_boxes=None):
                 images[subset], labels[subset], count,
                 args.seed if split == 'train' else DATA_SEED + 1,
                 cover_all=split == 'train')
-            domain_count = training_boxes if split == 'train' else count
-            raw[split] = images[subset[indices[:domain_count]]].float() / 255
+            domain_count = 1 if split == 'train' else count
+            raw[split] = (pools[split].tensors[0][:domain_count] if args.property == 'swap'
+                          else images[subset[indices[:domain_count]]].float() / 255)
             provenance[split] = dict(original_split=original_split, source_indices=subset.tolist(),
                 pair_indices=subset[indices].tolist(), **source_hashes,
                 unique_images_per_position=[int(indices[:, side].unique().numel()) for side in range(2)])
@@ -92,7 +92,8 @@ def load_data(args, selection_split, eval_pairs, *, property_boxes=None):
 
 def evaluate(wrapper, dataset, spec, args, directory, split):
     wrapper.original_model.eval()
-    metrics = task_metrics(wrapper.original_model, dataset, args.device, args.batch_size)
+    metrics = task_metrics(wrapper.original_model, dataset, args.device, args.batch_size,
+                           swap=args.property == 'swap')
     report = certify(wrapper, spec, args.eval_method)
     write_json(directory / f'{split}_verification.json', report)
     return dict(metrics=metrics, certified_fraction=report['certified_fraction'],
@@ -104,16 +105,17 @@ def run_study(args, options, search_space):
         raise FileExistsError('output must be a fresh directory')
     torch.set_num_threads(1)
     hpo_arm = 'ce_hpo' if options.ce_only else 'hpo'
-    pools, raw, provenance = load_data(args, options.selection_split, options.eval_pairs,
-                                       property_boxes=max(search_space.get('property_boxes', [args.property_boxes])))
+    pools, raw, provenance = load_data(args, options.selection_split, options.eval_pairs)
     args.output.mkdir(parents=True, exist_ok=False)
     specs = {}
     for split in ('train', 'selection', 'test'):
         if split == 'test' and options.selection_split == 'test':
             specs[split] = specs['selection']
             continue
-        specs[split], hashes = specifications(raw[split], args.epsilon, args.output / 'vnnlib' / split)
-        provenance[split]['vnnlib_sha256'] = hashes
+        specs[split] = specifications(raw[split], args.epsilon, property_kind=args.property)
+        provenance[split]['property_pair_count'] = (args.property_boxes or len(pools[split])) if split == 'train' else len(pools[split])
+        provenance[split]['specification_role'] = ('formula template; selected training domains generated on demand'
+                                                  if split == 'train' else 'evaluation boxes in memory')
     torch.manual_seed(args.seed)
     initial = MNISTAdditionClassifier(args.width).state_dict()
     torch.save(initial, args.output / 'initial_model.pt')
@@ -128,11 +130,14 @@ def run_study(args, options, search_space):
                   trials=options.trials, sampler=options.sampler, search_space=search_space,
                   training_mode='ce_only' if options.ce_only else 'certified',
                   data_seed=DATA_SEED, data=provenance, source=source,
-                  paper=PAPER, objectives=['clean triple accuracy', 'certified arithmetic-consistency fraction'],
-                  scope='floating-point affine LiRPA bounds; consistency is not recognition robustness',
+                  paper=PAPER, objectives=['clean triple accuracy', 'certified swap-equivariance fraction'
+                                          if args.property == 'swap' else 'certified arithmetic-consistency fraction'],
+                  scope='floating-point affine LiRPA bounds; swap certificates cover exact evaluated pairs'
+                        if args.property == 'swap' else
+                        'floating-point affine LiRPA bounds; consistency is not recognition robustness',
                   epoch_selection='final epoch; no validation-selected weights',
-                  training_properties='prefix of the saved training-box pool; count selected per trial',
-                  batch_sampling='fixed task batch size and seeded task permutation; same optimizer-step budget',
+                  training_properties=f'lazy domains for {provenance["train"]["property_pair_count"]} training pairs; uniform sampling with replacement',
+                  batch_sampling='separate task/property batch sizes; random property boxes with replacement per task update',
                   adaptation=f'{len(search_space)}-parameter search; installed BoTorch GP defaults; '
                              'no complete verification or paper score reproduction',
                   environment=dict(python=platform.python_version(), torch=torch.__version__,
@@ -149,11 +154,13 @@ def run_study(args, options, search_space):
         directory = args.output / (arm if number is None else f'trials/{number:03d}')
         directory.mkdir(parents=True, exist_ok=False)
         wrapper, training_seconds = train_trial(args, pools['train'], specs['train'],
-                                               parameters, initial, directory)
+                                               parameters, initial, directory,
+                                               metric_dataset=pools['selection'], metric_split='selection')
         selection = evaluate(wrapper, pools['selection'], specs['selection'], args, directory, 'selection')
         torch.save({key: value.detach().cpu() for key, value in wrapper.original_model.state_dict().items()},
                    directory / 'model.pt')
         write_json(directory / 'history.json', wrapper.history)
+        write_json(directory / 'training_config.json', wrapper.configuration)
         record = dict(arm=arm, seed=args.seed, trial=number, parameters=parameters,
                       directory=str(directory.resolve()), training_seconds=training_seconds, selection=selection)
         write_json(directory / 'results.json', record)
@@ -162,7 +169,7 @@ def run_study(args, options, search_space):
         return record
 
     defaults = {name: getattr(args, name) for name in
-                ('lr', 'property_weight', 'weight_ramp_epochs', 'property_batch_size', 'property_boxes')}
+                ('lr', 'property_weight', 'warm_up_epochs', 'weight_ramp_epochs', 'batch_size', 'property_batch_size')}
     defaults['bound_method'] = args.method
     defaults['training_options'] = copy.deepcopy(args.training_options)
     train(dict(defaults, property_weight=0.), 'ce_only')
@@ -176,12 +183,9 @@ def run_study(args, options, search_space):
         else:
             parameters.update(
                 property_weight=trial.suggest_float('property_weight', *search_space['property_weight'], log=True),
+                warm_up_epochs=trial.suggest_int('warm_up_epochs', *search_space['warm_up_epochs']),
                 weight_ramp_epochs=trial.suggest_int('weight_ramp_epochs', *search_space['weight_ramp_epochs']),
                 bound_method=trial.suggest_categorical('bound_method', search_space['bound_method']))
-            # Integer exponents retain the ordered geometry for the BoTorch surrogate.
-            parameters.update({name: 2 ** trial.suggest_int('log2_' + name,
-                               search_space[name][0].bit_length() - 1, search_space[name][-1].bit_length() - 1)
-                               for name in ('property_batch_size', 'property_boxes')})
             parameters['training_options'] = sample_training_options(
                 trial, parameters['bound_method'], args.training_options)
         record = train(parameters, hpo_arm, trial.number)
@@ -316,8 +320,8 @@ def export_comparison(root, ce_study=None, *, allow_partial=False, output=None):
     destination = output if output is not None else (ce_study or root) / 'comparison'
     destination.mkdir(exist_ok=False)
     write_json(destination / 'results.json', result)
-    fields = ['arm', 'seed', 'trial', 'lr', 'property_weight', 'weight_ramp_epochs',
-              'bound_method', 'training_options', 'property_batch_size', 'property_boxes',
+    fields = ['arm', 'seed', 'trial', 'lr', 'property_weight', 'warm_up_epochs', 'weight_ramp_epochs',
+              'bound_method', 'training_options', 'batch_size', 'property_batch_size',
               'selection_triple_accuracy', 'selection_certified_fraction',
               'test_triple_accuracy', 'test_certified_fraction', 'training_seconds', 'checkpoint']
     exports = [('all_trials.csv', records), ('pareto_front.csv', result['pareto_front']),
@@ -418,6 +422,9 @@ def main(argv=None):
     parser.add_argument('--selection-split', choices=('holdout', 'test'), default='holdout')
     parser.add_argument('--sampler', choices=('botorch', 'nsgaii'), default='botorch')
     parser.add_argument('--device', default='cpu')
+    parser.add_argument('--batch-size', type=int, help='Task batch size')
+    parser.add_argument('--property-batch-size', type=int, help='Property domains per task update')
+    parser.add_argument('--property', choices=('arithmetic', 'swap'), help='Override the property in the config')
     from CTRAIN.properties.training import TRAINING_METHODS
     parser.add_argument('--method', choices=TRAINING_METHODS)
     parser.add_argument('--training-options', type=json.loads)
@@ -444,26 +451,34 @@ def main(argv=None):
         baseline_argv.extend(['--method', options.method])
     if options.training_options is not None:
         baseline_argv.extend(['--training-options', json.dumps(options.training_options)])
+    if options.batch_size is not None:
+        baseline_argv.extend(['--batch-size', str(options.batch_size)])
+    if options.property_batch_size is not None:
+        baseline_argv.extend(['--property-batch-size', str(options.property_batch_size)])
+    if options.property is not None:
+        baseline_argv.extend(['--property', options.property])
     if options.data_root is not None:
         baseline_argv.extend(['--data-root', str(options.data_root)])
     if options.smoke:
         baseline_argv.append('--smoke')
         options.eval_pairs = 8
     args = parse_args(baseline_argv)
+    if args.task != 'classification':
+        parser.error('HPO requires classification')
     args.test_pairs = options.eval_pairs
+    warm_max = min(5, args.epochs - 1)
+    ramp_max = min(args.epochs if args.smoke else args.epochs // 2, args.epochs - warm_max)
+    if args.smoke:
+        args.warm_up_epochs = min(args.warm_up_epochs, warm_max)
+        args.weight_ramp_epochs = min(args.weight_ramp_epochs, ramp_max)
     search_space = dict(lr=[1e-4, 1e-2], property_weight=[1e-3, 100.],
-                        weight_ramp_epochs=[0, args.epochs if args.smoke else args.epochs // 2],
-                        bound_method=['IBP', 'CROWN-IBP', 'CROWN'],
-                        property_batch_size=[1, 2, 4] if args.smoke else [2 ** power for power in range(6)],
-                        property_boxes=[1, 2, 4, 8] if args.smoke else [2 ** power for power in range(4, 11)])
+                        warm_up_epochs=[0, warm_max], weight_ramp_epochs=[0, ramp_max],
+                        bound_method=['IBP', 'CROWN-IBP', 'CROWN'])
     if not (search_space['lr'][0] <= args.lr <= search_space['lr'][1]
             and search_space['property_weight'][0] <= args.property_weight <= search_space['property_weight'][1]
+            and args.warm_up_epochs <= search_space['warm_up_epochs'][1]
             and args.weight_ramp_epochs <= search_space['weight_ramp_epochs'][1]):
         parser.error('Fixed baseline parameters must lie inside the declared search space')
-    if (any(getattr(args, name) not in search_space[name]
-            for name in ('property_batch_size', 'property_boxes'))
-            or max(search_space['property_boxes']) > args.train_pairs):
-        parser.error('Baseline property sizes must be in the power-of-two search space; boxes must fit the training pairs')
     if options.method is not None or args.training_options or args.method not in ('IBP', 'CROWN-IBP', 'CROWN'):
         search_space['bound_method'] = [args.method]
     search_space.update(PROPERTY_METHOD_SEARCH_SPACE.get(args.method, {}))

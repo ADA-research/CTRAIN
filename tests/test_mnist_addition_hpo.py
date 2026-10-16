@@ -56,7 +56,7 @@ def main_test():
         root = Path(directory)
         config = root / 'config.json'
         config.write_text(json.dumps(dict(epochs=2, train_pairs=60000, test_pairs=8,
-            property_boxes=2, property_batch_size=1, batch_size=16, width=8,
+            batch_size=16, property_batch_size=3, width=8,
             weight_ramp_epochs=1, property_weight=10., method='CROWN-IBP', eval_method='CROWN')))
         for method in ('IBP', 'CROWN-IBP', 'CROWN', 'MTL-IBP', 'SABR', 'PGD'):
             buffer = io.StringIO()
@@ -125,18 +125,23 @@ def main_test():
                                                record['selection']['certified_fraction'])
                 checkpoint = torch.load(Path(record['directory']) / 'checkpoints/2_checkpoint.pt',
                                         weights_only=False)
-                for key in ('lr', 'property_weight', 'weight_ramp_epochs'):
+                for key in ('lr', 'property_weight', 'warm_up_epochs', 'weight_ramp_epochs'):
                     assert checkpoint['configuration'][key] == trial.params[key]
                 assert 'batch_size' not in trial.params and 'log2_batch_size' not in trial.params
                 assert checkpoint['configuration']['bound_method'] == trial.params['bound_method']
-                for key in ('property_batch_size', 'property_boxes'):
-                    assert record['parameters'][key] == 2 ** trial.params['log2_' + key]
-                size = record['parameters']['property_batch_size']
-                assert checkpoint['configuration']['property_batch_size'] == size
-                boxes = record['parameters']['property_boxes']
-                assert len(checkpoint['configuration']['properties'][0]['domains']) == boxes
-                assert len(checkpoint['partition']) == boxes
-                assert all(entry['cells'] == boxes for entry in checkpoint['history'])
+                assert not {'log2_property_batch_size', 'log2_property_boxes'} & trial.params.keys()
+                assert record['parameters']['batch_size'] == 16
+                assert record['parameters']['property_batch_size'] == 3
+                assert checkpoint['configuration']['property_batch_size'] == 3
+                assert checkpoint['configuration']['match_property_batch_size'] is False
+                assert checkpoint['configuration']['property_dataset']['count'] == 32
+                assert len(checkpoint['configuration']['properties'][0]['domains']) == 1
+                assert checkpoint['partition'] == []
+                assert all(entry['cells'] == 32 for entry in checkpoint['history'])
+                for entry in checkpoint['history']:
+                    if entry['phase'] == 'warm_up':
+                        assert entry['property_loss'] == entry['effective_property_weight'] == 0
+                        assert entry['certified'] is None and not entry['property_evaluated']
                 expected_steps = 2 * math.ceil(32 / 16)
                 assert all(float(state['step']) == expected_steps
                            for state in checkpoint['optimizer']['state'].values())
@@ -284,6 +289,25 @@ def main_test():
         else:
             raise AssertionError('Incompatible experiments were pooled')
 
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        config = root / 'config.json'
+        config.write_text(json.dumps(dict(epochs=2, train_pairs=60000, batch_size=9,
+                                         property_batch_size=3, property_boxes=7)))
+        with contextlib.redirect_stdout(io.StringIO()):
+            main(['--config', str(config), '--output', str(root / 'swap'), '--smoke',
+                  '--property', 'swap', '--method', 'IBP', '--sampler', 'nsgaii', '--trials', '1'])
+        saved = json.loads((root / 'swap/config.json').read_text())
+        assert saved['parameters']['epsilon'] == 0
+        assert saved['data']['train']['property_pair_count'] == 7
+        result = json.loads((root / 'swap/results.json').read_text())
+        for record in result['records']:
+            assert record['parameters']['bound_method'] == 'IBP'
+            assert 'empirical_swap_equivariant_fraction' in record['selection']['metrics']
+            training = json.loads((Path(record['directory']) / 'training_config.json').read_text())
+            assert training['property_dataset']['kind'] == 'mnist_pair_points'
+            assert training['property_dataset']['count'] == 7
+
     # Cross the actual ten-trial startup boundary without another training campaign.
     from optuna_integration import BoTorchSampler
     sampler = BoTorchSampler(seed=0, n_startup_trials=10, device=torch.device('cpu'),
@@ -292,9 +316,8 @@ def main_test():
 
     def synthetic_objective(trial):
         x, y = trial.suggest_float('x', 0., 1.), trial.suggest_float('y', 0., 1.)
-        # Exercise integer exponent dimensions through the real EHVI sampler too.
-        for name in ('property_batch_size', 'property_boxes'):
-            trial.suggest_int('log2_' + name, 0, 3)
+        trial.suggest_int('warm_up_epochs', 0, 1)
+        trial.suggest_int('weight_ramp_epochs', 0, 1)
         trial.suggest_categorical('bound_method', ['IBP', 'CROWN-IBP', 'CROWN'])
         values = (x, 1. - y)
         trial.set_user_attr('constraints', [-value for value in values])

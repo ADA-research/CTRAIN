@@ -1,4 +1,4 @@
-"""Experimental MNIST classification benchmark for certified arithmetic consistency.
+"""Experimental MNIST arithmetic consistency and classification swap equivariance.
 
 This is a new MNIST-based experiment, not a reproduction of a named benchmark.
 The three class predictions are learned independently. Training algorithms
@@ -17,16 +17,16 @@ import auto_LiRPA
 import torch
 import torchvision
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 
 from CTRAIN.model_wrappers.certified import PropertyModelWrapper
 from CTRAIN.properties.training import TRAINING_METHODS, resolve_training_options
 from CTRAIN.data_loaders.data_loaders import MNIST_MEAN, MNIST_STD
-from CTRAIN.model_definitions import MNISTAdditionClassifier
-from CTRAIN.properties import Box, PropertySpec, load_vnnlib_property
+from CTRAIN.model_definitions import MNISTAdditionClassifier, MNISTAdditionRegressor, MNISTSwapGraph
+from CTRAIN.properties import Box, PropertySpec, Outputs, And, Or
 from CTRAIN.train.certified.losses.properties import mnist_addition_cross_entropy
 from case_studies.common import source_provenance
-from case_studies.mnist_addition.data import paired_mnist_dataset
+from case_studies.mnist_addition.data import paired_mnist_dataset, MNISTPropertyDataset
 
 
 INPUT_SHAPE = (2, 28, 28)
@@ -66,34 +66,65 @@ def write_vnnlib(path, box):
         stream.write('\n'.join(lines) + '\n')
 
 
-def specifications(inputs, epsilon, directory):
-    """Round-trip every declared box through VNNLIB, then share one output formula."""
-    directory.mkdir(parents=True, exist_ok=False)
-    imported = []
-    hashes = {}
-    for i, pair in enumerate(inputs):
-        path = directory / f'pair_{i:05d}.vnnlib'
-        write_vnnlib(path, pixel_box(pair, epsilon))
-        imported.append(load_vnnlib_property(path, input_shape=INPUT_SHAPE))
-        hashes[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
-    formula = imported[0].formula
-    if any(spec.formula.to_dict() != formula.to_dict() for spec in imported):
-        raise ValueError('Pair specifications must share the arithmetic formula')
-    return PropertySpec('arithmetic_consistency', formula,
-                        [spec.domains[0] for spec in imported]), hashes
+def _winner(start, size, selected):
+    outputs = Outputs()
+    return And(*[(outputs[start + selected] > outputs[start + other]
+                  if other < selected else outputs[start + selected] >= outputs[start + other])
+                 for other in range(size) if other != selected])
 
 
-def task_metrics(model, dataset, device, batch_size):
-    """Clean argmax accuracy and arithmetic agreement; these are not certificates."""
+def addition_formula(task='classification', tau=None):
+    """Argmax consistency, or the one-sided affine regression residual bound."""
+    outputs = Outputs()
+    if task == 'regression':
+        return outputs[2] - outputs[0] - outputs[1] <= tau
+    return Or(*[And(_winner(0, 10, a), _winner(10, 10, b), _winner(20, 19, a + b))
+                for a in range(10) for b in range(10)])
+
+
+def swap_formula():
+    """Match winning classes across exchanged operand heads and unchanged sum heads."""
+    matches = []
+    for original, swapped, size in ((0, 49, 10), (10, 39, 10), (20, 59, 19)):
+        matches.append(Or(*[And(_winner(original, size, digit), _winner(swapped, size, digit))
+                            for digit in range(size)]))
+    return And(*matches)
+
+
+def specifications(inputs, epsilon, task='classification', tau=None, property_kind='arithmetic'):
+    """Raw pixel boxes for arithmetic, or exact normalized inputs for swap."""
+    if property_kind == 'swap':
+        return PropertySpec('swap_equivariance', swap_formula(),
+                            [Box(pair.double(), pair.double()) for pair in inputs])
+    return PropertySpec('arithmetic_consistency' if task == 'classification' else 'arithmetic_upper_residual',
+                        addition_formula(task, tau),
+                        [pixel_box(pair, epsilon) for pair in inputs])
+
+
+def task_metrics(model, dataset, device, batch_size, tau=None, swap=False):
+    """Clean classification/regression metrics; these are not certificates."""
+    evaluation_model = MNISTSwapGraph(model) if swap else model
     with torch.no_grad():
-        output = torch.cat([model(x.to(device)).cpu() for x, _ in
-                            DataLoader(dataset, batch_size=batch_size)])
+        output = torch.cat([evaluation_model(x.to(device)).cpu() for x, _ in
+                            DataLoader(dataset, batch_size=batch_size,
+                                       generator=torch.Generator().manual_seed(0))])
+    if swap:
+        output, swapped = output.split(39, dim=1)
     target = dataset.tensors[1]
+    if output.shape[1] == 3:
+        error = output - target.float()
+        residual = output[:, 2] - output[:, 0] - output[:, 1]
+        return dict(output_order=['a', 'b', 'sum'],
+                    mse_per_output=error.square().mean(0).tolist(),
+                    mae_per_output=error.abs().mean(0).tolist(),
+                    mean_signed_residual=float(residual.mean()),
+                    maximum_signed_residual=float(residual.max()),
+                    empirical_property_satisfied_fraction=float((residual <= tau).float().mean()))
     heads = output.split((10, 10, 19), dim=1)
     predicted = torch.stack([head.argmax(dim=1) for head in heads], dim=1)
     residual = predicted[:, 2] - predicted[:, 0] - predicted[:, 1]
     correct = predicted == target
-    return dict(output_order=['a', 'b', 'sum'],
+    metrics = dict(output_order=['a', 'b', 'sum'],
                 cross_entropy_per_output=[float(nn.functional.cross_entropy(head, target[:, i]))
                                           for i, head in enumerate(heads)],
                 accuracy_per_output=correct.float().mean(dim=0).tolist(),
@@ -101,6 +132,12 @@ def task_metrics(model, dataset, device, batch_size):
                 mean_absolute_class_residual=float(residual.abs().float().mean()),
                 maximum_absolute_class_residual=int(residual.abs().max()),
                 empirical_consistent_fraction=float((residual == 0).float().mean()))
+    if swap:
+        swapped_predictions = torch.stack([head.argmax(1) for head in swapped.split((10, 10, 19), 1)], 1)
+        matches = predicted == swapped_predictions[:, [1, 0, 2]]
+        metrics.update(swap_agreement_per_output=matches.float().mean(0).tolist(),
+                       empirical_swap_equivariant_fraction=float(matches.all(1).float().mean()))
+    return metrics
 
 
 def certify(wrapper, spec, method):
@@ -109,9 +146,13 @@ def certify(wrapper, spec, method):
     rows = report['cells']
     count = sum(row['outcome'] == 'certified' for row in rows)
     report.update(certified_count=count, total_boxes=len(rows), certified_fraction=count / len(rows),
-                scope='all inputs in each declared clipped normalized pixel box; argmax arithmetic consistency only',
+                scope='swap-equivariant class predictions at the declared normalized input pairs'
+                      if spec.name == 'swap_equivariance' else
+                      f'all inputs in each declared clipped normalized pixel box; {spec.name}',
                 argmax_ties='smallest class index; certificates require positive margins',
                 bound_strategy='affine leaf bounds with monotone Boolean composition; no input refinement')
+    if spec.name not in ('arithmetic_consistency', 'swap_equivariance'):
+        report.pop('argmax_ties')
     return report
 
 
@@ -126,30 +167,44 @@ def mnist_source(args, train, seed, smoke_size):
     return images, labels
 
 
-def make_wrapper(args, spec, parameters, state, directory=None):
-    model = MNISTAdditionClassifier(args.width)
+def make_wrapper(args, spec, parameters, state, directory=None, property_dataset=None):
+    regression = args.task == 'regression'
+    model = (MNISTAdditionRegressor if regression else MNISTAdditionClassifier)(args.width)
     model.load_state_dict(state)
-    spec = PropertySpec(spec.name, spec.formula,
-                        spec.domains[:parameters.get('property_boxes', len(spec.domains))])
+    spec = PropertySpec(spec.name, spec.formula, spec.domains[:1])
     method = parameters.get('bound_method', args.method)
-    return PropertyModelWrapper(model, INPUT_SHAPE, properties=[spec],
-        task_loss=mnist_addition_cross_entropy, num_epochs=args.epochs, device=args.device,
+    wrapper = PropertyModelWrapper(model, INPUT_SHAPE, properties=[spec],
+        verification_model=MNISTSwapGraph(model) if args.property == 'swap' else None,
+        task_loss=nn.MSELoss() if regression else mnist_addition_cross_entropy, num_epochs=args.epochs, device=args.device,
         lr=parameters['lr'], property_weight=parameters['property_weight'],
+        warm_up_epochs=parameters.get('warm_up_epochs', args.warm_up_epochs),
         weight_ramp_epochs=parameters['weight_ramp_epochs'], bound_method=method if method in ('IBP', 'CROWN-IBP', 'CROWN') else args.eval_method,
         training_method=method, training_options=parameters.get('training_options', getattr(args, 'training_options', {})),
-        margin=.001, property_batch_size=parameters.get('property_batch_size', args.property_batch_size),
+        margin=.001, property_batch_size=args.property_batch_size,
         checkpoint_save_path=None if directory is None else directory / 'checkpoints',
-        checkpoint_save_interval=args.epochs, bound_opts={'property_bound': 'atomic'})
+        checkpoint_save_interval=args.epochs, bound_opts={'property_bound': 'atomic'},
+        property_dataset=property_dataset)
+    return wrapper
 
 
-def train_trial(args, dataset, spec, parameters, initial, directory):
+def train_trial(args, dataset, spec, parameters, initial, directory, *, metric_dataset=None, metric_split='heldout'):
     # Paired initialization, batches and property-cell sampling across all arms.
     torch.manual_seed(args.seed + 2)
-    wrapper = make_wrapper(args, spec, parameters, initial, directory)
+    if args.task == 'regression':
+        dataset = TensorDataset(dataset.tensors[0], dataset.tensors[1].float())
+    wrapper = make_wrapper(args, spec, parameters, initial, directory,
+                           property_dataset=MNISTPropertyDataset(dataset, args.epsilon, count=args.property_boxes))
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True,
                         generator=torch.Generator().manual_seed(args.seed + 2))
+    def epoch_metrics(model):
+        metrics = task_metrics(model, metric_dataset, args.device, args.batch_size, args.tau,
+                               swap=args.property == 'swap')
+        keys = ('accuracy_per_output', 'triple_accuracy', 'swap_agreement_per_output',
+                'empirical_swap_equivariant_fraction', 'mse_per_output', 'mae_per_output',
+                'empirical_property_satisfied_fraction')
+        return {f'{metric_split}_{key}': metrics[key] for key in keys if key in metrics}
     start = time.monotonic()
-    wrapper.train_model(loader)
+    wrapper.train_model(loader, epoch_metrics=epoch_metrics if metric_dataset is not None else None)
     return wrapper, time.monotonic() - start
 
 
@@ -159,19 +214,26 @@ def parse_args(argv=None):
     parser.add_argument('--output', type=Path, default=Path('/tmp/ctrain-mnist-addition-ce'))
     parser.add_argument('--data-root', type=Path, default=Path('data'))
     parser.add_argument('--download', action='store_true', help='Explicitly download missing MNIST files')
+    parser.add_argument('--skip-ce-baseline', action='store_true', help='Skip the task-only baseline')
     parser.add_argument('--device', default='cpu')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--train-pairs', type=int, default=60000,
                         help='Training pairs; must cover every training image in each position')
     parser.add_argument('--test-pairs', type=int, default=128)
-    parser.add_argument('--property-boxes', type=int, default=64, help='Number of training pairs with property boxes')
-    parser.add_argument('--batch-size', type=int, default=64)
-    parser.add_argument('--property-batch-size', type=int, default=8)
+    parser.add_argument('--batch-size', type=int, default=64, help='Task batch size')
+    parser.add_argument('--property-batch-size', type=int, default=64,
+                        help='Property domains sampled with replacement per task update; also bound-evaluation batch size')
     parser.add_argument('--width', type=int, default=64)
+    parser.add_argument('--task', choices=('classification', 'regression'), default='classification')
+    parser.add_argument('--property', choices=('arithmetic', 'swap'), default='arithmetic',
+                        help='Swap checks class equivariance at exact input pairs (epsilon=0)')
+    parser.add_argument('--tau', type=float, help='Regression residual bound: sum - a - b <= tau')
+    parser.add_argument('--property-boxes', type=int, help='Training-pair boxes; default: all pairs; not an HPO parameter')
     parser.add_argument('--epsilon', type=float, default=.02, help='Radius in unnormalized [0,1] pixel units')
     parser.add_argument('--property-weight', type=float, default=10.)
-    parser.add_argument('--weight-ramp-epochs', type=int, default=0)
+    parser.add_argument('--warm-up-epochs', type=int, default=0, help='Initial task-only epochs')
+    parser.add_argument('--weight-ramp-epochs', type=int, default=0, help='Property-weight ramp epochs after warm-up')
     parser.add_argument('--lr', type=float, default=.001)
     parser.add_argument('--method', choices=TRAINING_METHODS, default='CROWN-IBP')
     parser.add_argument('--training-options', type=json.loads, default={},
@@ -212,24 +274,39 @@ def parse_args(argv=None):
         resolve_training_options(args.method, args.training_options)
     except ValueError as error:
         parser.error(str(error))
-    for name in ('epochs', 'train_pairs', 'test_pairs', 'property_boxes', 'batch_size',
-                 'property_batch_size', 'width'):
+    for name in ('epochs', 'train_pairs', 'test_pairs', 'batch_size', 'property_batch_size', 'width'):
         if getattr(args, name) < 1:
             parser.error(f'{name} must be positive')
     for name in ('property_weight', 'lr'):
         if not math.isfinite(getattr(args, name)) or getattr(args, name) <= 0:
             parser.error(f'{name} must be positive and finite')
-    if not math.isfinite(args.epsilon) or not 0 < args.epsilon <= 1:
-        parser.error('epsilon must be in (0,1]')
+    if not math.isfinite(args.epsilon) or not 0 <= args.epsilon <= 1:
+        parser.error('epsilon must be finite and in [0,1]')
+    if args.property == 'swap':
+        if args.task != 'classification':
+            parser.error('--property swap requires --task classification')
+        args.epsilon = 0.
+    elif args.epsilon == 0:
+        parser.error('Arithmetic properties require positive epsilon')
     if args.seed < 0 or args.seed >= 2 ** 32 - 3:
         parser.error('seed must be in [0, 2**32 - 3)')
-    if args.property_boxes > args.train_pairs:
-        parser.error('property-boxes must not exceed train-pairs')
-    if not 0 <= args.weight_ramp_epochs <= args.epochs:
-        parser.error('weight-ramp-epochs must be between zero and epochs')
+    if (args.warm_up_epochs < 0 or args.weight_ramp_epochs < 0
+            or args.warm_up_epochs + args.weight_ramp_epochs > args.epochs):
+        parser.error('warm-up and weight ramp must be nonnegative and fit epochs')
+    if args.task == 'regression':
+        args.tau = .1 if args.tau is None else args.tau
+        if not math.isfinite(args.tau) or args.tau < 0:
+            parser.error('tau must be finite and nonnegative')
+    elif args.tau is not None:
+        parser.error('--tau requires --task regression')
+    if args.property_boxes is not None and not 1 <= args.property_boxes <= args.train_pairs:
+        parser.error('property-boxes must be between 1 and train-pairs')
     if args.smoke:
-        args.epochs, args.train_pairs, args.test_pairs, args.property_boxes, args.width = 2, 32, 16, 4, 8
-        args.weight_ramp_epochs = min(args.weight_ramp_epochs, args.epochs)
+        args.epochs, args.train_pairs, args.test_pairs, args.width = 2, 32, 16, 8
+        if args.property_boxes is not None:
+            args.property_boxes = min(args.property_boxes, args.train_pairs)
+        args.warm_up_epochs = min(args.warm_up_epochs, args.epochs)
+        args.weight_ramp_epochs = min(args.weight_ramp_epochs, args.epochs - args.warm_up_epochs)
     elif args.train_pairs < 60000:
         parser.error('train-pairs must be at least 60000 to cover every MNIST training image')
     return args
@@ -247,7 +324,29 @@ def main(argv=None):
                   normalization=dict(mean=MNIST_MEAN, std=MNIST_STD, transform='(uint8/255-mean)/std',
                                      epsilon_coordinates='raw pixels; clip before normalization', augmentation=False),
                   selection='final epoch; no validation/test model selection',
-                  comparison='CE-only vs CE + certified property penalty; paired initialization and batches')
+                  training_properties='lazy box around every training pair; no training VNNLIB files',
+                  comparison=('CE + certified property penalty only' if args.skip_ce_baseline else
+                              'CE-only vs CE + certified property penalty; paired initialization and batches'))
+    if args.task == 'regression':
+        config.update(case='experimental_mnist_arithmetic_regression',
+                      outputs=['a', 'b', 'sum'], task_loss='mean squared error against [a,b,a+b]',
+                      property='sum - a - b <= tau',
+                      comparison='MSE + property penalty only' if args.skip_ce_baseline else
+                                 'MSE-only vs MSE + property penalty; paired initialization and batches')
+    else:
+        config.pop('tau')
+    if args.property == 'swap':
+        config.update(case='experimental_mnist_swap_equivariance',
+                      property='predicted operands exchange and predicted sum agrees after swapping',
+                      property_domains='singleton normalized input pairs',
+                      verification_graph='concatenate f(x) and f(swap(x)); shared model weights')
+        config['normalization']['epsilon_coordinates'] = 'exact normalized inputs; no perturbation'
+    config['training_properties'] = ('lazy box around every training pair' if args.property_boxes is None
+                                     else f'lazy boxes around the first {args.property_boxes} training pairs')
+    if args.property == 'swap':
+        config['training_properties'] = ('exact point for every training pair' if args.property_boxes is None
+                                         else f'exact points for the first {args.property_boxes} training pairs')
+    config['batch_sampling'] = 'property_batch_size random domains per task update, with replacement from the selected training-pair pool'
     if args.dry_run:
         print(json.dumps(config, indent=2))
         return
@@ -255,14 +354,16 @@ def main(argv=None):
         argparse.ArgumentParser().error('output must be a fresh directory')
     torch.set_num_threads(1)
     torch.manual_seed(args.seed)
-    pools, raw_domains, provenance = {}, {}, {}
+    pools, property_inputs, provenance = {}, {}, {}
     for split, offset in (('train', 0), ('test', 1)):
         count = args.train_pairs if split == 'train' else args.test_pairs
         images, labels = mnist_source(args, split == 'train', args.seed + offset, count)
         pools[split], indices = paired_mnist_dataset(images, labels, count, args.seed + offset,
                                                    cover_all=split == 'train')
-        domain_count = args.property_boxes if split == 'train' else args.test_pairs
-        raw_domains[split] = images[indices[:domain_count]].float() / 255
+        # One domain initializes the formula; the lazy dataset supplies all training boxes.
+        domain_count = 1 if split == 'train' else args.test_pairs
+        property_inputs[split] = (pools[split].tensors[0][:domain_count] if args.property == 'swap'
+                                  else images[indices[:domain_count]].float() / 255)
         provenance[split] = dict(original_split=split,
             pairing='independent shuffled complete passes' if split == 'train' else 'with replacement',
             unique_images_per_position=[int(indices[:, side].unique().numel()) for side in range(2)],
@@ -271,9 +372,11 @@ def main(argv=None):
     args.output.mkdir(parents=True, exist_ok=False)
     specs = {}
     for split in ('train', 'test'):
-        specs[split], hashes = specifications(raw_domains[split], args.epsilon, args.output / 'vnnlib' / split)
-        provenance[split].update(property_pair_indices=list(range(len(raw_domains[split]))), vnnlib_sha256=hashes)
-    initial_state = MNISTAdditionClassifier(args.width).state_dict()
+        specs[split] = specifications(property_inputs[split], args.epsilon, args.task, args.tau, args.property)
+        provenance[split].update(property_pair_indices=list(range(args.test_pairs if split == 'test' else (args.property_boxes or args.train_pairs))),
+                                 specification_role='formula template; selected training boxes generated on demand'
+                                 if split == 'train' else 'evaluation boxes')
+    initial_state = (MNISTAdditionRegressor if args.task == 'regression' else MNISTAdditionClassifier)(args.width).state_dict()
     torch.save(initial_state, args.output / 'initial_model.pt')
     config.update(data=dict(kind='synthetic execution fixture' if args.smoke else 'MNIST official train/test splits',
                             provenance=provenance), source=source_provenance(),
@@ -282,20 +385,26 @@ def main(argv=None):
                                    threads=1))
     (args.output / 'config.json').write_text(json.dumps(config, indent=2, allow_nan=False))
     results = {}
-    for name, weight in (('ce_only', 0.), ('certified', args.property_weight)):
+    arms = [('certified', args.property_weight)]
+    if not args.skip_ce_baseline:
+        arms.insert(0, ('task_only' if args.task == 'regression' else 'ce_only', 0.))
+    for name, weight in arms:
+        print(f'Training {name}: property_weight={weight:g}', flush=True)
         directory = args.output / name
         directory.mkdir()
-        parameters = dict(lr=args.lr, property_weight=weight, weight_ramp_epochs=args.weight_ramp_epochs)
+        parameters = dict(lr=args.lr, property_weight=weight, warm_up_epochs=args.warm_up_epochs,
+                          weight_ramp_epochs=args.weight_ramp_epochs)
         wrapper, training_seconds = train_trial(args, pools['train'], specs['train'],
-                                               parameters, initial_state, directory)
+                                               parameters, initial_state, directory,
+                                               metric_dataset=pools['test'], metric_split='test')
         (directory / 'training_config.json').write_text(json.dumps(wrapper.configuration, indent=2))
         model = wrapper.original_model
         model.eval()
         result = dict(training_seconds=training_seconds, history=wrapper.history,
-                      metrics={split: task_metrics(model, pools[split], args.device, args.batch_size)
+                      metrics={split: task_metrics(model, pools[split], args.device, args.batch_size, args.tau, swap=args.property == 'swap')
                                for split in ('train', 'test')},
-                      verification={split: certify(wrapper, specs[split], args.eval_method)
-                                    for split in ('train', 'test')})
+                      verification={'test': certify(wrapper, specs['test'], args.eval_method)})
+        result['verification']['train'] = wrapper.certify_properties(method=args.eval_method)
         torch.save(model.cpu().state_dict(), directory / 'model.pt')
         (directory / 'results.json').write_text(json.dumps(result, indent=2, allow_nan=False))
         results[name] = dict(test_metrics=result['metrics']['test'],

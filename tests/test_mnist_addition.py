@@ -188,15 +188,23 @@ def main():
             assert first['results'][arm]['test_metrics'] == repeat['results'][arm]['test_metrics']
             assert first['results'][arm]['test_certified_fraction'] == repeat['results'][arm]['test_certified_fraction']
             report = json.loads((root / f'first/{arm}/results.json').read_text())
-            assert report['verification']['train']['total_boxes'] == 4
+            assert report['verification']['train']['total_boxes'] == 32
             assert report['verification']['test']['total_boxes'] == 16
             assert len(report['history']) == 2
             weights = torch.load(root / f'first/{arm}/model.pt', weights_only=True)
             again = torch.load(root / f'repeat/{arm}/model.pt', weights_only=True)
             assert all(torch.equal(weights[key], again[key]) for key in weights)
+        with contextlib.redirect_stdout(io.StringIO()):
+            run_benchmark(['--smoke', '--skip-ce-baseline', '--output', str(root / 'property_only')])
+        property_only = json.loads((root / 'property_only/results.json').read_text())
+        assert set(property_only['results']) == {'certified'}
+        assert not (root / 'property_only/ce_only').exists()
+        skipped = torch.load(root / 'property_only/certified/model.pt', weights_only=True)
+        paired = torch.load(root / 'first/certified/model.pt', weights_only=True)
+        assert all(torch.equal(skipped[key], paired[key]) for key in paired)
         parameters = root / 'parameters.json'
         settings = dict(seed=5, epochs=3, weight_ramp_epochs=1, train_pairs=60000,
-                        property_boxes=4, method='CROWN', download=False, output=str(root / 'configured'))
+                        method='CROWN', download=False, output=str(root / 'configured'))
         parameters.write_text(json.dumps(settings))
         output = io.StringIO()
         with contextlib.redirect_stdout(output):

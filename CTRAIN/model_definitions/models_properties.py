@@ -4,7 +4,7 @@ from torch import nn
 
 
 class MNISTAdditionRegressor(nn.Sequential):
-    """Two raw [0,1] MNIST images → independently learned [a, b, sum] scalars.
+    """Two normalized MNIST images → independently learned [a, b, sum] scalars.
 
     The final affine layer has three unconstrained rows; no output is computed
     from another. Arithmetic consistency must be learned, not imposed here.
@@ -29,6 +29,17 @@ class MNISTAdditionClassifier(nn.Sequential):
             raise ValueError('width must be a positive integer')
         super().__init__(nn.Flatten(), nn.Linear(2 * 28 * 28, width), nn.ReLU(),
                          nn.Linear(width, width), nn.ReLU(), nn.Linear(width, sum(self.head_sizes)))
+
+
+class MNISTSwapGraph(nn.Module):
+    """One input pair, two operand orders, one shared classifier; 78 logits."""
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, inputs):
+        swapped = torch.cat((inputs[:, 1:2], inputs[:, 0:1]), dim=1)
+        return torch.cat((self.model(inputs), self.model(swapped)), dim=1)
 
 
 class ControllerMLP(nn.Sequential):
