@@ -32,6 +32,8 @@ class PropertyModelWrapper(nn.Module):
     certificate: use `certify_properties` to check every covering cell afresh.
     Both training and verification use evaluation-mode model behavior, with
     gradients enabled during training and caller modes restored afterwards.
+    Epoch checks use the training bound method, GLS's configured training bound,
+    or sound full-box IBP for other methods; no separate selector is required.
 
     Args:
         model (torch.nn.Module): Task model to optimize and return from training.
@@ -41,11 +43,8 @@ class PropertyModelWrapper(nn.Module):
         task_loss (Callable): Loss called as `task_loss(prediction, target)`;
             its result is averaged. Modules are moved to `device`.
         num_epochs (int): Total trajectory length, also the default training end.
-        bound_method (str): Training and epoch-selection bound method: `IBP`,
-            `CROWN-IBP` or `CROWN`. When training_method is supplied, this
-            controls fresh whole-box epoch selection only.
-        training_method (str | None): IBP, CROWN-IBP, CROWN, MTL-IBP, CC-IBP,
-            EXP-IBP, SABR, PGD, IBP-R or GLS. None retains bound_method training.
+        training_method (str): IBP, CROWN-IBP, CROWN, MTL-IBP, CC-IBP,
+            EXP-IBP, SABR, PGD, IBP-R or GLS. Defaults to CROWN-IBP.
             Hybrid, adversarial, regularized and smoothed property methods are
             experimental adaptations, not established paper reproductions.
         training_options (dict | None): Parameters of the selected method,
@@ -126,18 +125,17 @@ class PropertyModelWrapper(nn.Module):
             weights. Reload an epoch checkpoint before resuming the trajectory.
     """
     def __init__(self, model, input_shape, *, properties, task_loss, num_epochs,
-                 bound_method='CROWN-IBP', verification_model=None,
+                 training_method='CROWN-IBP', verification_model=None,
                  verification_input_shape=None, device='cpu', lr=1e-3,
                  optimizer_func=torch.optim.Adam, lr_scheduler_func=None,
                  lr_scheduler_kwargs=None, property_weight=1., margin=1e-3,
                  weight_ramp_epochs=0, property_batch_size=32, refinement=False,
                  split_count=8, max_cells=1024, max_depth=12, population_bn=False,
                  checkpoint_save_path=None, checkpoint_save_interval=10, bound_opts=None,
-                 training_method=None, training_options=None, property_dataset=None,
+                 training_options=None, property_dataset=None,
                  warm_up_epochs=0, match_property_batch_size=False):
         super().__init__()
-        training_method, training_options = resolve_training_options(
-            bound_method if training_method is None else training_method, training_options)
+        training_method, training_options = resolve_training_options(training_method, training_options)
         if not isinstance(model, nn.Module) or not callable(task_loss):
             raise ValueError('model must be a module and task_loss must be callable')
         properties = copy.deepcopy(tuple(properties))
@@ -154,8 +152,8 @@ class PropertyModelWrapper(nn.Module):
                                 warm_up_epochs=warm_up_epochs).items():
             if type(value) is not int or value < 0:
                 raise ValueError(f'{name} must be a nonnegative integer')
-        if warm_up_epochs + weight_ramp_epochs > num_epochs or bound_method not in METHODS:
-            raise ValueError('Warm-up and weight ramp must fit num_epochs; bound method must be supported')
+        if warm_up_epochs + weight_ramp_epochs > num_epochs:
+            raise ValueError('Warm-up and weight ramp must fit num_epochs')
         if type(match_property_batch_size) is not bool:
             raise ValueError('match_property_batch_size must be bool')
         for name, value in dict(lr=lr, margin=margin, property_weight=property_weight).items():
@@ -209,7 +207,9 @@ class PropertyModelWrapper(nn.Module):
                           UserWarning, stacklevel=2)
         self.lr_scheduler = (None if lr_scheduler_func is None else
                              lr_scheduler_func(self.optimizer, **(lr_scheduler_kwargs or {})))
-        self.num_epochs, self.bound_method = num_epochs, bound_method
+        self.num_epochs = num_epochs
+        self._selection_bound_method = (training_method if training_method in METHODS else
+                                        training_options.get('bound_method', 'IBP'))
         self.property_weight, self.margin = property_weight, margin
         self.weight_ramp_epochs, self.property_batch_size = weight_ramp_epochs, property_batch_size
         self.warm_up_epochs = warm_up_epochs
@@ -226,7 +226,7 @@ class PropertyModelWrapper(nn.Module):
         self.loader_rng = None
         self.configuration = dict(properties=[p.to_dict() for p in properties],
             input_shape=list(self.input_shape), verification_input_shape=list(self.verification_input_shape),
-            num_epochs=num_epochs, bound_method=bound_method, margin=margin,
+            num_epochs=num_epochs, selection_bound_method=self._selection_bound_method, margin=margin,
             property_weight=property_weight, weight_ramp_epochs=weight_ramp_epochs,
             warm_up_epochs=warm_up_epochs,
             match_property_batch_size=match_property_batch_size,
@@ -367,7 +367,10 @@ class PropertyModelWrapper(nn.Module):
         configuration = copy.deepcopy(state['configuration'])
         configuration.setdefault('warm_up_epochs', 0)
         configuration.setdefault('match_property_batch_size', False)
-        configuration.setdefault('training_method', configuration['bound_method'])
+        if 'bound_method' in configuration:
+            bound_method = configuration.pop('bound_method')
+            configuration.setdefault('selection_bound_method', bound_method)
+            configuration.setdefault('training_method', bound_method)
         configuration['training_method'], configuration['training_options'] = resolve_training_options(
             configuration['training_method'], configuration.get('training_options'))
         if configuration != self.configuration:

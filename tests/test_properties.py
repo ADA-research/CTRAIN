@@ -191,7 +191,7 @@ def shared_constant_joint_gradients():
         for actual, expected in zip(torch.autograd.grad(sum(losses), parameters), separate):
             torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-5)
     wrapper = PropertyModelWrapper(model, (2,), properties=specs, task_loss=nn.MSELoss(),
-        num_epochs=1, bound_method='CROWN-IBP', property_batch_size=6)
+        num_epochs=1, training_method='CROWN-IBP', property_batch_size=6)
     data = torch.tensor([[.5, .5], [1.5, 1.5], [-.5, -.5]])
     target = model(data).detach()
     before = copy.deepcopy(model.state_dict())

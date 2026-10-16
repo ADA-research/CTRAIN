@@ -178,7 +178,7 @@ def make_wrapper(args, spec, parameters, state, directory=None, property_dataset
         task_loss=nn.MSELoss() if regression else mnist_addition_cross_entropy, num_epochs=args.epochs, device=args.device,
         lr=parameters['lr'], property_weight=parameters['property_weight'],
         warm_up_epochs=parameters.get('warm_up_epochs', args.warm_up_epochs),
-        weight_ramp_epochs=parameters['weight_ramp_epochs'], bound_method=method if method in ('IBP', 'CROWN-IBP', 'CROWN') else args.eval_method,
+        weight_ramp_epochs=parameters['weight_ramp_epochs'],
         training_method=method, training_options=parameters.get('training_options', getattr(args, 'training_options', {})),
         margin=.001, property_batch_size=args.property_batch_size,
         checkpoint_save_path=None if directory is None else directory / 'checkpoints',

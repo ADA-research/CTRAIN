@@ -131,7 +131,7 @@ def main():
     validation = DataLoader(TensorDataset(data[split:], target[split:]), batch_size=64)
     args.output.mkdir(parents=True, exist_ok=False)
     wrapper = PropertyModelWrapper(model, tuple(box.lower.shape), properties=specs, task_loss=advisory_cross_entropy,
-        num_epochs=config['epochs'], device=args.device, bound_method=args.method if args.method in ('IBP', 'CROWN-IBP', 'CROWN') else 'CROWN',
+        num_epochs=config['epochs'], device=args.device,
         training_method=args.method, training_options=args.training_options,
         warm_up_epochs=args.warm_up_epochs, weight_ramp_epochs=args.weight_ramp_epochs,
         refinement=True, property_batch_size=8, max_cells=32 if args.smoke else 1024,
@@ -141,7 +141,7 @@ def main():
     (args.output / 'config.json').write_text(json.dumps(config, indent=2))
     before = wrapper.certify_properties(refine=False)
     wrapper.train_model(train, validation)
-    after = wrapper.certify_properties(method=wrapper.bound_method, refine=not args.smoke, complete=args.complete,
+    after = wrapper.certify_properties(method=args.method if args.method in ('IBP', 'CROWN-IBP', 'CROWN') else 'CROWN', refine=not args.smoke, complete=args.complete,
                                        results_path=args.output / 'verification')
     model.cpu().eval()
     with torch.no_grad():

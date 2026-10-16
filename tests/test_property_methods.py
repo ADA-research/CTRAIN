@@ -27,13 +27,13 @@ def data():
                       generator=torch.Generator().manual_seed(9))
 
 
-def make(method='IBP', options=None, *, spec=None, model=None, epochs=2):
+def make(method='IBP', options=None, *, spec=None, model=None, epochs=2, **kwargs):
     model = model or nn.Sequential(nn.Linear(1, 3), nn.ReLU(), nn.Linear(3, 1)).double()
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', UserWarning)
         return PropertyModelWrapper(model, (1,), properties=[spec or PropertySpec('positive',
             Outputs()[0] >= .2, [Box([0.], [1.])])], task_loss=nn.MSELoss(), num_epochs=epochs,
-            training_method=method, training_options=options, property_batch_size=2, lr=.01)
+            training_method=method, training_options=options, property_batch_size=2, lr=.01, **kwargs)
 
 
 def rejects(function, text):
@@ -78,6 +78,61 @@ def loader_for_classification():
     return loader
 
 
+def training_and_selection_api():
+    signature = inspect.signature(PropertyModelWrapper)
+    assert signature.parameters['training_method'].default == 'CROWN-IBP'
+    assert 'bound_method' not in signature.parameters and 'selection_bound_method' not in signature.parameters
+    assert make('GLS', {'bound_method': 'CROWN-IBP'})._selection_bound_method == 'CROWN-IBP'
+
+    # Selection and refinement must use fresh full-box bounds, independent of SABR's surrogate.
+    model = nn.Linear(1, 1).double()
+    with torch.no_grad():
+        model.weight.fill_(.1); model.bias.fill_(-.3)
+    w = make('SABR', {'pgd_steps': 1, 'relu_upper_retention': .8}, model=model,
+             refinement=True, max_cells=2, split_count=1)
+    calls = []
+    original = type(w.bounds).__call__
+    def capture(bounds, index, boxes, method, **kwargs):
+        calls.append((method, kwargs.get('relu_upper_retention', 1.)))
+        return original(bounds, index, boxes, method, **kwargs)
+    with patch.object(type(w.bounds), '__call__', capture):
+        w.train_model(data(), data(), end_epoch=1)
+    assert calls == [('IBP', .8), ('IBP', .8), ('IBP', 1.), ('IBP', 1.)], calls
+    assert len(w.partition) == 2 and w.inference_selected
+    assert w.certify_properties(refine=False)['method'] == 'CROWN'
+
+    # Lazy datasets have a separate epoch-evaluation path and use sound full-box IBP too.
+    class Boxes(list):
+        def to_dict(self):
+            return dict(boxes=[box.to_dict() for box in self])
+    pool = Boxes([Box([0.], [1.]), Box([.2], [.8])])
+    lazy = make('PGD', {'pgd_steps': 1}, property_dataset=pool)
+    from CTRAIN.eval.properties import certify_property_dataset
+    with patch('CTRAIN.train.certified.properties.certify_property_dataset',
+               wraps=certify_property_dataset) as evaluate:
+        lazy.train_model(data(), end_epoch=1)
+    assert evaluate.call_args.kwargs['method'] == 'IBP'
+
+    # Migrate compatible checkpoints and reject changed selection policies before loading weights.
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / 'old.pt'
+        lazy.save_checkpoint(path)
+        saved = torch.load(path, weights_only=False)
+        config = saved['configuration']
+        config['bound_method'] = config.pop('selection_bound_method')
+        torch.save(saved, path)
+        resumed = make('PGD', {'pgd_steps': 1}, property_dataset=pool)
+        resumed.load_checkpoint(path)
+        assert resumed.history == lazy.history and resumed.epoch == lazy.epoch
+        config['bound_method'] = 'CROWN'
+        torch.save(saved, path)
+        incompatible = make('PGD', {'pgd_steps': 1}, property_dataset=pool)
+        before = copy.deepcopy(incompatible.original_model.state_dict())
+        rejects(lambda: incompatible.load_checkpoint(path), 'configuration differs')
+        for name, value in before.items():
+            torch.testing.assert_close(value, incompatible.original_model.state_dict()[name])
+
+
 def methods_and_resume():
     y=Outputs()
     spec=PropertySpec('logical', And(y[0] >= .2, Or(y[0] >= .3, y[0] <= -.3)), [Box([0.], [1.])])
@@ -89,6 +144,8 @@ def methods_and_resume():
             for estimator in (('rgs','pgpe') if method=='GLS' else (None,)):
                 if estimator:opts.update(estimator=estimator, samples=2)
                 w=make(method,opts,spec=spec)
+                expected = method if method in ('IBP', 'CROWN-IBP', 'CROWN') else ('CROWN' if method == 'GLS' else 'IBP')
+                assert w._selection_bound_method == expected
                 initial=copy.deepcopy(w.original_model)
                 torch.manual_seed(31);w.train_model(data())
                 assert w.original_model.training
@@ -110,6 +167,7 @@ def methods_and_resume():
     with tempfile.TemporaryDirectory() as folder:
         p=Path(folder)/'old.pt';w.save_checkpoint(p)
         saved=torch.load(p,weights_only=False)
+        saved['configuration']['bound_method'] = saved['configuration'].pop('selection_bound_method')
         saved['configuration'].pop('training_method');saved['configuration'].pop('training_options')
         torch.save(saved,p)
         make('CROWN-IBP').load_checkpoint(p)
@@ -195,5 +253,5 @@ def geometry_and_components():
 
 if __name__=='__main__':
     torch.set_num_threads(1)
-    imports_and_validation();methods_and_resume();geometry_and_components()
+    imports_and_validation();training_and_selection_api();methods_and_resume();geometry_and_components()
     print('Property methods, package aliases, unchanged robustness API, geometry, gradients and resumption passed')

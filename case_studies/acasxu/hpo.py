@@ -260,8 +260,7 @@ def run(args):
         wrapper = PropertyModelWrapper(model, shape, properties=specs, task_loss=advisory_cross_entropy,
             num_epochs=args.epochs, device=args.device, refinement=True, max_cells=args.training_cells,
             bound_opts={'conv_mode': 'matrix', 'relu': 'adaptive', 'property_bound': 'atomic'},
-            training_method=method,
-            bound_method=method if method in ('IBP', 'CROWN-IBP', 'CROWN') else 'CROWN', **wrapper_parameters)
+            training_method=method, **wrapper_parameters)
         loader = DataLoader(dataset, batch_size=128, shuffle=True,
                             generator=torch.Generator().manual_seed(args.seed))
         start = time.monotonic()

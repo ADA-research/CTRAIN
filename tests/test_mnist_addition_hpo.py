@@ -128,7 +128,8 @@ def main_test():
                 for key in ('lr', 'property_weight', 'warm_up_epochs', 'weight_ramp_epochs'):
                     assert checkpoint['configuration'][key] == trial.params[key]
                 assert 'batch_size' not in trial.params and 'log2_batch_size' not in trial.params
-                assert checkpoint['configuration']['bound_method'] == trial.params['bound_method']
+                assert checkpoint['configuration']['training_method'] == trial.params['bound_method']
+                assert checkpoint['configuration']['selection_bound_method'] == trial.params['bound_method']
                 assert not {'log2_property_batch_size', 'log2_property_boxes'} & trial.params.keys()
                 assert record['parameters']['batch_size'] == 16
                 assert record['parameters']['property_batch_size'] == 3

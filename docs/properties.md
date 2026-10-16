@@ -25,7 +25,7 @@ model = torch.nn.Sequential(torch.nn.Linear(2, 32), torch.nn.ReLU(),
                             torch.nn.Linear(32, 3))
 wrapper = PropertyModelWrapper(
     model, (2,), properties=[property_spec], task_loss=torch.nn.MSELoss(),
-    num_epochs=50, bound_method='CROWN-IBP', property_weight=20.,
+    num_epochs=50, training_method='CROWN-IBP', property_weight=20.,
     refinement=True,
     warm_up_epochs=5, weight_ramp_epochs=20,
 )
@@ -92,16 +92,30 @@ wrapper = PropertyModelWrapper(
     model, (2,), properties=[property_spec], task_loss=torch.nn.MSELoss(),
     num_epochs=50, training_method='MTL-IBP',
     training_options={'alpha': .8, 'pgd_steps': 20, 'loss': 'cross_entropy'},
-    bound_method='CROWN', property_weight=20.,
+    property_weight=20.,
 )
 ```
 
-`training_method=None` retains the original `bound_method` training behavior.
-With an explicit strategy, `bound_method` controls fresh full-box epoch
-selection; `certify_properties(method=...)` independently chooses certification
-bounds. No SABR subregion, PGD point, Gaussian sample, or shrunk ReLU interval
+Choose the training objective with `training_method` (default `CROWN-IBP`);
+no second method argument is required. Fresh full-box epoch diagnostics,
+refinement and checkpoint selection use the same bound method for `IBP`,
+`CROWN-IBP` and `CROWN`, GLS's `training_options['bound_method']` for GLS,
+and `IBP` for the other strategies. These computations always use sound,
+full-box bounds, without training-time ReLU shrinkage.
+
+There is no separate selection-method argument.
+`certify_properties(method='CROWN')` independently chooses certification bounds;
+its default remains `CROWN`. No SABR subregion, PGD point, Gaussian sample, or shrunk ReLU interval
 is used as a whole-box certificate. Old bound-training checkpoints remain
 loadable; switching strategy or parameters requires a new trajectory.
+
+The old `bound_method` constructor argument has been removed. Use
+`training_method='IBP'` instead of `bound_method='IBP'`. Old checkpoints are
+migrated on load when their training and selection settings match the new
+method-derived policy. A checkpoint with different historical selection bounds
+is rejected before loading weights; resume that trajectory with its original
+CTRAIN version. HPO studies retain their historical `bound_method`
+trial-parameter key for the training strategy so existing studies remain usable.
 
 | Strategy | Property training computation | Additional parameters and defaults |
 |---|---|---|

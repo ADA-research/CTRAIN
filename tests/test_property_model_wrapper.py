@@ -32,7 +32,7 @@ def wrapper(model=None, properties=None, **kwargs):
         model, (1,), properties=properties or [PropertySpec('positive', Outputs()[0] >= 0,
                                                            [Box([-1.], [1.])])],
         task_loss=nn.MSELoss(), num_epochs=3, device='cpu', lr=.05,
-        property_weight=5., property_batch_size=4, bound_method='IBP', **kwargs)
+        property_weight=5., property_batch_size=4, training_method='IBP', **kwargs)
 
 
 def main():

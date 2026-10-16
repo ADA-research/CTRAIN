@@ -156,7 +156,7 @@ def main():
     model = ControllerMLP(coordinate_features=True)
     wrapper = PropertyModelWrapper(model, (2,), properties=[spec], task_loss=nn.MSELoss(),
         num_epochs=config['epochs'], verification_model=ControllerDynamics(model),
-        verification_input_shape=(4,), device=args.device, bound_method=args.method if args.method in ('IBP', 'CROWN-IBP', 'CROWN') else 'CROWN',
+        verification_input_shape=(4,), device=args.device,
         training_method=args.method, training_options=args.training_options,
         warm_up_epochs=args.warm_up_epochs, weight_ramp_epochs=args.weight_ramp_epochs,
         property_weight=20., refinement=True, property_batch_size=16,
@@ -165,7 +165,7 @@ def main():
     (args.output / 'config.json').write_text(json.dumps(config, indent=2))
     initial = wrapper.certify_properties(refine=False)
     wrapper.train_model(DataLoader(training, batch_size=64), DataLoader(validation, batch_size=64))
-    result = wrapper.certify_properties(method=wrapper.bound_method, refine=not args.smoke, complete=args.complete,
+    result = wrapper.certify_properties(method=args.method if args.method in ('IBP', 'CROWN-IBP', 'CROWN') else 'CROWN', refine=not args.smoke, complete=args.complete,
         results_path=args.output / 'verification')
     with torch.no_grad():
         model.cpu().eval()

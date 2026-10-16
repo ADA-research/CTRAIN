@@ -82,7 +82,8 @@ def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=Non
     sampling weight, so refinement does not overweight difficult regions.
 
     After each epoch: step the scheduler, optionally recalibrate BatchNorm,
-    evaluate every covering cell, optionally split uncertified cells and
+    evaluate every covering cell with the training method's full-box bound
+    (IBP for hybrids/adversarial training), optionally split uncertified cells and
     reevaluate, then record history and select/checkpoint weights. Certification
     requires every obligation on every cell to have a finite positive lower
     margin. A negative bound means unresolved, not a proven counterexample.
@@ -215,18 +216,18 @@ def property_train_model(wrapper, train_loader, val_loader=None, start_epoch=Non
                 certified_count = None
                 cell_count = len(wrapper.property_dataset) if wrapper.property_dataset is not None else len(wrapper.partition)
             elif wrapper.property_dataset is not None:
-                coverage = certify_property_dataset(wrapper, method=wrapper.bound_method)
+                coverage = certify_property_dataset(wrapper, method=wrapper._selection_bound_method)
                 minimum = coverage['minimum_lower_bound']
                 minimum = minimum if minimum is not None else -float('inf')
                 certified, cell_count = coverage['certified'], coverage['total_boxes']
                 certified_count = coverage['certified_count']
             else:
-                rows, _ = evaluate_cells(wrapper.bounds, wrapper.partition, wrapper.bound_method,
+                rows, _ = evaluate_cells(wrapper.bounds, wrapper.partition, wrapper._selection_bound_method,
                                          wrapper.property_batch_size)
                 if wrapper.refinement:
                     wrapper.partition = refine_partition(wrapper.partition, rows, wrapper.properties,
                         wrapper.split_count, wrapper.max_cells, wrapper.max_depth)
-                    rows, _ = evaluate_cells(wrapper.bounds, wrapper.partition, wrapper.bound_method,
+                    rows, _ = evaluate_cells(wrapper.bounds, wrapper.partition, wrapper._selection_bound_method,
                                              wrapper.property_batch_size)
                 minimum = min((r['minimum_lower_bound'] if r['minimum_lower_bound'] is not None
                                else -float('inf')) for r in rows)
