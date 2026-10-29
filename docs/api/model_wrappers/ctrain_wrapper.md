@@ -1,3 +1,18 @@
+# Model wrapper packages
+
+Certified and hybrid methods live in `CTRAIN.model_wrappers.certified`.
+PGD training lives in `CTRAIN.model_wrappers.adversarial`. Implementations use
+the existing classes; legacy module paths remain aliases to the same modules.
+
+```python
+from CTRAIN.model_wrappers.certified import ShiIBPModelWrapper, PropertyModelWrapper
+from CTRAIN.model_wrappers.adversarial import PGDModelWrapper
+```
+
+The robustness wrappers keep their `eps` constructors. General-property method
+selection is configured on `PropertyModelWrapper`; see the
+[property guide](../../properties.md#choosing-a-training-strategy).
+
 `CTRAINWrapper.evaluate(...)` returns `(standard_accuracy, certified_accuracy,
 adversarial_accuracy)`.
 
@@ -48,4 +63,4 @@ loaded for inference. RNG and loader state are not restored, so resumption does
 not promise a bitwise replay. TAPS/STAPS may restore the best inference weights
 after training; trajectory checkpoints remain separate from that selection.
 
-::: CTRAIN.model_wrappers.model_wrapper
+::: CTRAIN.model_wrappers.certified.model_wrapper

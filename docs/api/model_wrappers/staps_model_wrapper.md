@@ -1,1 +1,1 @@
-::: CTRAIN.model_wrappers.staps_model_wrapper
+::: CTRAIN.model_wrappers.certified.staps_model_wrapper

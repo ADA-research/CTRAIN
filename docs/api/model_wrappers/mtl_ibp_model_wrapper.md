@@ -1,1 +1,1 @@
-::: CTRAIN.model_wrappers.mtl_ibp_model_wrapper
+::: CTRAIN.model_wrappers.certified.mtl_ibp_model_wrapper
