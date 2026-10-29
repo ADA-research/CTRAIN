@@ -98,6 +98,26 @@ over natural and certified accuracy with reference point `(0, 0)` by default.
 
 ## Main Paper HPO Runs
 
+### CC-Dist extension
+
+CC-Dist uses the same runner and library MO-HPO implementation. Supply
+`--method cc_dist --teacher /absolute/path/to/native_teacher.pt` and optionally
+`--teacher-sha256 EXPECTED_HASH`. The teacher must match the student architecture;
+one fixed pretrained teacher is shared across the search trials. The run manifest
+records its path/hash and the selection protocol. Beta is searched logarithmically
+over `[0.1/w, 50/w]` through `cc_dist:distillation_weight`, in addition to the
+existing `cc_ibp:*` parameters. Beta=0 remains a separate control.
+
+`slurm_scripts/submit_cc_dist_hpo.sbatch STUDY_ROOT` submits CIFAR-10 at 2/255,
+CNN7, seeds 0/1/2, 100 trials per seed, 160 epochs, batch size 512, BoTorch,
+60% natural/40% certified feasibility thresholds, and full-test incomplete
+verification objectives. `STUDY_ROOT` must contain frozen `source/`,
+`teacher/model.pt`, and `teacher/sha256.txt`. This follows the ICML test-tuning
+protocol; these scores are not an independent held-out test evaluation.
+
+The existing front merger accepts `--method cc_dist`. Front verification and
+checkpoint loading reconstruct the student without requiring the teacher.
+
 The paper uses 100 HPO trials per seed and three seeds, yielding 300 trials per
 benchmark. Main-paper benchmarks use CNN7 on CIFAR-10 at `2/255` and `8/255`
 and Tiny ImageNet at `1/255`.

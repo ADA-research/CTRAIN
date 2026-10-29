@@ -1,18 +1,17 @@
-Evaluation helpers return aggregate accuracies and, for the lower-level
-certification routines, per-instance result dictionaries. A result entry uses
-`result="unsat"` for certified samples, `result="sat"` for adversarial
-counterexamples, and `result=None` for unresolved samples. The `method` and
-`running_time` fields record which verifier produced the result and how long it
-took.
+# Evaluation API
 
-`eval_model` and wrapper `evaluate(...)` keep the stable public return shape:
-`(standard_accuracy, certified_accuracy, adversarial_accuracy)`.
+See [evaluation and verification](../../guides/evaluation.md) for metric meanings,
+normalization, attack budgets, complete-verifier records and warm-start identity.
+The [evaluation notebook](../../examples/model_evaluation.ipynb) is the runnable workflow.
 
-Complete verification through `eval_complete_abcrown` writes a JSON result file
-and per-instance abCROWN logs under `results_path`. It supports `warm_start`,
-`start_idx`, `end_idx`, and `results_filename` so large evaluations can be
-resumed or split into chunks. The abCROWN backend is the newer vendored checkout
-and should be run with a matching `auto_LiRPA` installation, for example
-`auto_LiRPA 0.7.0`.
+Forward LiRPA certification uses `eval_forward` or
+`eval_certified(method="FORWARD")`; `eval_model` combines clean, certified and
+adversarial accuracy. Radii passed directly to these functions are in model
+input coordinates; wrappers convert raw-pixel radii using loader metadata.
+`propagation_batch_size` limits forward-bound memory; it defaults to one.
+
+See also [general-property certification/counterexample search](properties.md).
 
 ::: CTRAIN.eval.eval
+
+::: CTRAIN.eval.autoattack.eval_autoattack

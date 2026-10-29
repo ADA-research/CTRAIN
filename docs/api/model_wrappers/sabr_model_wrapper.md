@@ -1,1 +1,1 @@
-::: CTRAIN.model_wrappers.sabr_model_wrapper
+::: CTRAIN.model_wrappers.certified.sabr_model_wrapper

@@ -51,9 +51,11 @@ accuracy trade-off.
 - Unified certified training wrappers for IBP-style methods built on
   [`auto_LiRPA`](https://proceedings.neurips.cc/paper/2020/file/0cbc5671ae26f67871cb914d81ef8fc1-Paper.pdf).
 - Implementations of popular certified training methods, including IBP,
-  CROWN-IBP, SABR, TAPS, STAPS, and MTL-IBP.
+  CROWN-IBP, SABR, TAPS, STAPS, MTL-IBP, CC-IBP, Exp-IBP, and CC-Dist.
 - PyTorch-native model definitions, dataset loaders, and training utilities
   for easy integration into existing research code.
+- An experimental [general output-property workflow](docs/properties.md) with
+  affine comparisons, conjunctions, disjunctions, and certified property training.
 - Adversarial evaluation with PGD, incomplete verification with IBP/CROWN
   variants, and complete verification through alpha-beta-CROWN.
 - Method-specific configuration spaces and a common wrapper API for training,
@@ -74,7 +76,8 @@ Certified training:
 - TAPS ([Mao et al., 2023](https://proceedings.neurips.cc/paper_files/paper/2023/file/e8b0c97b34fdaf58b2f48f8cca85e76a-Paper-Conference.pdf))
 - STAPS, combining SABR and TAPS
   ([Mao et al., 2023](https://proceedings.neurips.cc/paper_files/paper/2023/file/e8b0c97b34fdaf58b2f48f8cca85e76a-Paper-Conference.pdf))
-- MTL-IBP ([De Palma et al., 2023](https://arxiv.org/pdf/2305.13991))
+- MTL-IBP, CC-IBP, and Exp-IBP ([De Palma et al., 2024](https://arxiv.org/pdf/2305.13991)); see the [expressive loss guide](docs/expressive_losses.md).
+- CC-Dist ([Learning Better Certified Models from Empirically-Robust Teachers, 2026](https://arxiv.org/pdf/2602.02626v1)), with native PGD teacher training; see the [CC-Dist guide](docs/cc_dist.md).
 
 Evaluation:
 
@@ -112,7 +115,22 @@ pip install -e ".[dev]"
 ctrain-install-git-deps
 ```
 
+## Tests
+
+Run the CPU suite from the repository root after installing the development
+and Git dependencies:
+
+```bash
+python -m pytest -q
+```
+
+See [tests/README.md](tests/README.md) for focused numerical checks, regression
+scripts, and optional CUDA and complete-verifier checks.
+
 ## 🧪 Quick Start
+
+See the [six runnable tutorials](docs/examples/README.md) for training, evaluation,
+HPO, controller properties, ONNX/VNNLIB and MNIST arithmetic examples.
 
 Train and evaluate a CNN7 model on CIFAR-10 with the Shi-style IBP wrapper:
 

@@ -1,19 +1,22 @@
+"""Convolutional classifiers proposed by Gowal et al. for certified robust training."""
 import torch.nn as nn
 
 
 
 class GowalConvSmall(nn.Module):
-    """
-    GowalConvSmall is a small convolutional neural network model designed for certified training, proposed by Gowal et al.
-    
+    """Construct the small convolutional classifier proposed by Gowal et al.
+
+    The dataset option selects the affine input width for MNIST or CIFAR-10.
+    Input shape and preprocessing must match that choice.
+
     Args:
-        in_shape (tuple): Shape of the input tensor. Default is (1, 28, 28) for MNIST dataset.
-        n_classes (int): Number of output classes. Default is 10.
-        dataset (str): The dataset being used. Can be 'mnist' or 'cifar10'. Default is 'mnist'.
-    
+        in_shape (tuple): Shape of the input tensor.
+        n_classes (int): Number of output classes.
+        dataset (str): The dataset being used. Can be 'mnist' or 'cifar10'.
+
     Attributes:
         layers (nn.Sequential): A sequential container of the layers in the network.
-    
+
     Methods:
         forward(x):
             Defines the forward pass of the network.
@@ -39,21 +42,24 @@ class GowalConvSmall(nn.Module):
         )
     
     def forward(self, x):
+        """Return network predictions for the supplied input batch."""
         return self.layers(x)
 
 
 class GowalConvMed(nn.Module):
-    """
-    A convolutional medium-sized neural network model based on the architecture proposed by Gowal et al.
-    
+    """Construct the medium-sized convolutional classifier proposed by Gowal et al.
+
+    The dataset option selects the affine input width for MNIST or CIFAR-10.
+    Input shape and preprocessing must match that choice.
+
     Args:
-        in_shape (tuple): Shape of the input tensor. Default is (1, 28, 28) for MNIST dataset.
-        n_classes (int): Number of output classes. Default is 10.
-        dataset (str): The dataset being used. Can be 'mnist' or 'cifar10'. Default is 'mnist'.
-    
+        in_shape (tuple): Shape of the input tensor.
+        n_classes (int): Number of output classes.
+        dataset (str): The dataset being used. Can be 'mnist' or 'cifar10'.
+
     Attributes:
         layers (nn.Sequential): A sequential container of the layers in the network.
-    
+
     Methods:
         forward(x):
             Defines the forward pass of the network.
@@ -79,24 +85,27 @@ class GowalConvMed(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(512, 512),
             nn.ReLU(inplace=True),
-            nn.Linear(512, 10)
+            nn.Linear(512, n_classes)
         )
     
     def forward(self, x):
+        """Return network predictions for the supplied input batch."""
         return self.layers(x)
 
 class GowalConvLarge(nn.Module):
-    """
-    A large convolutional neural network model based on the architecture proposed by Gowal et al.
-    
+    """Construct the large convolutional classifier proposed by Gowal et al.
+
+    The dataset option selects the affine input width for MNIST or CIFAR-10.
+    Input shape and preprocessing must match that choice.
+
     Args:
-        in_shape (tuple): Shape of the input tensor. Default is (1, 28, 28) for MNIST dataset.
-        n_classes (int): Number of output classes. Default is 10.
-        dataset (str): The dataset being used. Can be 'mnist' or 'cifar10'. Default is 'mnist'.
-    
+        in_shape (tuple): Shape of the input tensor.
+        n_classes (int): Number of output classes.
+        dataset (str): The dataset being used. Can be 'mnist' or 'cifar10'.
+
     Attributes:
         layers (nn.Sequential): A sequential container of the layers in the network.
-    
+
     Methods:
         forward(x):
             Defines the forward pass of the network.
@@ -122,8 +131,9 @@ class GowalConvLarge(nn.Module):
             nn.Flatten(),
             nn.Linear(linear_in, 512),
             nn.ReLU(inplace=True),
-            nn.Linear(512, 10)
+            nn.Linear(512, n_classes)
         )
     
     def forward(self, x):
+        """Return network predictions for the supplied input batch."""
         return self.layers(x)

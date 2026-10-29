@@ -1,14 +1,25 @@
+"""CTRAIN: a PyTorch library for certified training and neural network verification."""
 _MODEL_WRAPPER_EXPORTS = {
+    "PropertyModelWrapper": "CTRAIN.model_wrappers",
+    "PGDModelWrapper": "CTRAIN.model_wrappers",
+    "CCDistModelWrapper": "CTRAIN.model_wrappers",
+    "ExpressiveIBPModelWrapper": "CTRAIN.model_wrappers",
+    "GLSModelWrapper": "CTRAIN.model_wrappers",
+    "IBPRModelWrapper": "CTRAIN.model_wrappers",
+    "SetBasedModelWrapper": "CTRAIN.model_wrappers",
     "ShiIBPModelWrapper": "CTRAIN.model_wrappers",
     "SABRModelWrapper": "CTRAIN.model_wrappers",
     "CrownIBPModelWrapper": "CTRAIN.model_wrappers",
     "MTLIBPModelWrapper": "CTRAIN.model_wrappers",
+    "CCIBPModelWrapper": "CTRAIN.model_wrappers",
+    "ExpIBPModelWrapper": "CTRAIN.model_wrappers",
     "TAPSModelWrapper": "CTRAIN.model_wrappers",
     "STAPSModelWrapper": "CTRAIN.model_wrappers",
 }
 
 
 def __getattr__(name):
+    """Load the requested public symbol on demand, avoiding eager imports of optional dependencies."""
     if name not in _MODEL_WRAPPER_EXPORTS:
         raise AttributeError(f"module 'CTRAIN' has no attribute {name!r}")
 

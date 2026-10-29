@@ -1,7 +1,16 @@
+"""Convolutional architectures used in certified-training studies by Mao et al."""
 import torch.nn as nn
 
 
 class CNN3_Mao(nn.Module):
+    """Three-layer convolutional classifier used in certified-training comparisons.
+
+    Args:
+        in_shape (tuple[int, ...]): Input shape (channels, height, width), excluding the batch dimension.
+        width (int): Number of units or base channels in the hidden layers.
+        linear_size (int): Number of units in the hidden affine layer of the CNN5 variant.
+        n_classes (int): Number of output classes.
+    """
     def __init__(self, in_shape=(1, 28, 28), width=64, linear_size=512, n_classes=10):
         super(CNN3_Mao, self).__init__()
         assert in_shape[1] == in_shape[2], "We only support square inputs for now!"
@@ -22,10 +31,19 @@ class CNN3_Mao(nn.Module):
         )
 
     def forward(self, x):
+        """Return network predictions for the supplied input batch."""
         return self.layers(x)
 
 
 class CNN5_Mao(nn.Module):
+    """Five-layer convolutional classifier used in certified-training comparisons.
+
+    Args:
+        in_shape (tuple[int, ...]): Input shape (channels, height, width), excluding the batch dimension.
+        width (int): Number of units or base channels in the hidden layers.
+        linear_size (int): Number of units in the hidden affine layer of the CNN5 variant.
+        n_classes (int): Number of output classes.
+    """
     def __init__(self, in_shape=(1, 28, 28), width=64, linear_size=512, n_classes=10):
         super(CNN5_Mao, self).__init__()
         assert in_shape[1] == in_shape[2], "We only support square inputs for now!"
@@ -50,10 +68,19 @@ class CNN5_Mao(nn.Module):
         )
 
     def forward(self, x):
+        """Return network predictions for the supplied input batch."""
         return self.layers(x)
 
 
 class CNN9_Mao(nn.Module):
+    """Nine-layer convolutional classifier used in certified-training comparisons.
+
+    Args:
+        in_shape (tuple[int, ...]): Input shape (channels, height, width), excluding the batch dimension.
+        width (int): Number of units or base channels in the hidden layers.
+        linear_size (int): Number of units in the hidden affine layer of the CNN5 variant.
+        n_classes (int): Number of output classes.
+    """
     def __init__(self, in_shape=(1, 28, 28), width=64, linear_size=512, n_classes=10):
         super(CNN9_Mao, self).__init__()
         assert in_shape[1] == in_shape[2], "We only support square inputs for now!"
@@ -90,10 +117,19 @@ class CNN9_Mao(nn.Module):
         )
 
     def forward(self, x):
+        """Return network predictions for the supplied input batch."""
         return self.layers(x)
 
 
 class CNN11_Mao(nn.Module):
+    """Eleven-layer convolutional classifier used in certified-training comparisons.
+
+    Args:
+        in_shape (tuple[int, ...]): Input shape (channels, height, width), excluding the batch dimension.
+        width (int): Number of units or base channels in the hidden layers.
+        linear_size (int): Number of units in the hidden affine layer of the CNN5 variant.
+        n_classes (int): Number of output classes.
+    """
     def __init__(self, in_shape=(1, 28, 28), width=64, linear_size=512, n_classes=10):
         super(CNN11_Mao, self).__init__()
         assert in_shape[1] == in_shape[2], "We only support square inputs for now!"
@@ -136,4 +172,5 @@ class CNN11_Mao(nn.Module):
         )
 
     def forward(self, x):
+        """Return network predictions for the supplied input batch."""
         return self.layers(x)

@@ -1,3 +1,9 @@
+"""Functional training procedure for Shi-IBP, including schedules, validation and checkpoints."""
+from CTRAIN.train.certified.util import (
+    prepare_model_selection, update_model_selection, restore_model_selection,
+    validate_training_run, checkpoint_due, EpochMetrics,
+    evaluate_validation_loss, validation_ptb, synchronise_bn,
+)
 from concurrent.futures import ProcessPoolExecutor
 import torch
 import torch.nn as nn
@@ -40,42 +46,60 @@ def shi_train_model(
     results_path="./results",
     checkpoint_save_interval=10,
     device="cuda",
-):
-    """
-    Train a model using the Shi-IBP method for certified robustness.
+    population_bn=False, validation_eps=None, selection_state=None, *, history=None):
+    """Train a classifier with IBP and the improvements proposed by Shi et al.
+
+    After natural-loss warm-up, the trainer increases the perturbation radius
+    and computes IBP margin losses with the configured regularisers. The loop
+    owns schedule stepping, BatchNorm synchronisation, validation and trajectory
+    checkpoints. With no validation loader, it returns the final model.
 
     Args:
         original_model (torch.nn.Module): The original model to be trained.
         hardened_model (auto_LiRPA.BoundedModule): The bounded model to be trained.
         train_loader (torch.utils.data.DataLoader): DataLoader for the training data.
-        val_loader (torch.utils.data.DataLoader, optional): DataLoader for the validation data. Defaults to None.
-        start_epoch (int, optional): Epoch to start training from. Defaults to 0.
-        end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
-        num_epochs (int, optional): Number of epochs to train the model. Defaults to None.
-        eps (float, optional): Epsilon value for perturbation. Defaults to 0.3.
-        eps_std (float, optional): Standardised epsilon value. Defaults to 0.3.
-        eps_schedule (tuple, optional): Schedule for epsilon values. Defaults to (0, 20, 50).
-        eps_schedule_unit (str, optional): Unit for epsilon scheduling ('epoch' or 'batch'). Defaults to 'epoch'.
-        eps_scheduler_args (dict, optional): Additional arguments for the epsilon scheduler. Defaults to dict().
-        optimizer (torch.optim.Optimizer, optional): Optimizer for training. Defaults to None.
-        lr_decay_schedule (tuple, optional): Schedule for learning rate decay. Defaults to (15, 25).
-        lr_decay_factor (float, optional): Factor by which to decay the learning rate. Defaults to 0.2.
-        lr_decay_schedule_unit (str, optional): Unit for learning rate decay scheduling ('epoch' or 'batch'). Defaults to 'epoch'.
-        n_classes (int, optional): Number of classes in the dataset. Defaults to 10.
-        gradient_clip (float, optional): Value for gradient clipping. Defaults to None.
-        l1_regularisation_weight (float, optional): Weight for L1 regularization. Defaults to 0.00001.
-        shi_regularisation_weight (float, optional): Weight for SHI regularization. Defaults to 1.
-        shi_reg_decay (bool, optional): Whether to decay SHI regularization. Defaults to True.
-        results_path (str, optional): Path to save the training results. Defaults to "./results".
-        checkpoint_save_interval (int, optional): Interval for saving checkpoints. Defaults to 10.
-        device (str, optional): Device to use for training ('cuda' or 'cpu'). Defaults to 'cuda'.
+        val_loader (torch.utils.data.DataLoader, optional): DataLoader for the validation
+            data.
+        start_epoch (int, optional): Epoch to start training from.
+        end_epoch (int, optional): Epoch to prematurely end training at.
+        num_epochs (int, optional): Number of epochs to train the model.
+        eps (float, optional): Epsilon value for perturbation.
+        eps_std (float, optional): Legacy normalised-radius argument, retained for
+            positional compatibility; the scheduler uses eps and
+            loader metadata.
+        eps_schedule (tuple, optional): Warm-up, ramp-up and remaining training durations in
+            the selected scheduling unit.
+        eps_schedule_unit (str, optional): Unit for epsilon scheduling ('epoch' or 'batch').
+        eps_scheduler_args (dict, optional): Additional arguments for the epsilon scheduler.
+        optimizer (torch.optim.Optimizer, optional): Optimizer for training.
+        lr_scheduler (torch.optim.lr_scheduler.LRScheduler, optional): Learning-rate scheduler associated with the supplied optimiser.
+        lr_decay_schedule_unit (str, optional): Unit for learning rate decay scheduling
+            ('epoch' or 'batch').
+        n_classes (int, optional): Number of classes in the dataset.
+        gradient_clip (float, optional): Value for gradient clipping.
+        l1_regularisation_weight (float, optional): Weight for L1 regularisation.
+        shi_regularisation_weight (float, optional): Weight for SHI regularisation.
+        shi_reg_decay (bool, optional): Whether to decay SHI regularisation.
+        results_path (str, optional): Path to save the training results.
+        checkpoint_save_interval (int, optional): Interval for saving checkpoints.
+        device (str, optional): Device to use for training ('cuda' or 'cpu').
+        population_bn (bool): Recalibrate BatchNorm after each epoch; default False.
+        validation_eps (float or torch.Tensor, optional): Fixed raw-input radius used for validation; None uses the training
+            target.
+        selection_state (dict, optional): Mutable dictionary retaining the best validation score, inference
+            weights and epoch across training calls.
+        history (list, optional): Optional list to which the trainer appends per-epoch losses, radii and
+            learning rates.
 
     Returns:
         (auto_LiRPA.BoundedModule): The trained hardened model.
     """
 
-    if end_epoch is None:
-        end_epoch = num_epochs
+    selection = prepare_model_selection(selection_state, val_loader, validation_eps)
+    if num_epochs is None and eps_schedule_unit == "epoch":
+        num_epochs = sum(eps_schedule)
+    end_epoch = validate_training_run(train_loader, num_epochs, start_epoch, end_epoch,
+                                      checkpoint_save_interval, lr_decay_schedule_unit, history=history)
 
     criterion = nn.CrossEntropyLoss(reduction='none')
 
@@ -86,7 +110,7 @@ def shi_train_model(
         num_epochs=num_epochs,
         eps=eps,
         mean=train_loader.mean,
-        std=train_loader.std,
+        std=train_loader.std if train_loader.normalised else torch.ones_like(train_loader.std),
         eps_schedule_unit=eps_schedule_unit,
         eps_schedule=eps_schedule,
         batches_per_epoch=len(train_loader),
@@ -94,7 +118,7 @@ def shi_train_model(
         **eps_scheduler_args,
     )
 
-    if start_epoch == 0:
+    if start_epoch == 0 and end_epoch > start_epoch:
         # Important Change to Vanilla IBP: Initialise Weights to normal distribution with sigma_i = sqrt(2*pi)/n_i, for layer i and fan in n_i
         ibp_init_shi(original_model, hardened_model)
 
@@ -108,7 +132,7 @@ def shi_train_model(
 
         hardened_model.train()
         original_model.train()
-        running_loss = 0.0
+        metrics = EpochMetrics()
 
         progress = progress_bar(
             train_loader,
@@ -194,11 +218,12 @@ def shi_train_model(
                 )
             optimizer.step()
 
-            running_loss += loss.item()
+            metrics.update(len(data), loss=loss.detach())
+            last_eps = float(eps_scheduler.get_cur_eps(normalise=False))
             completed_batches = batch_idx + 1
             update_progress(
                 progress,
-                loss=running_loss / completed_batches,
+                loss=metrics.mean('loss'),
                 nat_acc=1 - epoch_nat_err / completed_batches,
                 cert_acc=1 - epoch_rob_err / completed_batches,
                 lr=optimizer.param_groups[-1]["lr"],
@@ -215,17 +240,46 @@ def shi_train_model(
         log_epoch_summary(
             epoch=epoch,
             num_epochs=num_epochs,
-            loss=running_loss / len(train_loader),
+            loss=metrics.mean('loss'),
             nat_acc=train_acc_nat,
             cert_acc=train_acc_cert,
         )
 
-        if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
-            save_checkpoint(
-                hardened_model, optimizer, running_loss, epoch + 1, results_path
-            )
+        synchronise_bn(original_model, hardened_model, train_loader, device, population_bn)
 
         if lr_scheduler is not None and lr_decay_schedule_unit == "epoch":
             lr_scheduler.step()
 
+        if val_loader is not None and cur_eps.equal(eps_scheduler.get_max_eps().reshape(-1, 1, 1)):
+            def validation_loss(data, target):
+                region = validation_ptb(data, val_loader, eps if validation_eps is None else validation_eps)
+                clean_loss = criterion(hardened_model(data), target).mean()
+                robust_loss = get_ibp_loss(
+                    hardened_model=hardened_model,
+                    ptb=region,
+                    data=data,
+                    target=target,
+                    n_classes=n_classes,
+                    criterion=criterion,
+                    return_bounds=False,
+                    return_stats=False
+                )[0]
+                return kappa * clean_loss + (1 - kappa) * robust_loss
+            validation = evaluate_validation_loss((original_model, hardened_model), val_loader, validation_loss, device)
+            print(f"Validation robust_loss={validation:.6f}")
+            update_model_selection(selection, hardened_model, -validation, epoch + 1)
+
+        if history is not None:
+            history.append(dict(epoch=epoch + 1, loss=metrics.mean('loss'),
+                                eps=last_eps,
+                                lr=optimizer.param_groups[-1]['lr']))
+        if results_path is not None and checkpoint_due(epoch + 1, end_epoch, checkpoint_save_interval):
+            save_checkpoint(
+                hardened_model, optimizer, metrics.mean('loss'), epoch + 1, results_path,
+                lr_scheduler=lr_scheduler, selection_state=selection,
+                extra_state=None if history is None else {'history': history},
+            )
+
+    if val_loader is not None and restore_model_selection(selection, hardened_model):
+        synchronise_bn(original_model, hardened_model, train_loader, device)
     return hardened_model

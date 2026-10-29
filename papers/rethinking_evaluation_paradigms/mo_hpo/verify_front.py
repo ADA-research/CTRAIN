@@ -18,7 +18,7 @@ def main():
     )
     parser.add_argument("--dataset", required=True, choices=["cifar10", "mnist", "gtsrb", "tinyimagenet"])
     parser.add_argument("--network", required=True, choices=["cnn3", "cnn5", "cnn7", "cnn9", "cnn11", "wide_cnn7", "narrow_cnn7", "resnet18"])
-    parser.add_argument("--method", required=True, choices=["mtl_ibp", "sabr", "shi", "crown_ibp", "crown_ibp_nofusion"])
+    parser.add_argument("--method", required=True, choices=["mtl_ibp", "sabr", "shi", "crown_ibp", "crown_ibp_nofusion", "cc_dist"])
     parser.add_argument("--eps", required=True, type=float)
     parser.add_argument("--timeout", type=int, default=1000)
     parser.add_argument("--test-samples", type=int, default=10_000)
@@ -69,6 +69,7 @@ def main():
             eps=args.eps,
             epochs=1,
             device=device,
+            for_evaluation=True,
         )
         wrapper.load_state_dict(torch.load(checkpoint_path, map_location=device))
         wrapper.eval()

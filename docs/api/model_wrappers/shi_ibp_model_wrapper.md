@@ -1,1 +1,1 @@
-::: CTRAIN.model_wrappers.shi_ibp_model_wrapper
+::: CTRAIN.model_wrappers.certified.shi_ibp_model_wrapper

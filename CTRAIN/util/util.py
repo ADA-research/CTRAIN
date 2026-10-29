@@ -1,36 +1,93 @@
+"""Shared model-state, normalisation, export, checkpoint and reproducibility utilities."""
 import torch
 import os
 import random
 import numpy as np
 import onnx
 import inspect
+import copy
+import warnings
+import math
+from numbers import Real
+from contextlib import contextmanager
+from pathlib import Path
+
+
+@contextmanager
+def preserve_model_state(*models):
+    """Temporarily change model modes or gradient flags and restore them on leaving the context."""
+    modes = {module: module.training for model in models for module in model.modules()}
+    gradients = {param: param.requires_grad for model in models for param in model.parameters()}
+    try:
+        yield
+    finally:
+        for module, training in modes.items():
+            module.training = training
+        for param, requires_grad in gradients.items():
+            param.requires_grad_(requires_grad)
+
+
+def validate_test_samples(test_samples):
+    """Normalise positive integer-valued sample budgets, including infinity."""
+    if (isinstance(test_samples, bool) or not isinstance(test_samples, Real)
+            or test_samples <= 0 or math.isnan(test_samples)
+            or math.isfinite(test_samples) and int(test_samples) != test_samples):
+        raise ValueError('test_samples must be a positive integer or infinity')
+    return int(test_samples) if math.isfinite(test_samples) else float('inf')
+
+
+def loader_radius(eps, loader, data):
+    """Express a raw-input perturbation radius in the loader's model coordinates."""
+    radius = torch.as_tensor(eps, device=data.device, dtype=data.dtype)
+    if getattr(loader, 'normalised', False):
+        std = torch.as_tensor(loader.std, device=data.device, dtype=data.dtype)
+        if not torch.isfinite(std).all() or (std <= 0).any():
+            raise ValueError('Loader standard deviation must be finite and positive')
+        radius = radius / std
+    if radius.ndim == 1 and data.ndim > 2:
+        radius = radius.reshape(-1, *([1] * (data.ndim - 2)))
+    return radius
+
+
+def loader_limits(loader, data):
+    """Return the loader's feasible input endpoints in the data tensor's device and dtype."""
+    return tuple(torch.as_tensor(getattr(loader, name), device=data.device, dtype=data.dtype)
+                 for name in ('min', 'max'))
+
 
 def export_onnx(model, file_name, batch_size, input_shape):
-    """
-    Exports a PyTorch model to the ONNX format.
+    """Export the evaluation network to ONNX and check numerical prediction agreement.
+
+    The exported graph uses dynamic batch dimensions. Predictions are compared
+    with ONNX Runtime at a random input batch. If float32 comparison fails,
+    a separate CPU float64 model is checked with the same tolerance; accepting
+    this fallback emits a warning. This is a numerical check, not an equivalence
+    proof. Caller modes and parameter gradient flags are preserved.
 
     Args:
         model (torch.nn.Module): The PyTorch model to be exported.
         file_name (str): The file path where the ONNX model will be saved.
         batch_size (int): The batch size for the input tensor.
-        input_shape (tuple): The shape of the input tensor. If the shape has 4 dimensions, 
+        input_shape (tuple): The shape of the input tensor. If the shape has 4 dimensions,
                              the first dimension is assumed to be the batch size.
 
     Returns:
-        None
+        (None): This function updates the supplied state in place.
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-        # Input to the model
+    reference = next(model.parameters(), None)
+    if reference is None:
+        reference = next(model.buffers(), torch.empty(0))
+    device, dtype = reference.device, reference.dtype
+    # Input to the model
     if len(input_shape) == 4:
         batch_size = input_shape[0]
         input_shape = input_shape[1:4]
-    x = torch.randn(batch_size, *input_shape, requires_grad=False).to(device)
-    torch_out = model(x)
+    x = torch.randn(batch_size, *input_shape, device=device, dtype=dtype, requires_grad=False)
 
     export_kwargs = {
         "export_params": True,
         "opset_version": 18,
-        "do_constant_folding": True,
+        "do_constant_folding": False,
         "input_names": ["input"],
         "output_names": ["output"],
         "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
@@ -41,11 +98,49 @@ def export_onnx(model, file_name, batch_size, input_shape):
         export_kwargs["dynamo"] = False
 
     # Export the model
-    torch.onnx.export(model, x, file_name, **export_kwargs)
-    remove_training_mode_attr(file_name, file_name)
+    with preserve_model_state(model), torch.no_grad():
+        model.eval()
+        expected = model(x).detach()
+        torch.onnx.export(model, x, file_name, **export_kwargs)
+        remove_training_mode_attr(file_name, file_name)
+        import onnxruntime as ort
+        session = ort.InferenceSession(str(file_name), providers=["CPUExecutionProvider"])
+        actual = session.run(None, {session.get_inputs()[0].name: x.cpu().numpy()})[0]
+        if actual.shape != tuple(expected.shape) or not np.isfinite(actual).all():
+            raise RuntimeError("ONNX export changed model outputs (invalid shape or non-finite values)")
+        if not np.allclose(expected.cpu().numpy(), actual, rtol=1e-4, atol=1e-5):
+            error = np.max(np.abs(expected.cpu().numpy() - actual))
+            failure = f"ONNX export changed model outputs (max error {error:g})"
+            if dtype != torch.float32:
+                raise RuntimeError(failure)
+            try:
+                # Never cast the caller or the exported graph to float64.
+                from auto_LiRPA import BoundedTensor
+                # Bound prechecks leave BoundedTensor centers cached on LiRPA
+                # nodes. The unperturbed reference only needs their nominal data.
+                memo = {id(value): value.detach().as_subclass(torch.Tensor).clone()
+                        for module in model.modules() for value in vars(module).values()
+                        if isinstance(value, BoundedTensor)}
+                reference_model = copy.deepcopy(model, memo).to(device='cpu', dtype=torch.float64)
+                reference_model.eval()
+                reference_output = reference_model(x.to(device='cpu', dtype=torch.float64)).detach().cpu().numpy()
+            except Exception as exc:
+                raise RuntimeError(f"{failure}; CPU float64 parity reference unavailable: {exc}") from exc
+            reference_error = np.max(np.abs(reference_output - actual))
+            if not np.allclose(reference_output, actual, rtol=1e-4, atol=1e-5):
+                raise RuntimeError(f"{failure}; CPU float64 reference also disagrees "
+                                   f"(max error {reference_error:g})")
+            warnings.warn(
+                f"ONNX export failed FP32 parity (max error {error:g}) but passed against "
+                f"a CPU float64 reference (max error {reference_error:g}) with unchanged "
+                "rtol=1e-4, atol=1e-5. Continuing with the original FP32 ONNX model; "
+                "this numerical parity check is not a robustness certificate.",
+                RuntimeWarning, stacklevel=2,
+            )
     print(f"Model exported to {file_name}")
     
 def remove_training_mode_attr(onnx_path, output_path):
+    """Remove ONNX BatchNormalization training_mode attributes and save the resulting graph."""
     model = onnx.load(onnx_path)
     for node in model.graph.node:
         if node.op_type in ["BatchNormalization", "Dropout"]:
@@ -57,33 +152,54 @@ def remove_training_mode_attr(onnx_path, output_path):
     onnx.save(model, output_path)
     print(f"Cleaned model saved to: {output_path}")
 
-def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False):
-    """
-    Saves the model checkpoint to the specified path.
+def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False, lr_scheduler=None, selection_state=None,
+                    *, extra_state=None, filename=None):
+    """Save model and optimiser state for a completed training epoch.
+
+    Optional scheduler, selection and method-specific state extend the saved
+    trajectory. Existing checkpoint files are preserved unless overwrite=True.
+    Inference weights can be saved separately with model.state_dict().
 
     Args:
         model (torch.nn.Module): The model to save.
-        optimizer (torch.optim.Optimizer): The optimizer used for training the model.
+        optimizer (torch.optim.Optimizer): The optimiser used for training the model.
         loss (float): The loss value at the time of saving the checkpoint.
         epoch (int): The current epoch number.
         results_path (str): The directory path where the checkpoint will be saved.
+        overwrite (bool): Whether an existing checkpoint file may be replaced.
+        lr_scheduler (optional): Save scheduler state for exact LR resumption.
+        selection_state (dict, optional): Persistent best score, weights and epoch.
+        extra_state (dict, optional): Method-specific trajectory data. Common keys
+            cannot be replaced.
+        filename (str, optional): Explicit filename for compatibility with existing
+            checkpoint APIs. Defaults to ``{epoch}_checkpoint.pt``.
 
     Raises:
-        AssertionError: If a checkpoint for the given epoch already exists at the specified path.
+        FileExistsError: If a checkpoint for the given epoch already exists at the specified path.
     """
-    if os.path.exists(f"{results_path}/{epoch}_checkpoint.pt") and not overwrite:
-        assert False, "Checkpoint already exists!"
-    torch.save({
+    path = Path(results_path) / (f'{epoch}_checkpoint.pt' if filename is None else filename)
+    if path.exists() and not overwrite:
+        raise FileExistsError("Checkpoint already exists!")
+    checkpoint = {
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'loss': loss,
-            }, f"{results_path}/{epoch}_checkpoint.pt")
+            }
+    if lr_scheduler is not None:
+        checkpoint['lr_scheduler_state_dict'] = lr_scheduler.state_dict()
+    if selection_state is not None:
+        checkpoint['selection_state'] = selection_state
+    if extra_state is not None:
+        if checkpoint.keys() & extra_state.keys():
+            raise ValueError('Method-specific checkpoint state cannot replace common fields')
+        checkpoint.update(extra_state)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('wb' if overwrite else 'xb') as output:
+        torch.save(checkpoint, output)
 
 def construct_c(data, target, n_classes):
-    """
-    Constructs a tensor `c` based on the input data, target labels, and the number of classes.
-    This is used to calculate the margins between classes during bound calculation.
+    """Construct specification matrices for true-class minus competing-class logits.
 
     Args:
         data (torch.Tensor): The input data tensor.
@@ -91,7 +207,7 @@ def construct_c(data, target, n_classes):
         n_classes (int): The number of classes.
 
     Returns:
-        torch.Tensor: A tensor `c` of shape (batch_size, n_classes - 1, n_classes) where `batch_size` is the size of the input data.
+        (torch.Tensor): A tensor `c` of shape (batch_size, n_classes - 1, n_classes) where `batch_size` is the size of the input data.
     """
     c = torch.eye(n_classes).type_as(data)[target].unsqueeze(1) - torch.eye(n_classes).type_as(data).unsqueeze(0)
     # remove specifications to self
@@ -100,18 +216,14 @@ def construct_c(data, target, n_classes):
     return c
 
 def seed_ctrain(seed=42):
-    """
-    Set the seed for random number generation in Python, NumPy, and PyTorch to ensure reproducibility.
-    Parameters:
-    seed (int): The seed value to use for random number generation. Default is 42.
-    This function sets the seed for the following:
-    - Python's built-in random module
-    - NumPy's random module
-    - PyTorch's random number generators (both CPU and CUDA, if available)
-    Additionally, if CUDA is available, it sets the following PyTorch settings:
-    - torch.backends.cudnn.deterministic to True
-    - torch.backends.cudnn.benchmark to False
-    These settings ensure that the results are deterministic and reproducible.
+    """Seed the Python, NumPy and PyTorch random-number generators.
+
+    When CUDA is available, seed it and request deterministic cuDNN behaviour
+    with benchmarking disabled. Reproducibility also depends on the selected
+    operations, hardware and data-loading protocol.
+
+    Args:
+        seed (int): Random seed shared by the supported generators.
     """
     random.seed(seed)
     np.random.seed(seed)

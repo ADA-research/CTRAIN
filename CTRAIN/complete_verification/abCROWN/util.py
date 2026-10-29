@@ -1,3 +1,6 @@
+"""Configure alpha-beta-CROWN and express local robustness queries in VNNLIB."""
+import os
+
 import torch
 
 import yaml
@@ -157,7 +160,7 @@ bab:
   sort_domain_interval: -1  # If unsorted domains are used, sort the domains every sort_domain_interval iterations.
   vanilla_crown: false  # Use vanilla CROWN during BaB.
   tree_traversal: depth_first  # During BaB, unknown domains can continue being split (deepening the tree, i.e. depth first traversal) or split only when all other unknown domains have the same number of splits (keeping the tree shallow for as long as possible, i.e. breadth first traversal). Depth first traversal minimizes memory access time, breadth first traversal is beneficial for BICCOS.
-  hugetensor_allocator: true  # Use the default tensor allocator instead of the HugeTensor allocator.
+  hugetensor_allocator: false  # Always use the PyTorch allocator.
   cut:
     enabled: false  # Enable cutting planes using GCP-CROWN.
     cuts_path: null  # For cuts from CPLEX, specify the path for saving intermediate files with generated cuts.
@@ -316,15 +319,14 @@ debug:
 
 
 def get_abcrown_standard_conf(timeout=600, no_cores=28):
-    """
-    Generates the standard configuration for abCROWN.
-    This function reads the standard configuration from a predefined string,
-    updates the device setting based on the available hardware, and sets the
-    timeout and number of parallel solvers.
+    """Construct the default alpha-beta-CROWN configuration.
+
+    The bundled configuration is parsed into a fresh dictionary and updated with
+    the available device, branch-and-bound timeout and MIP worker count.
 
     Args:
-      timeout (int, optional): The timeout value for the BAB solver in seconds. Defaults to 600.
-      no_cores (int, optional): The number of parallel solvers to use. Defaults to 28.
+        timeout (int, optional): The timeout value for the BAB solver in seconds.
+        no_cores (int, optional): The number of parallel solvers to use.
 
     Returns:
       (dict): The updated standard configuration dictionary.
@@ -343,21 +345,20 @@ def get_abcrown_standard_conf(timeout=600, no_cores=28):
 
 
 def write_adversarial_robustness_vnnlib(filename, initial_comment, input_domain, ground_truth, n_classes=10):
-    """
-    Create a vnnlib specification for an adversarial robustness property.
+    """Write a clipped input box and a classification counterexample query as VNNLIB.
 
-    The function writes the following to the specified file:
-      - A comment at the top of the file.
-      - Declarations for input and output variables.
-      - Input constraints based on the provided input domain.
-      - Output constraints encoding the conditions for a property counter-example.
+    The output assertion asks whether any competing class can match or exceed
+    the ground-truth score. An unsatisfiable query therefore certifies strict
+    classification margins throughout the supplied box.
 
-    Parameters:
-      filename (str): The name of the file to write the vnnlib specification to.
-      initial_comment (str): A comment to include at the top of the vnnlib file.
-      input_domain (torch.Tensor): A tensor representing the input domain, i.e. lower und upper bounds per input, with shape (n, 2), where n is the number of input variables.
-      ground_truth (int): The index of the ground truth class.
-      n_classes (int, optional): The number of output classes. Default is 10.
+    Args:
+        filename (str): The name of the file to write the vnnlib specification to.
+        initial_comment (str): A comment to include at the top of the vnnlib file.
+        input_domain (torch.Tensor): A tensor representing the input domain, i.e. lower and
+            upper bounds per input, with shape (n, 2), where n is
+            the number of input variables.
+        ground_truth (int): The index of the ground truth class.
+        n_classes (int, optional): The number of output classes.
     """
 
     with open(filename, "w") as f:
@@ -394,19 +395,18 @@ def write_adversarial_robustness_vnnlib(filename, initial_comment, input_domain,
 
 
 def instances_to_vnnlib(indices, data, vnnlib_path, experiment_name, eps, eps_temp, data_min, data_max, no_classes):
-    """
-    Converts a set of inputs and an epsilon value into VNN-LIB format files for adversarial robustness verification.
+    """Write one VNNLIB robustness query for each selected dataset input.
 
     Args:
-      indices (list of int): List of indices of the data instances to be converted.
-      data (torch.utils.data.Dataset): Dataset containing the data instances.
-      vnnlib_path (str): Path where the VNN-LIB files will be saved.
-      experiment_name (str): Name of the experiment for documentation purposes.
-      eps (float): Epsilon value for the adversarial robustness property.
-      eps_temp (float): Temporary epsilon value used for domain calculation.
-      data_min (float): Minimum value for data normalization/clamping.
-      data_max (float): Maximum value for data normalization/clamping.
-      no_classes (int): Number of classes in the classification task.
+        indices (list of int): List of indices of the data instances to be converted.
+        data (torch.utils.data.Dataset): Dataset containing the data instances.
+        vnnlib_path (str): Path where the VNN-LIB files will be saved.
+        experiment_name (str): Name of the experiment for documentation purposes.
+        eps (float): Epsilon value for the adversarial robustness property.
+        eps_temp (float): Temporary epsilon value used for domain calculation.
+        data_min (float): Minimum value for data normalisation/clamping.
+        data_max (float): Maximum value for data normalisation/clamping.
+        no_classes (int): Number of classes in the classification task.
 
     Returns:
       (list of str): List of file paths to the generated VNN-LIB files.
@@ -421,7 +421,7 @@ def instances_to_vnnlib(indices, data, vnnlib_path, experiment_name, eps, eps_te
         data_max = torch.as_tensor(data_max).cpu()
         print(f'idx_{idx}_eps_{eps}')
         # Record the results: vnn-lib specification.
-        filename = vnnlib_path + f"idx_{idx}-eps{eps}.vnnlib"
+        filename = os.path.join(vnnlib_path, f"idx_{idx}-eps{eps}.vnnlib")
         comment = f"Adversarial robustness property for {experiment_name}. l_inf radius: {eps}, " \
                 f"Test Image {idx}."
         comment = ' '.join(comment.splitlines()).strip()

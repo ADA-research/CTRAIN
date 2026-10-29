@@ -1,7 +1,9 @@
+"""Report training progress with separate natural, certified and latent-proxy metrics."""
 from tqdm.auto import tqdm
 
 
 def _as_float(value):
+    """Convert a scalar metric to a Python float without retaining its autograd graph."""
     if hasattr(value, "detach"):
         value = value.detach()
     if hasattr(value, "item"):
@@ -10,25 +12,28 @@ def _as_float(value):
 
 
 def format_eps(value):
+    """Format the perturbation radius with four decimal places for progress reporting."""
     value = _as_float(value)
     return f"{value:.4f}"
 
 
-def progress_bar(iterable, epoch, num_epochs, eps, method=None, disable=False):
+def progress_bar(iterable, epoch, num_epochs, eps, method=None, disable=False, *, total=None):
+    """Create an epoch progress display with the method and current perturbation radius."""
     prefix = f"Epoch {epoch + 1}/{num_epochs}"
     if method:
         prefix = f"{method} {prefix}"
     return tqdm(
         iterable,
-        total=len(iterable),
-        desc=f"{prefix} eps={format_eps(eps)}",
+        total=len(iterable) if total is None else total,
+        desc=prefix if eps is None else f"{prefix} eps={format_eps(eps)}",
         leave=False,
         dynamic_ncols=True,
         disable=disable,
     )
 
 
-def update_progress(progress, loss, nat_acc=None, cert_acc=None, adv_acc=None, lr=None):
+def update_progress(progress, loss, nat_acc=None, cert_acc=None, adv_acc=None, lr=None, robust_acc=None):
+    """Update batch metrics, keeping latent proxy accuracy distinct from certified accuracy."""
     values = {"loss": f"{_as_float(loss):.4f}"}
     if nat_acc is not None:
         values["nat"] = f"{_as_float(nat_acc):.3f}"
@@ -36,18 +41,25 @@ def update_progress(progress, loss, nat_acc=None, cert_acc=None, adv_acc=None, l
         values["adv"] = f"{_as_float(adv_acc):.3f}"
     if cert_acc is not None:
         values["cert"] = f"{_as_float(cert_acc):.3f}"
+    if robust_acc is not None:
+        values["robust_proxy"] = f"{_as_float(robust_acc):.3f}"
     if lr is not None:
         values["lr"] = f"{_as_float(lr):.2e}"
     progress.set_postfix(values)
 
 
-def log_epoch_summary(epoch, num_epochs, loss, nat_acc, cert_acc, adv_acc=None):
+def log_epoch_summary(epoch, num_epochs, loss, nat_acc, cert_acc=None, adv_acc=None, robust_acc=None):
+    """Print the completed epoch's losses, accuracies and optional latent proxy score."""
     parts = [
         f"Epoch [{epoch + 1}/{num_epochs}]",
         f"loss={_as_float(loss):.4f}",
-        f"nat_acc={_as_float(nat_acc):.4f}",
     ]
+    if nat_acc is not None:
+        parts.append(f"nat_acc={_as_float(nat_acc):.4f}")
     if adv_acc is not None:
         parts.append(f"adv_acc={_as_float(adv_acc):.4f}")
-    parts.append(f"cert_acc={_as_float(cert_acc):.4f}")
+    if cert_acc is not None:
+        parts.append(f"cert_acc={_as_float(cert_acc):.4f}")
+    if robust_acc is not None:
+        parts.append(f"robust_proxy_acc={_as_float(robust_acc):.4f}")
     tqdm.write(", ".join(parts))

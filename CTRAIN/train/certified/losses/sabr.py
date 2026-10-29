@@ -1,40 +1,49 @@
+"""Classification losses over SABR's adversarially selected input subregions."""
 import torch
 from CTRAIN.bound import bound_sabr
 from CTRAIN.train.certified.losses import get_loss_from_bounds
 
 def get_sabr_loss(hardened_model, original_model, data, target, eps, subselection_ratio, criterion, device='cuda', 
-                      n_classes=10, x_L=None, x_U=None, data_min=None, data_max=None, pgd_steps=8, pgd_step_size=.5, pgd_restarts=1, pgd_early_stopping=True, pgd_decay_factor=.1, pgd_decay_checkpoints=(4,7), pgd_ptb=None, return_stats=False, return_bounds=False, **kwargs):
+                      n_classes=10, x_L=None, x_U=None, data_min=None, data_max=None, pgd_steps=8, pgd_step_size=.5, pgd_restarts=1, pgd_early_stopping=True, pgd_decay_factor=.1, pgd_decay_checkpoints=(4,7), pgd_ptb=None, return_stats=False, return_bounds=False, relu_upper_retention=1.0, pgd_eps_factor=1.0, **kwargs):
 
-    """
-    Compute the SABR loss for a given model and data.
-    
-    Parameters:
+    """Compute the classification loss on SABR's selected input subregion.
+
+    The loss uses IBP bounds around an adversarially chosen centre. It encourages
+    robustness on that subregion; it does not provide a certificate for the full
+    nominal input region.
+
+    Args:
         hardened_model (auto_LiRPA.BoundedModule): The bounded model to be trained.
         original_model (torch.nn.Module): The original model.
         data (torch.Tensor): Input data.
         target (torch.Tensor): Target labels.
-        eps (float): Perturbation budget for adversarial attacks.
+        eps (float): Perturbation radius in model input coordinates.
         subselection_ratio (float): Factor to shrink epsilon by.
         criterion (callable): Loss function to use.
-        device (str, optional): Device to run the computation on. Default is 'cuda'.
-        n_classes (int, optional): Number of classes. Default is 10.
-        x_L (torch.Tensor, optional): Lower bound for input data. Default is None.
-        x_U (torch.Tensor, optional): Upper bound for input data. Default is None.
-        data_min (torch.Tensor, optional): Minimum value for input data. Default is None.
-        data_max (torch.Tensor, optional): Maximum value for input data. Default is None.
-        pgd_steps (int, optional): Number of PGD steps. Default is 8.
-        pgd_step_size (float, optional): Step size for PGD. Default is 0.5.
-        pgd_restarts (int, optional): Number of PGD restarts. Default is 1.
-        pgd_early_stopping (bool, optional): Whether to use early stopping in PGD. Default is True.
-        pgd_decay_factor (float, optional): Decay factor for PGD step size. Default is 0.1.
-        pgd_decay_checkpoints (tuple, optional): Checkpoints for PGD step size decay. Default is (4, 7).
+        device (str, optional): Device to run the computation on.
+        n_classes (int, optional): Number of classes.
+        x_L (torch.Tensor, optional): Lower bound for input data.
+        x_U (torch.Tensor, optional): Upper bound for input data.
+        data_min (torch.Tensor, optional): Minimum value for input data.
+        data_max (torch.Tensor, optional): Maximum value for input data.
+        pgd_steps (int, optional): Number of PGD steps.
+        pgd_step_size (float, optional): Step size for PGD.
+        pgd_restarts (int, optional): Number of PGD restarts.
+        pgd_early_stopping (bool, optional): Whether to use early stopping in PGD.
+        pgd_decay_factor (float, optional): Decay factor for PGD step size.
+        pgd_decay_checkpoints (tuple, optional): Checkpoints for PGD step size decay.
         pgd_ptb (PerturbationLpNorm, optional): Perturbation bounds used for the
-            PGD center search. The certified SABR subregion remains constrained
+            PGD centre search. The certified SABR subregion remains constrained
             to the nominal bounds defined by ``eps`` or ``x_L``/``x_U``.
-        return_stats (bool, optional): Whether to return robustness statistics. Default is False.
-        return_bounds (bool, optional): Whether to return bounds. Default is False.
-        **kwargs: Additional arguments.
-    
+        return_stats (bool, optional): Whether to return robustness statistics.
+        return_bounds (bool, optional): Whether to return bounds.
+        relu_upper_retention (float): Unstable ReLU upper bound fraction for this training
+            bound; default 1. Values below 1 are not sound
+            certificates.
+        pgd_eps_factor (float): Positive PGD search-range factor; nominal IBP bounds are
+            unchanged. Explicit pgd_ptb, when provided, takes
+            precedence.
+
     Returns:
         (tuple): A tuple containing the loss, and optionally robustness statistics (robust_err, adv_err).
     """
@@ -58,7 +67,9 @@ def get_sabr_loss(hardened_model, original_model, data, target, eps, subselectio
         decay_checkpoints=pgd_decay_checkpoints, 
         decay_factor=pgd_decay_factor,
         pgd_ptb=pgd_ptb,
-        return_adv_output=True
+        return_adv_output=True,
+        relu_upper_retention=relu_upper_retention,
+        pgd_eps_factor=pgd_eps_factor
     )
     loss = get_loss_from_bounds(lb, criterion=criterion)
     
@@ -67,7 +78,7 @@ def get_sabr_loss(hardened_model, original_model, data, target, eps, subselectio
     if return_bounds:
         assert False, "Return bounds is not implemented for MTL-IBP"
     elif return_stats:
-        robust_err = torch.sum((lb < 0).any(dim=1)).item() / data.size(0)
+        robust_err = torch.sum(~(lb > 0).all(dim=1)).item() / data.size(0)
         adv_err = torch.sum(torch.argmax(adv_output, dim=1) != target).item() / data.size(0)
         return_tuple = return_tuple + (robust_err, adv_err)
     

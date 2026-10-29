@@ -1,0 +1,347 @@
+"""Shared training procedure for expressive losses and teacher-feature distillation."""
+from CTRAIN.train.certified.util import (
+    prepare_model_selection, update_model_selection, restore_model_selection,
+    validate_training_run, checkpoint_due, EpochMetrics,
+    evaluate_validation_loss, validation_ptb, synchronise_bn,
+)
+from CTRAIN.util.util import loader_limits
+import torch
+import torch.nn as nn
+import numpy as np
+from auto_LiRPA import PerturbationLpNorm
+from CTRAIN.bound.util import validate_hybrid_options
+
+from CTRAIN.train.certified.eps_scheduler import SmoothedScheduler
+from CTRAIN.train.certified.losses.convex_combinations import validate_expressive_options
+from CTRAIN.train.certified.initialisation import ibp_init_shi
+from CTRAIN.train.certified.regularisers import get_shi_regulariser
+from CTRAIN.util import save_checkpoint, construct_c
+from CTRAIN.train.certified.regularisers import get_l1_reg
+from CTRAIN.train.certified.progress import progress_bar, update_progress, log_epoch_summary
+
+
+def expressive_ibp_train_model(
+    original_model,
+    hardened_model,
+    train_loader,
+    val_loader=None,
+    start_epoch=0,
+    end_epoch=None,
+    num_epochs=None,
+    eps=0.3,
+    eps_std=0.3,
+    eps_schedule=(0, 20, 50),
+    eps_schedule_unit="epoch",
+    eps_scheduler_args=dict(),
+    optimizer=None,
+    lr_scheduler=None,
+    lr_decay_schedule_unit="epoch",
+    n_classes=10,
+    gradient_clip=None,
+    shi_regularisation_weight=0.5,
+    shi_reg_decay=True,
+    l1_regularisation_weight=0.00001,
+    alpha=0.5,
+    pgd_restarts=1,
+    pgd_step_size=10,
+    pgd_n_steps=1,
+    pgd_eps_factor=1,
+    pgd_decay_factor=0.1,
+    pgd_decay_checkpoints=(),
+    pgd_early_stopping=False,
+    results_path="./results",
+    checkpoint_save_interval=10,
+    device="cuda",
+    relu_upper_retention=1.0,
+    population_bn=False,
+    *,
+    loss_func,
+    method,
+    clean_forward=True, validation_eps=None, selection_state=None, history=None):
+    """Train a classifier with the selected expressive IBP loss.
+
+    The trainer shares schedules, PGD configuration, regularisation, validation
+    and checkpointing across expressive methods. The supplied loss_func selects
+    the combination of adversarial and bound-based components.
+
+    Args:
+        original_model (torch.nn.Module): The original model to be trained.
+        hardened_model (auto_LiRPA.BoundedModule): The bounded model to be trained.
+        train_loader (torch.utils.data.DataLoader): DataLoader for the training data.
+        val_loader (torch.utils.data.DataLoader, optional): DataLoader for the validation
+            data.
+        start_epoch (int, optional): Epoch to start training from.
+        end_epoch (int, optional): Epoch to prematurely end training at.
+        num_epochs (int, optional): Number of epochs to train the model.
+        eps (float, optional): Epsilon value for perturbation.
+        eps_std (float, optional): Legacy normalised-radius argument, retained for
+            positional compatibility; the scheduler uses eps and
+            loader metadata.
+        eps_schedule (tuple, optional): Warm-up, ramp-up and remaining training durations in
+            the selected scheduling unit.
+        eps_schedule_unit (str, optional): Unit for epsilon schedule ('epoch' or 'batch').
+        eps_scheduler_args (dict, optional): Additional arguments for epsilon scheduler.
+        optimizer (torch.optim.Optimizer, optional): Optimizer for training.
+        lr_scheduler (torch.optim.lr_scheduler.LRScheduler, optional): Learning-rate scheduler associated with the supplied optimiser.
+        lr_decay_schedule_unit (str, optional): Unit for learning rate decay schedule
+            ('epoch' or 'batch').
+        n_classes (int, optional): Number of classes in the dataset.
+        gradient_clip (float, optional): Value for gradient clipping.
+        shi_regularisation_weight (float, optional): Weight for SHI regularisation.
+        shi_reg_decay (bool, optional): Whether to decay SHI regularisation.
+        l1_regularisation_weight (float, optional): Weight for L1 regularisation.
+        alpha (float, optional): Alpha value for loss calculation.
+        pgd_restarts (int, optional): Number of restarts for PGD.
+        pgd_step_size (int, optional): Step size for PGD.
+        pgd_n_steps (int, optional): Number of steps for PGD.
+        pgd_eps_factor (float, optional): Factor for PGD epsilon.
+        pgd_decay_factor (float, optional): Decay factor for PGD.
+        pgd_decay_checkpoints (tuple, optional): Checkpoints for PGD decay.
+        pgd_early_stopping (bool, optional): Whether to use early stopping for PGD.
+        results_path (str, optional): Path to save the results.
+        checkpoint_save_interval (int, optional): Interval for saving checkpoints.
+        device (str, optional): Device to use for training ('cuda' or 'cpu').
+        relu_upper_retention (float): Retained unstable ReLU upper bound fraction for
+            training; default 1.
+        population_bn (bool): Recalibrate BatchNorm after each epoch; default False.
+        loss_func (callable): Method-specific callable computing the training loss and requested
+            diagnostics.
+        method (str): Training-method name used to namespace the expressive-loss parameters.
+        clean_forward (bool): Whether to perform the clean forward pass before the robust loss,
+            establishing batch statistics.
+        validation_eps (float or torch.Tensor, optional): Fixed raw-input radius used for validation; None uses the training
+            target.
+        selection_state (dict, optional): Mutable dictionary retaining the best validation score, inference
+            weights and epoch across training calls.
+        history (list, optional): Optional list to which the trainer appends per-epoch losses, radii and
+            learning rates.
+
+    Returns:
+        (auto_LiRPA.BoundedModule): The trained hardened model.
+    """
+
+    selection = prepare_model_selection(selection_state, val_loader, validation_eps)
+    validate_hybrid_options(relu_upper_retention, pgd_eps_factor)
+    validate_expressive_options(alpha, 'cc_ibp' if method == 'cc_dist' else method)
+    if num_epochs is None and eps_schedule_unit == "epoch":
+        num_epochs = sum(eps_schedule)
+    end_epoch = validate_training_run(train_loader, num_epochs, start_epoch, end_epoch,
+                                      checkpoint_save_interval, lr_decay_schedule_unit, history=history)
+
+    criterion = nn.CrossEntropyLoss(reduction='none')
+
+    if start_epoch == 0 and end_epoch > start_epoch:
+        ibp_init_shi(original_model, hardened_model)
+
+    no_batches = 0
+    cur_lr = optimizer.param_groups[-1]["lr"]
+
+    eps_scheduler = SmoothedScheduler(
+        num_epochs=num_epochs,
+        eps=eps,
+        mean=train_loader.mean,
+        std=train_loader.std if train_loader.normalised else torch.ones_like(train_loader.std),
+        eps_schedule_unit=eps_schedule_unit,
+        eps_schedule=eps_schedule,
+        batches_per_epoch=len(train_loader),
+        start_epoch=start_epoch,
+        **eps_scheduler_args,
+    )
+
+    cur_eps = eps_scheduler.get_cur_eps()
+
+    for epoch in range(start_epoch, end_epoch):
+
+        epoch_adv_err = 0
+        epoch_rob_err = 0
+        epoch_nat_err = 0
+
+        hardened_model.train()
+        original_model.train()
+        metrics = EpochMetrics()
+
+        progress = progress_bar(
+            train_loader,
+            epoch=epoch,
+            num_epochs=num_epochs,
+            eps=eps_scheduler.get_cur_eps(normalise=False),
+            method=method.replace('_', '-').upper(),
+        )
+        for batch_idx, (data, target) in enumerate(progress):
+
+            cur_eps = eps_scheduler.get_cur_eps().reshape(-1, 1, 1)
+            data, target = data.to(device), target.to(device)
+            cur_eps_device = torch.as_tensor(cur_eps, device=device)
+            data_min, data_max = train_loader.min.to(device), train_loader.max.to(device)
+
+            ptb = PerturbationLpNorm(
+                eps=cur_eps_device,
+                norm=np.inf,
+                x_L=torch.clamp(data - cur_eps_device, data_min, data_max),
+                x_U=torch.clamp(data + cur_eps_device, data_min, data_max),
+            )
+
+            optimizer.zero_grad()
+
+            if clean_forward or eps_scheduler.get_cur_eps(normalise=False) == 0.0:
+                clean_output = hardened_model(data)
+                clean_loss = criterion(clean_output, target).mean()
+                regular_err = torch.sum(
+                    torch.argmax(clean_output, dim=1) != target
+                ).item() / data.size(0)
+                epoch_nat_err += regular_err
+
+            if eps_scheduler.get_cur_eps(normalise=False) != 0.0:
+
+                loss, robust_err, adv_err = loss_func(
+                    relu_upper_retention=relu_upper_retention,
+                    pgd_eps_factor=pgd_eps_factor,
+                    hardened_model=hardened_model,
+                    original_model=original_model,
+                    ptb=ptb,
+                    data=data,
+                    data_min=data_min, data_max=data_max, eps=cur_eps_device,
+                    target=target,
+                    n_classes=n_classes,
+                    criterion=criterion,
+                    alpha=alpha,
+                    return_bounds=False,
+                    return_stats=True,
+                    restarts=pgd_restarts,
+                    step_size=pgd_step_size,
+                    n_steps=pgd_n_steps,
+                    early_stopping=pgd_early_stopping,
+                    decay_checkpoints=pgd_decay_checkpoints,
+                    decay_factor=pgd_decay_factor,
+                    device=device,
+                )
+                epoch_adv_err += adv_err
+                epoch_rob_err += robust_err
+
+            else:
+                loss = clean_loss
+                epoch_adv_err += regular_err
+                clean_margins = torch.bmm(construct_c(data, target, n_classes),
+                                          clean_output.detach().unsqueeze(-1)).squeeze(-1)
+                epoch_rob_err += torch.sum(~(clean_margins > 0).all(dim=1)).item() / data.size(0)
+
+            if eps_scheduler.get_cur_eps(normalise=False) != eps_scheduler.get_max_eps(
+                normalise=False
+            ):
+                # Important Change to Vanilla IBP: Regularise Unstable ReLUs and Bound Tightness during Warm Up/Ramp Up
+                loss_regularisers = get_shi_regulariser(
+                    relu_upper_retention=relu_upper_retention,
+                    model=hardened_model,
+                    ptb=ptb,
+                    data=data,
+                    target=target,
+                    eps_scheduler=eps_scheduler,
+                    n_classes=n_classes,
+                    device=device,
+                    included_regularisers=["relu", "tightness"],
+                    verbose=False,
+                    regularisation_decay=shi_reg_decay,
+                )
+
+                loss_regularisers = (shi_regularisation_weight * loss_regularisers).to(
+                    device
+                )
+                loss = loss + loss_regularisers
+
+            if l1_regularisation_weight is not None:
+                l1_regularisation = l1_regularisation_weight * get_l1_reg(
+                    model=original_model, device=device
+                )
+                loss = loss + l1_regularisation
+
+            loss.backward()
+            if gradient_clip is not None:
+                nn.utils.clip_grad_norm_(
+                    original_model.parameters(), max_norm=gradient_clip, error_if_nonfinite=True
+                )
+            optimizer.step()
+
+            metrics.update(len(data), loss=loss.detach())
+            last_eps = float(eps_scheduler.get_cur_eps(normalise=False))
+            completed_batches = batch_idx + 1
+            update_progress(
+                progress,
+                loss=metrics.mean('loss'),
+                nat_acc=1 - epoch_nat_err / completed_batches if clean_forward else None,
+                adv_acc=1 - epoch_adv_err / completed_batches,
+                **{"cert_acc" if relu_upper_retention == 1 else "robust_acc":
+                   1 - epoch_rob_err / completed_batches},
+                lr=optimizer.param_groups[-1]["lr"],
+            )
+            eps_scheduler.batch_step()
+            no_batches += 1
+
+            if lr_scheduler is not None and lr_decay_schedule_unit == "batch":
+                lr_scheduler.step()
+
+        train_acc_nat = 1 - epoch_nat_err / len(train_loader)
+        train_acc_adv = 1 - epoch_adv_err / len(train_loader)
+        train_acc_cert = 1 - epoch_rob_err / len(train_loader)
+
+        log_epoch_summary(
+            epoch=epoch,
+            num_epochs=num_epochs,
+            loss=metrics.mean('loss'),
+            nat_acc=train_acc_nat if clean_forward else None,
+            adv_acc=train_acc_adv,
+            **{"cert_acc" if relu_upper_retention == 1 else "robust_acc": train_acc_cert},
+        )
+
+        synchronise_bn(original_model, hardened_model, train_loader, device, population_bn)
+
+        if lr_scheduler is not None and lr_decay_schedule_unit == "epoch":
+            lr_scheduler.step()
+
+        if val_loader is not None and cur_eps.equal(eps_scheduler.get_max_eps().reshape(-1, 1, 1)):
+            def validation_loss(data, target):
+                region = validation_ptb(data, val_loader, eps if validation_eps is None else validation_eps)
+                radius = region.eps
+                minimum, maximum = loader_limits(val_loader, data)
+                robust_loss = loss_func(
+                    relu_upper_retention=relu_upper_retention,
+                    pgd_eps_factor=pgd_eps_factor,
+                    hardened_model=hardened_model,
+                    original_model=original_model,
+                    ptb=region,
+                    data=data,
+                    data_min=minimum,
+                    data_max=maximum,
+                    eps=radius,
+                    target=target,
+                    n_classes=n_classes,
+                    criterion=criterion,
+                    alpha=alpha,
+                    return_bounds=False,
+                    return_stats=False,
+                    restarts=pgd_restarts,
+                    step_size=pgd_step_size,
+                    n_steps=pgd_n_steps,
+                    early_stopping=pgd_early_stopping,
+                    decay_checkpoints=pgd_decay_checkpoints,
+                    decay_factor=pgd_decay_factor,
+                    device=device
+                )[0]
+                return robust_loss
+            validation = evaluate_validation_loss((original_model, hardened_model), val_loader, validation_loss, device)
+            print(f"Validation robust_loss={validation:.6f}")
+            update_model_selection(selection, hardened_model, -validation, epoch + 1)
+
+        if history is not None:
+            history.append(dict(epoch=epoch + 1, loss=metrics.mean('loss'),
+                                eps=last_eps,
+                                lr=optimizer.param_groups[-1]['lr']))
+        if results_path is not None and checkpoint_due(epoch + 1, end_epoch, checkpoint_save_interval):
+            save_checkpoint(
+                hardened_model, optimizer, metrics.mean('loss'), epoch + 1, results_path,
+                lr_scheduler=lr_scheduler, selection_state=selection,
+                extra_state=None if history is None else {'history': history},
+            )
+
+    if val_loader is not None and restore_model_selection(selection, hardened_model):
+        synchronise_bn(original_model, hardened_model, train_loader, device)
+    return hardened_model
