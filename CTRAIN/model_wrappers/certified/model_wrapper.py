@@ -346,7 +346,7 @@ class CTRAINWrapper(nn.Module):
             seed=seed,
             use_default_config=True if len(defaults.values()) > 0 else False
         )
-        initial_design = HyperparameterOptimizationFacade.get_initial_design(scenario, n_configs_per_hyperparamter=1)
+        initial_design = HyperparameterOptimizationFacade.get_initial_design(scenario, n_configs=len(scenario.configspace))
         smac = HyperparameterOptimizationFacade(
             scenario,
             partial(self._hpo_runner, epochs=self.num_epochs, train_loader=train_loader, val_loader=val_loader, cert_eval_samples=eval_samples, output_dir=output_dir, nat_loss_weight=nat_loss_weight, adv_loss_weight=adv_loss_weight, cert_loss_weight=cert_loss_weight),
