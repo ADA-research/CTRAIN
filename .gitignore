@@ -16,3 +16,4 @@ dist
 papers/rethinking_evaluation_paradigms/submitit_experiments/out.txt
 out.txt
 .pytest_cache/
+/slurm_scripts/
