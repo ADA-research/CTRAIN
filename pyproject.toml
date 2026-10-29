@@ -76,6 +76,7 @@ include = ["CTRAIN*"]
 ]
 
 [project.optional-dependencies]
+coverage = ["coverage[toml]>=7.10"]
 dev = [
     "pytest>=7",
     "flake8>=7.0",
@@ -98,6 +99,17 @@ markers = [
 [tool.flake8]
 max-line-length = 88
 extend-ignore = ["E203", "W503"]
+
+[tool.coverage.run]
+branch = true
+source = ["CTRAIN"]
+omit = ["*/CTRAIN/verification_systems/*"]
+parallel = true
+patch = ["subprocess"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 1
 
 [tool.semantic_release]
 assets = []

@@ -115,6 +115,22 @@ def state_and_scales():
     torch.testing.assert_close(opt.scales[0],restored.scales[0])
 
 
+def hpo():
+    from CTRAIN.model_wrappers.configs import get_config_space
+    from pathlib import Path
+    model = torch.nn.Sequential(torch.nn.Linear(2, 3), torch.nn.ReLU(), torch.nn.Linear(3, 2))
+    wrapper = GLSModelWrapper(model, (2,), .1, 1, device='cpu', shi_init=False,
+                              warm_up_epochs=0, ramp_up_epochs=0)
+    space = get_config_space(wrapper, wrapper.num_epochs, wrapper.eps)
+    assert 'sigma' in space
+    config = space.get_default_configuration()
+    with tempfile.TemporaryDirectory() as root:
+        Path(root,'nets').mkdir()
+        with patch.object(GLSModelWrapper,'train_model') as train, patch.object(
+                wrapper,'_evaluate_hpo_model',return_value=(.8,.4,.3)):
+            value,metrics=wrapper._hpo_runner(config,1,wrapper.num_epochs,None,None,root)
+        assert train.called and abs(value+1.5)<1e-6
+        assert metrics['cert_acc']==.4
 
 
 def training():
@@ -171,4 +187,5 @@ if __name__ == '__main__':
     bounded_estimator()
     state_and_scales()
     training()
+    hpo()
     print('GLS checks passed')

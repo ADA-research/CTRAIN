@@ -338,15 +338,15 @@ def tutorial_configs():
             wrapper.train_model(loader_for(torch.rand(4, 1, 28, 28)), end_epoch=1)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     torch.set_num_threads(1)
     torch.manual_seed(0)
-    attack_counterexamples()
     schedules()
-    validation_transforms()
-    crown_bounds_and_models()
-    checkpoint_and_modes()
-    hpo_and_gls()
+    attack_counterexamples()
     verification_identity()
+    validation_transforms()
+    checkpoint_and_modes()
+    crown_bounds_and_models()
+    hpo_and_gls()
     tutorial_configs()
-    print("Shared training and verification regressions passed")
+    print('Submission must-fix regressions passed')

@@ -205,10 +205,8 @@ def global_gradient_clipping():
 
 
 
-def convolutional_bn_and_presets():
-    import json
+def convolutional_bn():
     from unittest.mock import patch
-    from CTRAIN.model_definitions import CNN6_SetBased
     model = nn.Sequential(nn.Conv2d(1, 2, 2), nn.BatchNorm2d(2), nn.ReLU(),
                           nn.Flatten(), nn.Linear(8, 2), nn.BatchNorm1d(2)).double()
     data = torch.rand(4, 1, 3, 3, dtype=torch.double)
@@ -337,7 +335,7 @@ def lirpa_operator_regressions():
 
 def main():
     torch.set_num_threads(1); torch.manual_seed(42)
-    numerical(); attacks_and_modes(); training(); global_gradient_clipping(); convolutional_bn_and_presets(); actual_evaluation(); lirpa_operator_regressions()
+    numerical(); attacks_and_modes(); training(); global_gradient_clipping(); convolutional_bn(); actual_evaluation(); lirpa_operator_regressions()
     print('Set-based numerical and integration checks passed')
 
 

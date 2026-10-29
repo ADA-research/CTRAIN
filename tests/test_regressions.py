@@ -5,11 +5,10 @@ import subprocess
 import sys
 
 import pytest
-import torch
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OPTIONAL = {"test_set_based_cuda.py", "test_neuralsat_bundled.py"}
+OPTIONAL = {"test_neuralsat_bundled.py"}
 SCRIPTS = sorted(path for path in (ROOT / "tests").glob("test_*.py")
                  if path.name not in OPTIONAL | {Path(__file__).name})
 
