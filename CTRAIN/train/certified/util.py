@@ -1,7 +1,6 @@
 import copy
 import math
 import torch
-import torch.nn as nn
 import numpy as np
 
 
@@ -48,36 +47,6 @@ class EpochMetrics:
 
     def mean(self, key):
         return self.totals[key] / self.samples
-
-
-def split_network(model, block_sizes, network_input, device):
-    """
-    Splits a neural network model into smaller sequential blocks based on specified block sizes. Needed for TAPS/STAPS.
-    Args:
-        model (torch.nn.Module): The neural network model to be split.
-        block_sizes (list of int): A list of integers specifying the sizes of each block.
-        network_input (torch.Tensor): The input tensor to the network.
-        device (torch.device): The device to which the tensors should be moved (e.g., 'cpu' or 'cuda').
-    Returns:
-        list of torch.nn.Sequential: A list of sequential blocks representing the split network.
-    """
-    if len(block_sizes) != 2 or any(not isinstance(size, int) or size <= 0 for size in block_sizes):
-        raise ValueError("TAPS/STAPS require two positive integer block sizes")
-    if sum(block_sizes) != len(model.layers):
-        raise ValueError("Block sizes must cover every network layer exactly once")
-    start = 0
-    original_blocks = []
-    network_input = network_input.to(device)
-    for size in block_sizes:
-        end = start + size
-        abs_block = nn.Sequential(model.layers[start:end])
-        original_blocks.append(abs_block)
-        
-        output_shape = abs_block(network_input).shape
-        network_input = torch.zeros(output_shape).to(device)
-        
-        start = end
-    return original_blocks
 
 
 def evaluate_taps_proxy(original_model, hardened_model, data_loader, eps, n_classes,
@@ -145,13 +114,9 @@ def synchronise_bn(original_model, hardened_model, train_loader, device, populat
             finally:
                 for layer, momentum in zip(layers, momenta):
                     layer.momentum = momentum
-        pairs = [(original, hardened_model),
-                 *zip(getattr(hardened_model, "original_blocks", ()),
-                      getattr(hardened_model, "bounded_blocks", ()))]
-        for source, bounded in pairs:
-            buffers = dict(source.named_buffers())
-            for name, value in bounded.named_buffers():
-                value.copy_(buffers[name])
+        buffers = dict(original.named_buffers())
+        for name, value in hardened_model.named_buffers():
+            value.copy_(buffers[name])
         if loss_fusion_model is not None:
             buffers = dict(original.named_buffers())
             for name, value in loss_fusion_model.named_buffers():

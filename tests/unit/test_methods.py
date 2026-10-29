@@ -193,6 +193,7 @@ def test_bn_buffers_and_momentum(method, population):
     data_loader = loader()
     wrapper = make(method, population_bn=population)
     wrapper.train_model(data_loader)
+    assert not wrapper.selection_state
     original = dict(wrapper.original_model.named_buffers())
     assert wrapper.original_model.layers[0].momentum == .1
     if population:
@@ -201,10 +202,6 @@ def test_bn_buffers_and_momentum(method, population):
     if hasattr(wrapper, "bounded_model"):
         for name, value in wrapper.bounded_model.named_buffers():
             torch.testing.assert_close(value, original[name], rtol=0, atol=0)
-        for source, model in zip(getattr(wrapper.bounded_model, "original_blocks", []),
-                                 getattr(wrapper.bounded_model, "bounded_blocks", [])):
-            for name, value in model.named_buffers():
-                torch.testing.assert_close(value, dict(source.named_buffers())[name], rtol=0, atol=0)
     if getattr(wrapper, "loss_fusion", False):
         for name, value in wrapper.loss_fusion_model.named_buffers():
             torch.testing.assert_close(value, original[name.removeprefix("model.")], rtol=0, atol=0)
