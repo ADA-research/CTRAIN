@@ -1,13 +1,13 @@
 """Set-based training adapters around auto_LiRPA's forward operators.
 
-The training loss needs the output center and the norm of its generators and
+The training loss needs the output centre and the norm of its generators and
 independent error radii. Concrete lower/upper bounds from
 ``BoundedModule.compute_bounds(method='Forward')`` do not retain that information.
 Attack inputs also have correlated generators; replacing them with a box changes
 the training set, and the installed PerturbationLinear rejects forward mode.
 
 Keep LiRPA's LinearBound representation and layer computations, with local
-adapters for centered generator coordinates, supplied clean BatchNorm statistics,
+adapters for centred generator coordinates, supplied clean BatchNorm statistics,
 and the numerical/autograd gaps explained below. Ordinary full-box certification
 uses compute_bounds(method='Forward') through CTRAIN.eval.eval_forward.
 """
@@ -22,11 +22,16 @@ from auto_LiRPA.operators import (BoundLinear, BoundConv, BoundBatchNormalizatio
 
 @dataclass
 class Zonotope:
-    """Points c + sum_q G[:, q] * xi_q + r * eta, with xi_q, eta in [-1, 1].
+    """Represent a correlated input or output enclosure for set-based training.
 
-    c and nonnegative r have shape [batch, ...]; G has shape [batch, Q, ...].
-    Each generator's coefficient is shared across coordinates, preserving their
-    correlation; eta varies independently in each coordinate.
+    The represented points are c + sum_q G[:, q] * xi_q + r * eta, where each
+    xi_q and each coordinate of eta lie in [-1, 1]. Shared generator coefficients
+    preserve coordinate correlations, while r describes independent error.
+
+    Args:
+        c (torch.Tensor): Centre of shape (batch, ...).
+        G (torch.Tensor): Correlated generators of shape (batch, Q, ...).
+        r (torch.Tensor): Nonnegative independent radii with the same shape as c.
     """
 
     c: torch.Tensor
@@ -34,12 +39,18 @@ class Zonotope:
     r: torch.Tensor
 
     def bounds(self):
+        """Return coordinatewise lower and upper endpoints enclosing the zonotope."""
         radius = self.G.abs().sum(1) + self.r
         return self.c - radius, self.c + radius
 
 
 def sequential_layers(model):
-    """Reject branches, functional operations, and unsupported layers up front."""
+    """Extract the supported layers from the model's actual forward graph.
+
+    Set-based propagation supports sequential convolution, affine, BatchNorm,
+    ReLU, flatten and identity layers. Tracing rejects branches, reused layers
+    and unsupported operations so propagation cannot silently omit computation.
+    """
     # Trace the actual forward graph: listing children can silently omit computation.
     graph = torch.fx.symbolic_trace(model)
     layers, previous, seen = [], None, set()
@@ -77,6 +88,11 @@ def diagonal_generators(radius):
 
 
 def box_zonotope(lower, upper):
+    """Represent a finite, ordered input box using one generator per coordinate.
+
+    Returns a Zonotope centred at (lower + upper) / 2 with independent half-width
+    generators and zero additional error radii.
+    """
     if lower.shape != upper.shape or not torch.isfinite(lower).all() or not torch.isfinite(upper).all() or (lower > upper).any():
         raise ValueError('Box endpoints must be finite, ordered, and have matching shapes')
     return Zonotope((lower + upper) / 2, diagonal_generators((upper - lower) / 2),
@@ -85,6 +101,7 @@ def box_zonotope(lower, upper):
 
 def _constant(value):
     # Exact in the perturbation set, but still differentiable in model parameters.
+    """Represent a tensor as constant in the perturbation set while retaining parameter gradients."""
     return LinearBound(lb=value, ub=value, lower=value, upper=value)
 
 
@@ -92,10 +109,12 @@ def _split_weight(value):
     # LiRPA's positive/negative clamps each differentiate as 1 at zero.
     # With equal lower/upper coefficients this doubles the affine derivative.
     # Preserve all values; halve only the gradient at exactly zero to correct it.
+    """Correct the doubled derivative of LiRPA signed weight splits at exactly zero."""
     return torch.where(value == 0, value * .5, value)
 
 
 class _SetBasedRelu(BoundRelu):
+    """Retain same-slope ReLU relaxations and gradients for very narrow unstable intervals."""
     @staticmethod
     def _relu_upper_bound(lower, upper, leaky_alpha):
         slope, intercept = BoundRelu._relu_upper_bound(lower, upper, leaky_alpha)
@@ -159,12 +178,24 @@ def _forward_operator(layer, linear, statistics):
 
 
 def bound_zonotope(model, zonotope, error_propagation='interval', bn_statistics=None, layers=None):
-    """Propagate the full training representation, retaining its autograd graph.
+    """Propagate a correlated enclosure through supported auto_LiRPA operators.
 
-    Same-slope ReLUs keep lw=uw=G. With generator coordinates in [-1, 1],
-    LiRPA's affine biases are lb=c-r and ub=c+r; they are not concrete bounds.
-    Interval mode lets LiRPA carry independent errors in those biases. Generator
-    mode converts errors into new correlated directions after each ReLU.
+    The returned Zonotope retains its centre, generators and independent error
+    radii with an autograd graph for set-based training. Same-slope ReLU
+    relaxations preserve shared generator coefficients. Nonlinear errors either
+    remain independent intervals or become additional generators.
+
+    Args:
+        model (torch.nn.Module): Supported sequential network.
+        zonotope (Zonotope): Input enclosure in model coordinates.
+        error_propagation (str): 'interval' or 'generators'.
+        bn_statistics (dict, optional): Differentiable clean means and variances indexed by
+            BatchNorm layer. Otherwise evaluation uses running
+            statistics.
+        layers (list, optional): Previously validated sequential layers.
+
+    Returns:
+        (Zonotope): Propagated output enclosure, retaining parameter gradients.
     """
     if error_propagation not in ('interval', 'generators'):
         raise ValueError('error_propagation must be interval or generators')
@@ -190,7 +221,12 @@ def bound_zonotope(model, zonotope, error_propagation='interval', bn_statistics=
 
 
 def zonotope_margins(zonotope, labels):
-    """Correlated lower bounds on true-class minus competing-class logits."""
+    """Compute lower classification margins while retaining generator correlations.
+
+    Shared generator contributions may cancel when subtracting competing logits;
+    independent error radii are added. Returns one column per class, with the
+    true-class column set to infinity.
+    """
     c, G, r = zonotope.c, zonotope.G, zonotope.r
     if c.ndim != 2:
         raise ValueError('Certification requires a batch of class logits')

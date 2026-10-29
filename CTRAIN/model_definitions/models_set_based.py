@@ -1,8 +1,18 @@
-"""Appendix A Cnn6 interpretation, separate from CNN7_Shi."""
+"""Convolutional architecture used for CTRAIN's set-based training experiments."""
 from torch import nn
 
 
 class CNN6_SetBased(nn.Module):
+    """Construct the Cnn6 architecture used for set-based training.
+
+    The model combines four convolutional layers with BatchNorm and ReLU,
+    followed by three affine layers. Its layout follows the interpretation of
+    Appendix A of Koller et al. (2025) used by CTRAIN.
+
+    Args:
+        in_shape (tuple[int, ...]): Input shape (channels, height, width), excluding the batch dimension.
+        n_classes (int): Number of output classes.
+    """
     def __init__(self, in_shape=(1, 28, 28), n_classes=10):
         super().__init__()
         channels, height, width = in_shape
@@ -21,4 +31,5 @@ class CNN6_SetBased(nn.Module):
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
+        """Return network predictions for the supplied input batch."""
         return self.layers(x)

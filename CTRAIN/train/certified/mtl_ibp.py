@@ -40,7 +40,11 @@ def mtl_ibp_train_model(
     relu_upper_retention=1.0,
     population_bn=False,
     loss_type='mtl_ibp', validation_eps=None, selection_state=None, *, history=None):
-    """Train MTL-IBP; existing arguments and legacy loss_type selection are preserved."""
+    """Train MTL-IBP using the shared expressive IBP training procedure.
+
+    Arguments follow expressive_ibp_train_model; this entry point selects the
+    method-specific loss while reusing its schedules and training loop.
+    """
     validate_expressive_options(alpha, loss_type)
     options = locals().copy()
     options.pop('loss_type')

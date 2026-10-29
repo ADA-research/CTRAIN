@@ -9,8 +9,11 @@ from CTRAIN.util import seed_ctrain
 from CTRAIN.bound.util import validate_hybrid_options
 
 class ExpressiveIBPModelWrapper(CTRAINWrapper):
-    """
-    Shared wrapper for expressive IBP training; instantiate a specialized subclass. For details, see De Palma et al. (2024) Expressive Losses for Verified Robustness via Convex Combinations. https://arxiv.org/pdf/2305.13991
+    """Configure the common training workflow for expressive IBP losses.
+
+    Specialised wrappers select MTL-IBP, CC-IBP, Exp-IBP or CC-Dist. Their shared
+    implementation reuses PGD, nominal-region IBP and the training schedule.
+    See De Palma et al. (2024): https://arxiv.org/abs/2305.13991.
     """
     _loss_type = None
     _alpha_name = None
@@ -24,29 +27,32 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
                  pgd_alpha=10, pgd_restarts=1, pgd_early_stopping=False, pgd_alpha_decay_factor=.1,
                  pgd_decay_milestones=(), pgd_eps_factor=1, alpha=0.5, checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda'), population_bn=False, relu_upper_retention=1.0):
-        """
-        Initialize the shared expressive IBP options.
+        """Initialise the shared expressive IBP options.
 
         Args:
             model (torch.nn.Module): The model to be trained.
             input_shape (tuple): Shape of the input data.
-            eps (float): Epsilon value describing the perturbation the network should be certifiably robust against.
+            eps (float): Epsilon value describing the perturbation the network should be
+                certifiably robust against.
             num_epochs (int): Number of epochs for training.
             train_eps_factor (float): Factor for training epsilon.
             optimizer_func (torch.optim.Optimizer): Optimizer function.
             lr (float): Learning rate.
-            warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is trained on clean loss.
-            ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is gradually increased to the target train epsilon.
-            lr_decay_factor (float): Learning rate decay factor.
-            lr_decay_milestones (tuple): Milestones for learning rate decay.
+            warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is
+                trained on clean loss.
+            ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is
+                gradually increased to the target train epsilon.
+            lr_scheduler_func (callable): Constructor for the learning-rate scheduler.
+            lr_decay_kwargs (dict): Scheduler arguments, such as milestones and gamma for MultiStepLR.
             gradient_clip (float): Gradient clipping value.
-            l1_reg_weight (float): L1 regularization weight.
-            shi_reg_weight (float): Shi regularization weight.
-            shi_reg_decay (bool): Whether to decay Shi regularization during the ramp up phase.
+            l1_reg_weight (float): L1 regularisation weight.
+            shi_reg_weight (float): Shi regularisation weight.
+            shi_reg_decay (bool): Whether to decay Shi regularisation during the ramp up phase.
             pgd_steps (int): Number of PGD steps for adversrial loss computation.
             pgd_alpha (float): PGD step size for adversarial loss calculation.
             pgd_restarts (int): Number of PGD restarts for adversarial loss calculation.
-            pgd_early_stopping (bool): Whether to use early stopping in PGD during adversarial loss calculation.
+            pgd_early_stopping (bool): Whether to use early stopping in PGD during adversarial
+                loss calculation.
             pgd_alpha_decay_factor (float): PGD alpha decay factor.
             pgd_decay_milestones (tuple): Milestones for PGD alpha decay.
             pgd_eps_factor (float): Factor for PGD epsilon.
@@ -54,9 +60,10 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
-            population_bn (bool): Recalibrate BatchNorm on training data after every epoch.
-            relu_upper_retention (float): Fraction of unstable ReLU upper bounds retained during training; default 1.
             device (torch.device): Device to run the training on.
+            population_bn (bool): Recalibrate BatchNorm on training data after every epoch.
+            relu_upper_retention (float): Fraction of unstable ReLU upper bounds retained during
+                training; default 1.
         """
         if self._loss_func is None or self._alpha_name is None:
             raise TypeError('instantiate MTLIBPModelWrapper, CCIBPModelWrapper or ExpIBPModelWrapper')
@@ -85,14 +92,18 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
 
 
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
-        """
-        Train using the specialized class's loss and the shared epoch loop.
+        """Train the wrapped model using the configured method and schedule.
+
+        The wrapper forwards its configuration to the corresponding library trainer.
+        start_epoch and end_epoch select a segment of the full schedule, retaining
+        its original warm-up, ramp-up and learning-rate milestones.
 
         Args:
             train_loader (torch.utils.data.DataLoader): DataLoader for training data.
             val_loader (torch.utils.data.DataLoader, optional): DataLoader for validation data.
-            start_epoch (int, optional): Epoch to start training from. Initialises learning rate and epsilon schedulers accordingly. Defaults to 0.
-            end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
+            start_epoch (int, optional): Epoch to start training from. Initialises learning rate
+                and epsilon schedulers accordingly.
+            end_epoch (int, optional): Epoch to prematurely end training at.
 
         Returns:
             (auto_LiRPA.BoundedModule): Trained model.
@@ -138,11 +149,15 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
         return trained_model
 
     def _hpo_extra_options(self, config):
+        """Return method-specific constructor options when recreating an expressive wrapper for HPO."""
         return {}
 
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1, adv_loss_weight=1, cert_loss_weight=1, complete_verify=False):
-        """
-        Function called during hyperparameter optimization (HPO) using SMAC3, returns the loss.
+        """Train and evaluate one hyperparameter configuration.
+
+        Construct a method-specific wrapper, train it and save its inference weights.
+        Return the negative weighted accuracy and the natural, certified and
+        adversarial validation accuracies for the optimisation procedure.
 
         Args:
             config (dict): Configuration of hyperparameters.
@@ -152,12 +167,16 @@ class ExpressiveIBPModelWrapper(CTRAINWrapper):
             val_loader (torch.utils.data.DataLoader): DataLoader for validation data.
             output_dir (str): Directory to save output.
             cert_eval_samples (int, optional): Number of samples for certification evaluation.
-            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss function.
-            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss function.
-            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss function.
+            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss
+                function.
+            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss
+                function.
+            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss
+                function.
+            complete_verify (bool): Whether to evaluate the trial through complete verification.
 
         Returns:
-            tuple: Loss and dictionary of accuracies that is saved as information to the run by SMAC3.
+            (tuple): Loss and dictionary of accuracies that is saved as information to the run by SMAC3.
         """
         config_hash = get_config_hash(config, 32)
         seed_ctrain(seed)

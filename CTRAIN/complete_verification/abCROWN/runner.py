@@ -1,4 +1,4 @@
-"""Subprocess entry point; keep verification behaviour in the shared adapter."""
+"""Execute one serialised alpha-beta-CROWN query in a separate Python process."""
 import pickle
 import sys
 from pathlib import Path

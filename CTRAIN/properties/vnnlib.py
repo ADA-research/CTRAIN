@@ -32,12 +32,14 @@ def _parse(text):
 
 
 def _join(constructor, children):
+    """Combine parsed predicates with the requested Boolean operator, retaining singleton formulas."""
     if not children:
         raise ValueError('Empty Boolean expressions are unsupported')
     return children[0] if len(children) == 1 else constructor(*children)
 
 
 def _affine(term, declared):
+    """Parse an affine expression over the declared VNNLIB variables."""
     if isinstance(term, str):
         if term in declared:
             return Affine(((int(term[2:]), 1.),))
@@ -65,6 +67,7 @@ def _affine(term, declared):
 
 
 def _output_formula(term, declared, negate=False):
+    """Translate an output predicate into the affine/Boolean property representation."""
     if not isinstance(term, list) or not term:
         raise ValueError('Expected an output predicate')
     op, *args = term
@@ -83,12 +86,14 @@ def _output_formula(term, declared, negate=False):
 
 
 def _conjuncts(term):
+    """Flatten outer parsed conjunctions into individual assertions."""
     if isinstance(term, list) and term and term[0] == 'and':
         return [child for arg in term[1:] for child in _conjuncts(arg)]
     return [term]
 
 
 def _variables(term):
+    """Collect variable names referenced by a parsed expression."""
     if isinstance(term, str):
         return {term} if re.fullmatch(r'[XY]_\d+', term) else set()
     return set().union(*(_variables(arg) for arg in term))
@@ -115,6 +120,7 @@ def _input_clauses(term):
 
 
 def _input_box(clause, inputs, shape):
+    """Convert a conjunction of axis-aligned input constraints into a finite closed box."""
     lower, upper = [-math.inf] * len(inputs), [math.inf] * len(inputs)
     for term in clause:
         if not isinstance(term, list) or len(term) != 3 or term[0] not in ('<=', '>='):
@@ -137,6 +143,7 @@ def _input_box(clause, inputs, shape):
 
 
 def _read_vnnlib(path, name=None, input_shape=None, output_semantics='unsafe'):
+    """Validate declarations and construct the property, input boxes and output width."""
     if output_semantics not in ('unsafe', 'safe'):
         raise ValueError("output_semantics must be 'unsafe' or 'safe'")
     path = Path(path)
@@ -185,7 +192,7 @@ def _read_vnnlib(path, name=None, input_shape=None, output_semantics='unsafe'):
 
 
 def load_vnnlib_property(path, *, name=None, input_shape=None, output_semantics='unsafe'):
-    """Import a user-supplied VNNLIB property without benchmark presets.
+    """Import affine and Boolean output specifications over finite input boxes from VNNLIB.
 
     Args:
         path (str | pathlib.Path): Local VNNLIB file with contiguous `X_i` and
@@ -198,8 +205,8 @@ def load_vnnlib_property(path, *, name=None, input_shape=None, output_semantics=
             `'safe'` imports the output assertions as desired conditions directly.
 
     Returns:
-        PropertySpec: Desired formula over the declared input boxes. Preserves
-        strictness and ties when complementing unsafe inequalities.
+        (PropertySpec): Desired formula over the declared input boxes. Preserves
+            strictness and ties when complementing unsafe inequalities.
 
     Raises:
         ValueError: Unsupported syntax, undeclared variables, nonlinear terms,
@@ -209,7 +216,7 @@ def load_vnnlib_property(path, *, name=None, input_shape=None, output_semantics=
     `or` and `not`. Exact equality and general SMT-LIB are unsupported. Input
     constraints support And/Or combinations of closed coordinate bounds, yielding
     a finite union of at most 1024 bounded boxes. Mixed input/output logic and coupled input
-    inequalities are rejected. No normalization is added. This
+    inequalities are rejected. No normalisation is added. This
     small adapter avoids the bundled verifier parser's strict-comparison rewrite
     and compiled pickle cache, preserving source semantics without cache reads.
     Numeric constants and affine arithmetic use floating-point values; this is

@@ -1,3 +1,4 @@
+"""Search for classification and general-property counterexamples using projected gradient descent."""
 import math
 
 import torch
@@ -5,8 +6,14 @@ import torch
 def pgd_attack(model, data, target, x_L, x_U, restarts=1, step_size=.2,
                n_steps=200, early_stopping=True, device='cuda',
                decay_factor=.1, decay_checkpoints=(), *, loss_fn=None, is_success=None):
-    """
-    Performs the Projected Gradient Descent (PGD) attack on the given model and data.
+    """Search for counterexamples using Projected Gradient Descent (PGD).
+
+    Each restart begins at a random point in the input box. Gradient-sign
+    updates maximise the attack objective and are projected back into that box.
+    The step size is scaled by the largest coordinate half-width. The caller
+    chooses the model mode; the attack computes input gradients without
+    accumulating parameter gradients. Optional callbacks extend the search
+    from misclassification to general output-property violations.
 
     Args:
         model (torch.nn.Module): The neural network model to attack.
@@ -14,21 +21,25 @@ def pgd_attack(model, data, target, x_L, x_U, restarts=1, step_size=.2,
         target (torch.Tensor | None): Labels, or None with both property callbacks.
         x_L (torch.Tensor): The lower bound of the input data.
         x_U (torch.Tensor): The upper bound of the input data.
-        restarts (int, optional): The number of random restarts. Default is 1.
-        step_size (float, optional): The step size for each gradient update. Default is 0.2.
-        n_steps (int, optional): The number of steps for the attack. Default is 200.
-        early_stopping (bool, optional): Whether to stop early if adversarial examples are found. Default is True.
-        device (str, optional): The device to perform the attack on. Default is 'cuda'.
-        decay_factor (float, optional): The factor by which to decay the step size at each checkpoint. Default is 0.1.
-        decay_checkpoints (tuple, optional): The checkpoints at which to decay the step size. Default is ().
-        loss_fn (callable, optional): Per-example attack objective to maximize,
+        restarts (int, optional): The number of random restarts.
+        step_size (float, optional): Step-size factor multiplied by the largest coordinate
+            half-width of the search box.
+        n_steps (int, optional): The number of steps for the attack.
+        early_stopping (bool, optional): Whether to stop early if adversarial examples are
+            found.
+        device (str, optional): The device to perform the attack on.
+        decay_factor (float, optional): The factor by which to decay the step size at each
+            checkpoint.
+        decay_checkpoints (tuple, optional): The checkpoints at which to decay the step
+            size.
+        loss_fn (callable, optional): Per-example attack objective to maximise,
             called as loss_fn(output, target). Defaults to cross-entropy.
         is_success (callable, optional): Per-example Boolean violation test,
             called as is_success(output, target). Defaults to misclassification.
             General-property callbacks may use target=None.
 
     Returns:
-        torch.Tensor: The best successful candidate per input, or the largest
+        (torch.Tensor): The best successful candidate per input, or the largest
             attack-objective candidate if none succeeded. Checks nominal inputs,
             random initializations and every update, including with n_steps=0.
     """

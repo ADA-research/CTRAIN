@@ -4,11 +4,23 @@ from torch import nn
 
 
 class CNN_GLS(nn.Sequential):
-    """Paper CNNs without BatchNorm or an embedded normalization layer.
+    """Construct the CNN3 or CNN5 architectures used for Gaussian loss smoothing.
+
+    These models omit BatchNorm and embedded input normalisation. Depth and
+    width select the variants reported in Table 9 of Balauca et al. (2025):
+    https://arxiv.org/abs/2403.07095.
 
     ``depth=3, width=8`` gives CNN3; width=2 gives CNN3Tiny.
     ``depth=5, width=16`` gives CNN5; width=64 gives CNN5L.
-    Inputs must already be normalized by the data loader.
+    Inputs must already be normalised by the data loader.
+
+    Args:
+        in_shape (tuple[int, ...]): Input shape (channels, height, width), excluding the batch dimension.
+        n_classes (int): Number of output classes.
+        depth (int): Architecture depth; supported values are 3 and 5.
+        width (int): Number of units or base channels in the hidden layers.
+        linear_size (int): Number of units in the hidden affine layer of the CNN5 variant.
+        initialization (str): Weight initialisation: 'default' or 'kaiming_uniform'.
     """
     def __init__(self, in_shape=(1, 28, 28), n_classes=10, depth=5,
                  width=16, linear_size=512, initialization='default'):

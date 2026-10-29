@@ -22,6 +22,7 @@ _EXPORTS = {
 }
 
 def __getattr__(name):
+    """Load the requested public symbol on demand, avoiding eager imports of optional dependencies."""
     if name not in _EXPORTS:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     value = getattr(import_module(_EXPORTS[name], __name__), name)

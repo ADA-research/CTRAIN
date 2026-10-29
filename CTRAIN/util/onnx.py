@@ -5,12 +5,12 @@ import torch
 
 
 def load_onnx_model(path, probes, *, rtol=1e-4, atol=1e-5):
-    """Convert a single-input/output ONNX graph and check prediction parity.
+    """Convert an ONNX network to a trainable PyTorch model.
 
-    Uses the installed `onnx2pytorch` converter rather than implementing ONNX
-    operators in CTRAIN. The returned model is trainable, on CPU and in eval
-    mode. Conversion support does not imply auto_LiRPA support for every graph;
-    the property wrapper checks that separately when constructing its bounds.
+    CTRAIN uses the installed onnx2pytorch converter, then checks predictions
+    against ONNX Runtime at the supplied probes. The returned network is on CPU
+    and in evaluation mode. Conversion support and auto_LiRPA bound-operator
+    support are checked separately when constructing a property wrapper.
 
     Args:
         path (str | pathlib.Path): Local ONNX model file.
@@ -22,14 +22,14 @@ def load_onnx_model(path, probes, *, rtol=1e-4, atol=1e-5):
         atol (float): Absolute tolerance for the ONNX Runtime comparison.
 
     Returns:
-        torch.nn.Module: Converted model with trainable parameters.
+        (torch.nn.Module): Converted model with trainable parameters.
 
     Raises:
         ValueError: Probes or graph input/output structure are unsupported.
         AssertionError: Converted predictions disagree with ONNX Runtime.
 
     The comparison is a numerical check at supplied inputs, not an equivalence
-    proof. No normalization or advisory interpretation is added.
+    proof. No normalisation or advisory interpretation is added.
     """
     import onnx
     import onnxruntime as ort

@@ -1,3 +1,4 @@
+"""Model-wrapper interface for STAPS training and robustness evaluation."""
 import math
 import torch
 import copy
@@ -12,8 +13,15 @@ from CTRAIN.bound.util import validate_hybrid_options
 
 
 class STAPSModelWrapper(CTRAINWrapper):
-    """
-    Wrapper class for training models using STAPS method. For details, see Mao et al. (2023) Connecting Certified and Adversarial Training https://proceedings.neurips.cc/paper_files/paper/2023/file/e8b0c97b34fdaf58b2f48f8cca85e76a-Paper-Conference.pdf
+    """Wrap a PyTorch classifier for STAPS certified training.
+
+    This wrapper configures STAPS training, using SABR subregions for TAPS feature propagation as proposed by Mao et al. (2023).
+    Training is invoked through train_model; evaluation and hyperparameter
+    optimisation use the common CTRAINWrapper interface. The training loop,
+    loss computation and bound propagation are implemented in the corresponding
+    library functions.
+
+    See https://proceedings.neurips.cc/paper_files/paper/2023/file/e8b0c97b34fdaf58b2f48f8cca85e76a-Paper-Conference.pdf.
     """
 
     def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1, optimizer_func=torch.optim.Adam, lr=0.0005, warm_up_epochs=1, ramp_up_epochs=70,
@@ -27,29 +35,32 @@ class STAPSModelWrapper(CTRAINWrapper):
                  checkpoint_save_path=None, checkpoint_save_interval=10,
                  bound_opts=dict(conv_mode='patches', relu='adaptive'), device=torch.device('cuda'),
                  relu_upper_retention=1.0, population_bn=False, pgd_eps_factor=1.0):
-        """
-        Initializes the STAPSModelWrapper.
+        """Configure the model, training schedule and STAPS hyperparameters.
 
         Args:
             model (torch.nn.Module): The model to be trained.
             input_shape (tuple): Shape of the input data.
-            eps (float): Epsilon value describing the perturbation the network should be certifiably robust against.
+            eps (float): Epsilon value describing the perturbation the network should be
+                certifiably robust against.
             num_epochs (int): Number of epochs for training.
             train_eps_factor (float): Factor for training epsilon.
             optimizer_func (torch.optim.Optimizer): Optimizer function.
             lr (float): Learning rate.
-            warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is trained on clean loss.
-            ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is gradually increased to the target train epsilon.
-            lr_decay_factor (float): Learning rate decay factor.
-            lr_decay_milestones (tuple): Milestones for learning rate decay.
+            warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is
+                trained on clean loss.
+            ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is
+                gradually increased to the target train epsilon.
+            lr_scheduler_func (callable): Constructor for the learning-rate scheduler.
+            lr_decay_kwargs (dict): Scheduler arguments, such as milestones and gamma for MultiStepLR.
             gradient_clip (float): Gradient clipping value.
-            l1_reg_weight (float): L1 regularization weight.
-            shi_reg_weight (float): SHI regularization weight.
-            shi_reg_decay (bool): Whether to decay SHI regularization during the ramp up phase.
+            l1_reg_weight (float): L1 regularisation weight.
+            shi_reg_weight (float): SHI regularisation weight.
+            shi_reg_decay (bool): Whether to decay SHI regularisation during the ramp up phase.
             pgd_steps (int): Number of PGD steps for TAPS loss calculation.
             pgd_alpha (float): PGD step size for TAPS loss calculation.
             pgd_restarts (int): Number of PGD restarts ffor TAPS loss calculation.
-            pgd_early_stopping (bool): Whether to use early stopping in PGD for TAPS loss calculation.
+            pgd_early_stopping (bool): Whether to use early stopping in PGD for TAPS loss
+                calculation.
             pgd_alpha_decay_factor (float): PGD alpha decay factor.
             pgd_decay_steps (tuple): Milestones for PGD alpha decay.
             sabr_pgd_steps (int): Number of PGD steps for SABR.
@@ -59,17 +70,22 @@ class STAPSModelWrapper(CTRAINWrapper):
             sabr_pgd_alpha_decay_factor (float): PGD alpha decay factor for SABR.
             sabr_pgd_decay_milestones (tuple): Milestones for PGD alpha decay for SABR.
             sabr_subselection_ratio (float): Subselection ratio (lambda) for SABR.
-            block_sizes (list): Sizes of blocks for STAPS. This is used to split up the network into feature extractor and classifier. These must sum up to the number of layers in the network.
-            gradient_expansion_alpha (float): Alpha value for gradient expansion, i.e. the factor the STAPS gradient is multiplied by.
+            block_sizes (list): Sizes of blocks for STAPS. This is used to split up the network
+                into feature extractor and classifier. These must sum up to the
+                number of layers in the network.
+            gradient_expansion_alpha (float): Alpha value for gradient expansion, i.e. the
+                factor the STAPS gradient is multiplied by.
             gradient_link_thresh (float): Threshold for gradient link.
             gradient_link_tol (float): Tolerance for gradient link.
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
-            pgd_eps_factor (float): PGD search range factor; nominal IBP bounds are unchanged.
             device (torch.device): Device to run the training on.
-            relu_upper_retention (float): Fraction of unstable ReLU upper bounds retained during training and selection; (0, 1], default 1.
-            population_bn (bool): Recalibrate BatchNorm on training data after each epoch; default False.
+            relu_upper_retention (float): Fraction of unstable ReLU upper bounds retained during
+                training and selection; (0, 1], default 1.
+            population_bn (bool): Recalibrate BatchNorm on training data after each epoch;
+                default False.
+            pgd_eps_factor (float): PGD search range factor; nominal IBP bounds are unchanged.
         """
         validate_hybrid_options(relu_upper_retention, pgd_eps_factor)
         super().__init__(model, eps, input_shape, train_eps_factor, lr, optimizer_func, lr_scheduler_func, lr_decay_kwargs, bound_opts, device, checkpoint_save_path=checkpoint_save_path, checkpoint_save_interval=checkpoint_save_interval, population_bn=population_bn)
@@ -118,14 +134,18 @@ class STAPSModelWrapper(CTRAINWrapper):
 
 
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
-        """
-        Trains the model using the STAPS method.
+        """Train the wrapped model using the configured method and schedule.
+
+        The wrapper forwards its configuration to the corresponding library trainer.
+        start_epoch and end_epoch select a segment of the full schedule, retaining
+        its original warm-up, ramp-up and learning-rate milestones.
 
         Args:
             train_loader (torch.utils.data.DataLoader): DataLoader for training data.
             val_loader (torch.utils.data.DataLoader, optional): DataLoader for validation data.
-            start_epoch (int, optional): Epoch to start training from. Initialises learning rate and epsilon schedulers accordingly. Defaults to 0.
-            end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
+            start_epoch (int, optional): Epoch to start training from. Initialises learning rate
+                and epsilon schedulers accordingly.
+            end_epoch (int, optional): Epoch to prematurely end training at.
 
         Returns:
             (auto_LiRPA.BoundedModule): Trained model.
@@ -179,8 +199,11 @@ class STAPSModelWrapper(CTRAINWrapper):
         return trained_model
 
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1, adv_loss_weight=1, cert_loss_weight=1, complete_verify=False):
-        """
-        Function called during hyperparameter optimization (HPO) using SMAC3, returns the loss.
+        """Train and evaluate one hyperparameter configuration.
+
+        Construct a method-specific wrapper, train it and save its inference weights.
+        Return the negative weighted accuracy and the natural, certified and
+        adversarial validation accuracies for the optimisation procedure.
 
         Args:
             config (dict): Configuration of hyperparameters.
@@ -190,12 +213,16 @@ class STAPSModelWrapper(CTRAINWrapper):
             val_loader (torch.utils.data.DataLoader): DataLoader for validation data.
             output_dir (str): Directory to save output.
             cert_eval_samples (int, optional): Number of samples for certification evaluation.
-            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss function.
-            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss function.
-            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss function.
+            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss
+                function.
+            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss
+                function.
+            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss
+                function.
+            complete_verify (bool): Whether to evaluate the trial through complete verification.
 
         Returns:
-            tuple: Loss and dictionary of accuracies that is saved as information to the run by SMAC3.
+            (tuple): Loss and dictionary of accuracies that is saved as information to the run by SMAC3.
         """
         config_hash = get_config_hash(config, 32)
         seed_ctrain(seed)

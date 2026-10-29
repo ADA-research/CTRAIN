@@ -14,6 +14,7 @@ from CTRAIN.util.util import preserve_model_state
 def validate_ibp_r_options(rho, pgd_steps, pgd_restarts, pgd_alpha,
                           relu_upper_retention=1.0, pgd_eps_factor=1.0,
                           pgd_decay_factor=.1, pgd_decay_checkpoints=()):
+    """Validate the IBP-R penalty weight, attack schedule and bound-retention options."""
     validate_hybrid_options(relu_upper_retention, pgd_eps_factor)
     if not math.isfinite(rho) or rho < 0:
         raise ValueError("rho must be nonnegative and finite")
@@ -30,7 +31,11 @@ def validate_ibp_r_options(rho, pgd_steps, pgd_restarts, pgd_alpha,
 
 
 def relu_area(model, data):
-    """Sum unstable ReLU triangle areas per example from fresh IBP intervals."""
+    """Return each example's total unstable-ReLU relaxation area.
+
+    For fresh IBP preactivation intervals [l, u], each unstable neuron contributes
+    (-l) * u / 2. Contributions are summed across neurons and layers.
+    """
     area = data.new_zeros(len(data))
     for node in model.modules():
         if isinstance(node, BoundRelu):
@@ -47,7 +52,21 @@ def get_ibp_r_loss(hardened_model, original_model, ptb, data, target,
                    data_min=None, data_max=None, eps=None,
                    pgd_early_stopping=False, pgd_decay_factor=.1,
                    pgd_decay_checkpoints=(), clean_output=None):
-    """Return the mixed CE + rho * ReLU area loss and adversarial logits.
+    """Combine adversarial cross-entropy with unstable-ReLU relaxation penalties.
+
+    The clean-to-adversarial mixture is controlled by kappa. Fresh IBP intervals
+    supply the regularisation areas, and optional masking selects correctly
+    classified adversarial inputs. Returns the scalar loss and the predictions
+    used for the adversarial component, or clean predictions at kappa=0.
+
+    ``kappa`` is the *adversarial* weight (0 for clean, 1 after mixing).
+    ``rho`` multiplies areas including their factor 1/2. Areas sum over
+    neurons and layers, then average over the entire batch, even with masking.
+    Both attack and IBP use the enlarged training box supplied in ``ptb``.
+    ``pgd_eps_factor`` optionally scales only the attack; ``eps`` is the
+    scheduled radius before clipping. L1 regularisation belongs to the trainer.
+    Attacks run in eval mode; logits and bounds use the caller's module modes.
+    Retention below 1 is an optional unsound surrogate, absent from the paper.
 
     ``kappa`` is the *adversarial* weight (0 for clean, 1 after mixing).
     ``rho`` multiplies areas including their factor 1/2. Areas sum over

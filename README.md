@@ -129,6 +129,9 @@ scripts, and optional CUDA and complete-verifier checks.
 
 ## 🧪 Quick Start
 
+See the [six runnable tutorials](docs/examples/README.md) for training, evaluation,
+HPO, controller properties, ONNX/VNNLIB and MNIST arithmetic examples.
+
 Train and evaluate a CNN7 model on CIFAR-10 with the Shi-style IBP wrapper:
 
 ```python

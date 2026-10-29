@@ -1,3 +1,4 @@
+"""Model-wrapper interface for Shi-IBP training and robustness evaluation."""
 import copy
 import torch
 
@@ -8,8 +9,15 @@ from CTRAIN.train.certified import shi_train_model
 from CTRAIN.util import seed_ctrain
 
 class ShiIBPModelWrapper(CTRAINWrapper):
-    """
-    Wrapper class for training models using SHI-IBP method. For details, see Shi et al. (2021) Fast certified robust training with short warmup. https://proceedings.neurips.cc/paper/2021/file/988f9153ac4fd966ea302dd9ab9bae15-Paper.pdf
+    """Wrap a PyTorch classifier for Shi-IBP certified training.
+
+    This wrapper configures IBP training with the initialisation and interval-stability regularisers proposed by Shi et al. (2021).
+    Training is invoked through train_model; evaluation and hyperparameter
+    optimisation use the common CTRAINWrapper interface. The training loop,
+    loss computation and bound propagation are implemented in the corresponding
+    library functions.
+
+    See https://arxiv.org/abs/2102.06700.
     """
 
     def __init__(self, model, input_shape, eps, num_epochs, train_eps_factor=1,
@@ -21,30 +29,35 @@ class ShiIBPModelWrapper(CTRAINWrapper):
                  bound_opts=dict(conv_mode='patches', relu='adaptive'),
                  device=torch.device('cuda'), population_bn=False,
                  start_kappa=0, end_kappa=0):
-        """
-        Initializes the ShiIBPModelWrapper.
+        """Configure the model, training schedule and Shi-IBP hyperparameters.
 
         Args:
             model (torch.nn.Module): The model to be trained.
             input_shape (tuple): Shape of the input data.
-            eps (float): Epsilon value describing the perturbation the network should be certifiably robust against.
+            eps (float): Epsilon value describing the perturbation the network should be
+                certifiably robust against.
             num_epochs (int): Number of epochs for training.
             train_eps_factor (float): Factor for training epsilon.
             optimizer_func (torch.optim.Optimizer): Optimizer function.
             lr (float): Learning rate.
-            warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is trained on clean loss.
-            ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is gradually increased to the target train epsilon.
+            warm_up_epochs (int): Number of warm-up epochs, i.e. epochs where the model is
+                trained on clean loss.
+            ramp_up_epochs (int): Number of ramp-up epochs, i.e. epochs where the epsilon is
+                gradually increased to the target train epsilon.
+            lr_scheduler_func (callable): Constructor for the learning-rate scheduler.
             lr_decay_kwargs (dict): Arguments for the learning-rate scheduler,
                 e.g. milestones and gamma for MultiStepLR.
             gradient_clip (float): Gradient clipping value.
-            l1_reg_weight (float): L1 regularization weight.
-            shi_reg_weight (float): SHI regularization weight.
-            shi_reg_decay (bool): Whether to decay SHI regularization during the ramp up phase.
+            l1_reg_weight (float): L1 regularisation weight.
+            shi_reg_weight (float): SHI regularisation weight.
+            shi_reg_decay (bool): Whether to decay SHI regularisation during the ramp up phase.
             checkpoint_save_path (str): Path to save checkpoints.
             checkpoint_save_interval (int): Interval for saving checkpoints.
             bound_opts (dict): Options for bounding according to the auto_LiRPA documentation.
-            population_bn (bool): Recalibrate BatchNorm on training data after every epoch.
             device (torch.device): Device to run the training on.
+            population_bn (bool): Recalibrate BatchNorm on training data after every epoch.
+            start_kappa (float): Initial natural-loss mixture weight.
+            end_kappa (float): Final natural-loss mixture weight.
         """
         if not (0 <= start_kappa <= 1 and 0 <= end_kappa <= 1):
             raise ValueError('start_kappa and end_kappa must be finite values in [0, 1]')
@@ -69,14 +82,18 @@ class ShiIBPModelWrapper(CTRAINWrapper):
         self.optimizer_func = optimizer_func
 
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
-        """
-        Trains the model using the SHI-IBP method.
+        """Train the wrapped model using the configured method and schedule.
+
+        The wrapper forwards its configuration to the corresponding library trainer.
+        start_epoch and end_epoch select a segment of the full schedule, retaining
+        its original warm-up, ramp-up and learning-rate milestones.
 
         Args:
             train_loader (torch.utils.data.DataLoader): DataLoader for training data.
             val_loader (torch.utils.data.DataLoader, optional): DataLoader for validation data.
-            start_epoch (int, optional): Epoch to start training from. Initialises learning rate and epsilon schedulers accordingly. Defaults to 0.
-            end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
+            start_epoch (int, optional): Epoch to start training from. Initialises learning rate
+                and epsilon schedulers accordingly.
+            end_epoch (int, optional): Epoch to prematurely end training at.
 
         Returns:
             (auto_LiRPA.BoundedModule): Trained model.
@@ -111,8 +128,11 @@ class ShiIBPModelWrapper(CTRAINWrapper):
         return trained_model
 
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1, adv_loss_weight=1, cert_loss_weight=1, complete_verify=False):
-        """
-        Function called during hyperparameter optimization (HPO) using SMAC3, returns the loss.
+        """Train and evaluate one hyperparameter configuration.
+
+        Construct a method-specific wrapper, train it and save its inference weights.
+        Return the negative weighted accuracy and the natural, certified and
+        adversarial validation accuracies for the optimisation procedure.
 
         Args:
             config (dict): Configuration of hyperparameters.
@@ -122,12 +142,16 @@ class ShiIBPModelWrapper(CTRAINWrapper):
             val_loader (torch.utils.data.DataLoader): DataLoader for validation data.
             output_dir (str): Directory to save output.
             cert_eval_samples (int, optional): Number of samples for certification evaluation.
-            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss function.
-            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss function.
-            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss function.
+            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss
+                function.
+            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss
+                function.
+            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss
+                function.
+            complete_verify (bool): Whether to evaluate the trial through complete verification.
 
         Returns:
-            tuple: Loss and dictionary of accuracies that is saved as information to the run by SMAC3.
+            (tuple): Loss and dictionary of accuracies that is saved as information to the run by SMAC3.
         """
         config_hash = get_config_hash(config, 32)
         seed_ctrain(seed)

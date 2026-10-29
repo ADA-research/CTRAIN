@@ -1,7 +1,14 @@
+"""Adversarial training losses using the shared PGD implementation."""
 from CTRAIN.attacks import pgd_attack
 from CTRAIN.util.util import preserve_model_state
 
 def get_pgd_loss(hardened_model, ptb, data, target, n_classes, criterion, return_bounds=False, n_steps=200, step_size=0.2, restarts=1, early_stopping=True, *, decay_factor=.1, decay_checkpoints=(), return_stats=False):
+    """Compute the mean criterion on PGD-generated adversarial inputs.
+
+    The attack runs in evaluation mode; loss evaluation uses the caller's model
+    mode. return_bounds must be False. Returns the scalar loss, or (loss,
+    adversarial_error) when return_stats=True.
+    """
     assert not return_bounds, "Return Bounds not available PGD training!"
     
     with preserve_model_state(hardened_model):

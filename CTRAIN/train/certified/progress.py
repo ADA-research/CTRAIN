@@ -1,7 +1,9 @@
+"""Report training progress with separate natural, certified and latent-proxy metrics."""
 from tqdm.auto import tqdm
 
 
 def _as_float(value):
+    """Convert a scalar metric to a Python float without retaining its autograd graph."""
     if hasattr(value, "detach"):
         value = value.detach()
     if hasattr(value, "item"):
@@ -10,11 +12,13 @@ def _as_float(value):
 
 
 def format_eps(value):
+    """Format the perturbation radius with four decimal places for progress reporting."""
     value = _as_float(value)
     return f"{value:.4f}"
 
 
 def progress_bar(iterable, epoch, num_epochs, eps, method=None, disable=False, *, total=None):
+    """Create an epoch progress display with the method and current perturbation radius."""
     prefix = f"Epoch {epoch + 1}/{num_epochs}"
     if method:
         prefix = f"{method} {prefix}"
@@ -29,6 +33,7 @@ def progress_bar(iterable, epoch, num_epochs, eps, method=None, disable=False, *
 
 
 def update_progress(progress, loss, nat_acc=None, cert_acc=None, adv_acc=None, lr=None, robust_acc=None):
+    """Update batch metrics, keeping latent proxy accuracy distinct from certified accuracy."""
     values = {"loss": f"{_as_float(loss):.4f}"}
     if nat_acc is not None:
         values["nat"] = f"{_as_float(nat_acc):.3f}"
@@ -44,6 +49,7 @@ def update_progress(progress, loss, nat_acc=None, cert_acc=None, adv_acc=None, l
 
 
 def log_epoch_summary(epoch, num_epochs, loss, nat_acc, cert_acc=None, adv_acc=None, robust_acc=None):
+    """Print the completed epoch's losses, accuracies and optional latent proxy score."""
     parts = [
         f"Epoch [{epoch + 1}/{num_epochs}]",
         f"loss={_as_float(loss):.4f}",

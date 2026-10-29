@@ -1,3 +1,4 @@
+"""Shared validation, model selection, BatchNorm synchronisation and epoch-metric utilities."""
 import copy
 import math
 import torch
@@ -6,7 +7,9 @@ import numpy as np
 
 def validate_training_run(train_loader, num_epochs, start_epoch, end_epoch,
                           checkpoint_save_interval, lr_decay_schedule_unit='epoch', *, history=None):
-    """Validate the shared lifecycle before initialization or optimizer updates."""
+    """Validate the loader, epoch range, scheduler unit and checkpoint interval; return the
+    exclusive ending epoch.
+    """
     end_epoch = num_epochs if end_epoch is None else end_epoch
     if (any(type(v) is not int for v in (num_epochs, start_epoch, end_epoch))
             or num_epochs <= 0 or not 0 <= start_epoch <= end_epoch <= num_epochs):
@@ -23,35 +26,42 @@ def validate_training_run(train_loader, num_epochs, start_epoch, end_epoch,
 
 
 def resolve_validation_eps(validation_eps, eval_eps):
-    """Accept the legacy evaluation-radius name without silently overriding it."""
+    """Resolve validation_eps and its legacy eval_eps alias, rejecting conflicting radii."""
     if validation_eps is not None and eval_eps is not None and validation_eps != eval_eps:
         raise ValueError('validation_eps and legacy eval_eps must agree')
     return eval_eps if validation_eps is None else validation_eps
 
 
 def checkpoint_due(epoch, end_epoch, interval):
-    """Save periodic and final trajectory states before inference selection."""
+    """Return whether a completed epoch is a periodic or final trajectory checkpoint."""
     return epoch % interval == 0 or epoch == end_epoch
 
 
 class EpochMetrics:
-    """Accumulate batch means by example count, including partial batches."""
+    """Accumulate sample-weighted training metrics across full and partial batches."""
     def __init__(self):
         self.samples = 0
         self.totals = {}
 
     def update(self, count, **values):
+        """Accumulate batch-mean metrics weighted by the number of examples."""
         self.samples += count
         for key, value in values.items():
             self.totals[key] = self.totals.get(key, 0.) + float(value) * count
 
     def mean(self, key):
+        """Return the sample-weighted mean of a previously accumulated metric."""
         return self.totals[key] / self.samples
 
 
 def evaluate_taps_proxy(original_model, hardened_model, data_loader, eps, n_classes,
                         device, propagation="IBP", sabr_args=None, **attack_args):
-    """Evaluate latent-margin accuracy without updating BatchNorm statistics."""
+    """Evaluate latent-margin proxy accuracy at a fixed perturbation radius.
+
+    The feature and classifier split uses IBP or SABR propagation and latent PGD.
+    Caller modes and gradient flags are preserved, so BatchNorm statistics are
+    not updated. This score is used for model selection, not sound certification.
+    """
     from auto_LiRPA import PerturbationLpNorm
     from CTRAIN.bound import bound_taps
     from CTRAIN.util.util import preserve_model_state
@@ -91,7 +101,12 @@ def evaluate_taps_proxy(original_model, hardened_model, data_loader, eps, n_clas
 
 
 def synchronise_bn(original_model, hardened_model, train_loader, device, population=False, loss_fusion_model=None):
-    """Export current full-model buffers; optionally use CTBench population BN."""
+    """Synchronise BatchNorm buffers across the original, bounded and fused models.
+
+    Optional population recalibration refreshes running statistics on training
+    data before copying them. Recalibration preserves caller modes and BatchNorm
+    momentum, including on failure.
+    """
     import torch
     from torch.nn.modules.batchnorm import _BatchNorm
     from CTRAIN.util.util import preserve_model_state
@@ -124,6 +139,7 @@ def synchronise_bn(original_model, hardened_model, train_loader, device, populat
 
 
 def prepare_model_selection(state, loader, eps=None):
+    """Prepare persistent validation-selection state and reject an empty validation loader."""
     if state is not None and not isinstance(state, dict):
         raise ValueError('selection_state must be a dictionary')
     if loader is not None and not len(loader):
@@ -134,7 +150,7 @@ def prepare_model_selection(state, loader, eps=None):
 
 
 def update_model_selection(state, model, score, epoch, *, allow_negative_infinity=False):
-    """Keep the earliest best inference weights, separate from the trajectory."""
+    """Retain the first best-scoring inference weights without rewinding the training trajectory."""
     score = tuple(float(v) for v in score) if isinstance(score, tuple) else float(score)
     values = score if isinstance(score, tuple) else (score,)
     if any(not math.isfinite(v) and not (allow_negative_infinity and v == -float('inf')) for v in values):
@@ -145,6 +161,7 @@ def update_model_selection(state, model, score, epoch, *, allow_negative_infinit
 
 
 def restore_model_selection(state, model):
+    """Load selected inference weights if present and return whether restoration occurred."""
     if state.get('weights') is None:
         return False
     model.load_state_dict(state['weights'])
@@ -152,7 +169,7 @@ def restore_model_selection(state, model):
 
 
 def evaluate_validation_loss(models, loader, loss_func, device):
-    """Sample-weighted robust data loss with fixed evaluation-mode BN statistics."""
+    """Compute sample-weighted validation loss with fixed evaluation-mode BatchNorm statistics."""
     from CTRAIN.util.util import preserve_model_state
     total = samples = 0
     with preserve_model_state(*models), torch.no_grad():
@@ -169,6 +186,7 @@ def evaluate_validation_loss(models, loader, loss_func, device):
 
 
 def validation_ptb(data, loader, eps):
+    """Construct a clipped validation box from a raw-input radius and the loader's metadata."""
     from auto_LiRPA import PerturbationLpNorm
     from CTRAIN.util.util import loader_radius, loader_limits
     radius = loader_radius(eps, loader, data)

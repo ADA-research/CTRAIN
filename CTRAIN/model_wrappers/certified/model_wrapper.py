@@ -1,3 +1,4 @@
+"""Shared PyTorch interface for certified training, evaluation and hyperparameter optimisation."""
 from functools import partial
 import copy
 import os
@@ -16,32 +17,39 @@ from CTRAIN.util.util import loader_radius
 
 
 def _constant_value(hyperparameter):
+    """Read a fixed ConfigSpace hyperparameter value across supported ConfigSpace versions."""
     if hasattr(hyperparameter, "value"):
         return hyperparameter.value
     return hyperparameter.default_value
 
 
 class CTRAINWrapper(nn.Module):
-    """
-    Wrapper base class for certifiably training models.
+    """Provide the common interface for CTRAIN's certified training wrappers.
+
+    The wrapper encapsulates a PyTorch network and converts it to a bounded
+    LiRPA graph for bound propagation. Method-specific subclasses configure the
+    training procedures, while this base class provides evaluation, checkpoint
+    resumption and hyperparameter optimisation. Since the wrapper inherits from
+    nn.Module, it can be used in existing PyTorch workflows.
     """
     def __init__(self, model: nn.Module, eps:float, input_shape: tuple, train_eps_factor=1, lr=0.0005, optimizer_func=torch.optim.Adam,
                  lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR, lr_decay_kwargs=dict(milestones=(80, 90), gamma=0.2), bound_opts=dict(conv_mode='patches', relu='adaptive'), device='cuda', checkpoint_save_path=None, checkpoint_save_interval=10, population_bn=False):
-        """
-        Initialize the CTRAINWrapper Base Class.
+        """Convert the network to a bounded graph and configure shared training options.
 
         Args:
             model (nn.Module): The neural network model to be wrapped.
             eps (float): The epsilon value for training.
             input_shape (tuple): The shape of the input tensor.
-            train_eps_factor (float, optional): Factor to scale epsilon during training. Default is 1.
-            lr (float, optional): Learning rate for the optimizer. Default is 0.0005.
-            optimizer_func (torch.optim.Optimizer, optional): The optimizer function to use. Default is torch.optim.Adam.
-            bound_opts (dict, optional): Options for bounding the model. Default is {'conv_mode': 'patches', 'relu': 'adaptive'}.
-            device (str or torch.device, optional): The device to run the model on. Default is 'cuda'.
-            checkpoint_save_path (str, optional): Path to save checkpoints. Default is None.
+            train_eps_factor (float, optional): Factor to scale epsilon during training.
+            lr (float, optional): Learning rate for the optimiser.
+            optimizer_func (torch.optim.Optimizer, optional): The optimiser function to use.
+            lr_scheduler_func (callable): Constructor for the learning-rate scheduler.
+            lr_decay_kwargs (dict): Scheduler arguments, such as milestones and gamma for MultiStepLR.
+            bound_opts (dict, optional): Options for bounding the model.
+            device (str or torch.device, optional): The device to run the model on.
+            checkpoint_save_path (str, optional): Path to save checkpoints.
+            checkpoint_save_interval (int, optional): Interval to save checkpoints.
             population_bn (bool, optional): Recalibrate BatchNorm after each training epoch.
-            checkpoint_save_interval (int, optional): Interval to save checkpoints. Default is 10.
 
         Attributes:
             original_model (nn.Module): The original neural network model.
@@ -52,8 +60,8 @@ class CTRAINWrapper(nn.Module):
             bound_opts (dict): Options for bounding the model.
             bounded_model (BoundedModule): The bounded version of the original model.
             input_shape (tuple): The shape of the input tensor.
-            optimizer_func (torch.optim.Optimizer): The optimizer function.
-            optimizer (torch.optim.Optimizer): The optimizer instance.
+            optimizer_func (torch.optim.Optimizer): The optimiser function.
+            optimizer (torch.optim.Optimizer): The optimiser instance.
             epoch (int): The current epoch number.
             checkpoint_path (str): Path to save checkpoints.
         """
@@ -105,8 +113,7 @@ class CTRAINWrapper(nn.Module):
         self.population_bn = population_bn
 
     def train(self, mode=True):
-        """
-        Sets wrapper into training mode.
+        """Set the wrapper and its registered models to the requested training mode.
 
         This method calls the `train` method on both the `original_model` and
         the `bounded_model` to set them into training mode
@@ -114,37 +121,47 @@ class CTRAINWrapper(nn.Module):
         return super().train(mode)
 
     def eval(self):
-        """
-        Sets the model to evaluation mode.
+        """Set the wrapper and its registered models to evaluation mode.
 
         This method sets both the original model and the bounded model to evaluation mode.
-        In evaluation mode, certain layers like dropout and batch normalization behave differently
+        In evaluation mode, certain layers like dropout and batch normalisation behave differently
         compared to training mode, typically affecting the model's performance and predictions.
         """
         return self.train(False)
 
     def forward(self, x):
-        """
-        Perform a forward pass through the LiRPA model.
+        """Evaluate the bounded network on a batch of nominal inputs.
 
         Args:
             x (torch.Tensor): Input tensor to be passed through the model.
 
         Returns:
-            torch.Tensor: Output tensor after passing through the bounded model.
+            (torch.Tensor): Output tensor after passing through the bounded model.
         """
         return self.bounded_model(x)
 
     def evaluate(self, test_loader, test_samples=np.inf, eval_method='ADAPTIVE',
                  adversarial_method='PGD', alpha_iterations=20, autoattack_kwargs=None,
                  propagation_batch_size=1):
-        """
-        Evaluate the model using the provided test data loader.
+        """Evaluate natural, certified and adversarial classification accuracy.
+
+        The nominal raw-input radius is converted using the loader's normalisation
+        metadata. Incomplete verification establishes a lower bound on robust
+        accuracy, while adversarial searches identify counterexamples. Choose a
+        single bounding method or progressively apply methods with ADAPTIVE.
 
         Args:
             test_loader (DataLoader): DataLoader containing the test dataset.
-            test_samples (int, optional): Number of test samples to evaluate. Defaults to np.inf.
-            eval_method (str or list, optional): The certification method to use. Options are 'FORWARD', 'IBP', 'CROWN', 'ALPHA-CROWN', 'CROWN-IBP', 'ADAPTIVE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). 'ZONOTOPE' aliases 'FORWARD'. Default is 'ADAPTIVE'.
+            test_samples (int, optional): Number of test samples to evaluate.
+            eval_method (str or list, optional): The certification method to use. Options are
+                'FORWARD', 'IBP', 'CROWN', 'ALPHA-CROWN',
+                'CROWN-IBP', 'ADAPTIVE', or a list of methods
+                (which results in an ADAPTIVE evaluation using
+                these methods). 'ZONOTOPE' aliases 'FORWARD'.
+            adversarial_method (str): Empirical evaluation method: 'PGD' or 'AUTOATTACK'.
+            alpha_iterations (int): Number of optimisation iterations for alpha-CROWN relaxation
+                slopes.
+            autoattack_kwargs (dict, optional): Optional AutoAttack version, seed and verbosity settings.
             propagation_batch_size (int): Maximum forward-bound chunk size; default 1.
 
         Returns:
@@ -178,24 +195,32 @@ class CTRAINWrapper(nn.Module):
         neuralsat_command=None,
         neuralsat_batch_size=1000,
     ):
-        """
-        Evaluate the model using alpha-beta-CROWN (default) or NeuralSAT.
+        """Evaluate robustness using incomplete screening and a complete verifier.
+
+        CTRAIN first applies inexpensive bounds and PGD, then sends unresolved
+        inputs to alpha-beta-CROWN or NeuralSAT through ONNX and VNNLIB files.
+        The per-query time limit controls the solver budget; cases that remain
+        unresolved are retained in the persisted results.
 
         Args:
             test_loader (DataLoader): DataLoader for the test set.
-            test_samples (int, optional): Number of test samples to evaluate. Defaults to np.inf.
-            timeout (int, optional): Per-instance timeout for the verification process in seconds. Defaults to 1000.
-            no_cores (int, optional): Number of CPU cores to use for verification. Only relevant, if MIP refinement is used in abCROWN. Defaults to 4.
-            abcrown_batch_size (int, optional): Batch size for abCROWN. Defaults to 512. Decrease, if you run out of memory.
-            abcrown_config_dict (dict, optional): Configuration dictionary for abCROWN according to the tools documentation. Defaults to an empty dictionary.
-            results_path (str, optional): Path to save abCROWN results and logs. Defaults to './abcrown_results'.
-            warm_start (bool, optional): Reuse existing results from the results file. Defaults to False.
-            start_idx (int, optional): First dataset index to verify. Defaults to 0.
-            end_idx (int, optional): Exclusive end dataset index to verify. Defaults to None.
-            results_filename (str, optional): JSON file name under results_path. Defaults to 'results.json'.
+            test_samples (int, optional): Number of test samples to evaluate.
+            timeout (int, optional): Per-instance timeout for the verification process in
+                seconds.
+            no_cores (int, optional): Number of CPU cores to use for verification. Only
+                relevant, if MIP refinement is used in abCROWN.
+            abcrown_batch_size (int, optional): Batch size for abCROWN.  Decrease, if you run
+                out of memory.
+            abcrown_config_dict (dict, optional): Configuration dictionary for abCROWN according
+                to the tools documentation.
+            results_path (str, optional): Path to save abCROWN results and logs.
+            warm_start (bool, optional): Reuse existing results from the results file.
+            start_idx (int, optional): First dataset index to verify.
+            end_idx (int, optional): Exclusive end dataset index to verify.
+            results_filename (str, optional): JSON file name under results_path.
             engine (str): 'abcrown' (default) or 'neuralsat'.
             neuralsat_command (list): Argv prefix; None uses the bundled solver.
-            neuralsat_batch_size (int): Maximum NeuralSAT parallel branches. Defaults to 1000.
+            neuralsat_batch_size (int): Maximum NeuralSAT parallel branches.
 
         Returns:
             (tuple): A tuple containing: std_acc (float): Standard accuracy of the model on the test set, certified_acc (float): Certified accuracy of the model on the test set and adv_acc (float): Adversarial accuracy of the model on the test set.
@@ -234,19 +259,18 @@ class CTRAINWrapper(nn.Module):
         return std_acc, certified_acc, adv_acc
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
-        """
-        Returns the state dictionary of the LiRPA model.
+        """Return the bounded network parameters and persistent buffers for inference.
 
         The state dictionary contains the model parameters and persistent buffers.
 
         Returns:
-            dict: A dictionary containing the model's state.
+            (dict): A dictionary containing the model's state.
         """
         return self.bounded_model.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
 
     def load_state_dict(self, state_dict, strict = True):
-        """
-        Load the state dictionary into the bounded LiRPA model.
+        """Load bounded network parameters and persistent buffers from an inference state
+        dictionary.
 
         Args:
             state_dict (dict): A dictionary containing model state parameters.
@@ -263,20 +287,24 @@ class CTRAINWrapper(nn.Module):
         return self.bounded_model.load_state_dict(state_dict, strict)
 
     def parameters(self, recurse=True):
+        """Iterate over the bounded network parameters exposed to the optimiser."""
         return self.bounded_model.parameters(recurse=recurse)
     # TODO: Add onnx export/loading
 
     def resume_from_checkpoint(self, checkpoint_path:str, train_loader, val_loader=None, end_epoch=None):
-        """
-        Resume training from a given checkpoint.
+        """Restore the training trajectory and continue at its next epoch.
+
+        The checkpoint supplies model, optimiser, learning-rate scheduler and
+        selection state. Recreate the original schedule and loader protocol before
+        resuming. These classifier checkpoints do not restore RNG or loader state;
+        checkpoints without scheduler state cannot resume the trajectory reliably.
 
         Args:
             checkpoint_path (str): Path to the checkpoint file.
             train_loader (DataLoader): DataLoader for the training dataset.
-            val_loader (DataLoader, optional): DataLoader for the validation dataset. Defaults to None.
+            val_loader (DataLoader, optional): DataLoader for the validation dataset.
             end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
-
-        Loads model, optimizer and LR scheduler state, then resumes at the next
+        Loads model, optimiser and LR scheduler state, then resumes at the next
         epoch. Legacy checkpoints without scheduler state are rejected. RNG and
         data-loader state are not restored; this is not a bitwise replay.
         """
@@ -301,29 +329,31 @@ class CTRAINWrapper(nn.Module):
         return self.train_model(train_loader, val_loader, start_epoch=self.epoch, end_epoch=end_epoch)
 
     def hpo_smac(self, train_loader, val_loader, budget=5*24*60*60, defaults=dict(), eval_samples=1000, output_dir='./smac_hpo', deterministic=False, seed=42, nat_loss_weight=1., adv_loss_weight=1., cert_loss_weight=1.):
-        """
-        Perform single-objective hyperparameter optimization using SMAC3.
+        """Optimise a weighted combination of validation accuracies using SMAC3.
 
-        After the method returns, the model will have loaded the best
-        hyperparameters found during the optimization and the corresponding
-        trained weights. New code should prefer :meth:`hpo` for multi-objective
-        Optuna HPO.
+        This single-objective interface trains configurations from the method's
+        search space and returns the selected configuration and loads its trained weights. Use hpo
+        to explore the natural-certified accuracy trade-off through a Pareto front.
 
         Args:
             train_loader (DataLoader): DataLoader for the training dataset.
             val_loader (DataLoader): DataLoader for the validation dataset.
-            budget (int, optional): Time budget for the HPO process in seconds. Default is 5 days (5*24*60*60).
-            defaults (dict, optional): Default hyperparameter values. Default is an empty dictionary.
-            eval_samples (int, optional): Number of samples to use for loss computation. Default is 1000.
-            output_dir (str, optional): Directory to store HPO results. Default is './smac_hpo'.
-            deterministic (bool, optional): Whether SMAC3 should treat the objective function as deterministic. Speeds up the optimisation. Default is False.
-            seed (int, optional): Random seed for reproducibility of the HPO. Default is 42.
-            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss function.
-            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss function.
-            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss function.
+            budget (int, optional): Time budget for the HPO process in seconds.
+            defaults (dict, optional): Default hyperparameter values.
+            eval_samples (int, optional): Number of samples to use for loss computation.
+            output_dir (str, optional): Directory to store HPO results.
+            deterministic (bool, optional): Whether SMAC3 should treat the objective function as
+                deterministic. Speeds up the optimisation.
+            seed (int, optional): Random seed for reproducibility of the HPO.
+            nat_loss_weight (float, optional): Weight for the natural accuracy in the loss
+                function.
+            adv_loss_weight (float, optional): Weight for the adversarial accuracy in the loss
+                function.
+            cert_loss_weight (float, optional): Weight for the certified accuracy in the loss
+                function.
 
         Returns:
-            Configuration: The best hyperparameter configuration found during the optimization.
+            (Configuration): The best hyperparameter configuration found during the optimisation.
         """
         os.makedirs(output_dir, exist_ok=True)
         if os.listdir(output_dir):
@@ -373,32 +403,37 @@ class CTRAINWrapper(nn.Module):
         complete_verify=False,
         study_name="moctrain",
     ):
-        """
-        Perform multi-objective HPO with Optuna and return the Pareto front.
+        """Search for Pareto-optimal natural and certified validation accuracies.
 
-        The objectives are natural and certified validation accuracy. The full
-        Pareto front is stored in the Optuna study database under ``output_dir``.
-        Trial checkpoints are written to ``output_dir/nets``. This method does
-        not load one checkpoint implicitly, because selecting a final model is a
-        downstream decision on the returned Pareto front.
+        The multi-objective procedure uses Optuna with BoTorch or NSGA-II to explore
+        the method-specific configuration space. It retains the trade-off solutions
+        so users can select the network appropriate to their application.
+
+        The study and checkpoints are persisted under output_dir. The returned front
+        uses trials meeting min_nat_acc and min_cert_acc when feasible trials exist;
+        otherwise it retains the unconstrained front and records infeasibility.
+        No checkpoint is loaded implicitly: select a returned checkpoint_path and
+        load the desired network explicitly.
 
         Args:
             train_loader (DataLoader): DataLoader for the training dataset.
             val_loader (DataLoader): DataLoader for validation.
             budget_time (int): Wall-clock budget in seconds.
-            budget_trials (int or float): Maximum number of trials. ``np.inf`` disables this limit.
+            budget_trials (int or float): Maximum number of trials. ``np.inf`` disables this
+                limit.
             defaults (dict): Default hyperparameter values for the ConfigSpace.
             eval_samples (int): Number of validation samples used per trial.
             output_dir (str): Directory for Optuna DBs and trial checkpoints.
             min_nat_acc (float): Feasibility threshold for natural accuracy.
             min_cert_acc (float): Feasibility threshold for certified accuracy.
             seed (int): Random seed.
-            sampler (str or optuna.samplers.BaseSampler): ``"botorch"``, ``"nsgaii"``, or a sampler instance.
+            sampler (str or optuna.samplers.BaseSampler): ``"botorch"``, ``"nsgaii"``, or a
+                sampler instance.
             complete_verify (bool): Use complete verification for the certified objective.
             study_name (str): Name of the persisted Optuna study.
 
         Returns:
-            list[dict]: Pareto-optimal trials with their configs, metrics,
+            (list[dict]): Pareto-optimal trials with their configs, metrics,
                 feasibility status, and checkpoint paths.
         """
         defaults = defaults or {}
@@ -488,15 +523,17 @@ class CTRAINWrapper(nn.Module):
         study_name="ctrain_single_objective",
         load_best=True,
     ):
-        """
-        Perform scalar Optuna HPO and optionally load the best checkpoint.
+        """Optimise a weighted combination of validation accuracies using Optuna.
 
-        By default, the optimized objective is ``nat_acc + cert_acc``. The
+        This interface is useful when the desired trade-off between natural,
+        adversarial and certified accuracy can be expressed by fixed weights.
+
+        By default, the optimised objective is ``nat_acc + cert_acc``. The
         objective can be changed with ``nat_acc_weight``, ``adv_acc_weight``,
         and ``cert_acc_weight``.
 
         Returns:
-            dict: Best trial with its scalar objective value, config, metrics,
+            (dict): Best trial with its scalar objective value, config, metrics,
                 and checkpoint path.
         """
         defaults = defaults or {}
@@ -566,6 +603,7 @@ class CTRAINWrapper(nn.Module):
         return best
 
     def _sample_optuna_config(self, trial, config_space):
+        """Sample a valid method configuration from the ConfigSpace through an Optuna trial."""
         config = {}
         for hp_name in config_space:
             hp = config_space[hp_name]
@@ -582,6 +620,7 @@ class CTRAINWrapper(nn.Module):
         return config
 
     def _config_from_optuna_trial(self, trial, config_space):
+        """Reconstruct a method configuration from a completed Optuna trial and fixed defaults."""
         config = {}
         for hp_name in config_space:
             hp = config_space[hp_name]
@@ -592,6 +631,9 @@ class CTRAINWrapper(nn.Module):
         return config
 
     def _get_optuna_sampler(self, optuna, sampler, constraints_func, seed):
+        """Construct the requested multi-objective Optuna sampler with optional feasibility
+        constraints.
+        """
         if not isinstance(sampler, str):
             return sampler
         if sampler == "nsgaii":
@@ -608,6 +650,7 @@ class CTRAINWrapper(nn.Module):
         return BoTorchSampler(constraints_func=constraints_func, seed=seed, device=torch.device(self.device))
 
     def _get_optuna_single_objective_sampler(self, optuna, sampler, seed):
+        """Construct the requested scalar-objective Optuna sampler."""
         if not isinstance(sampler, str):
             return sampler
         if sampler == "botorch":
@@ -621,6 +664,7 @@ class CTRAINWrapper(nn.Module):
         raise ValueError("sampler must be 'botorch', 'tpe', 'random', 'nsgaii', or an Optuna sampler instance")
 
     def _constrained_pareto_trials(self, trials):
+        """Select feasible Pareto trials when available, otherwise retain the unconstrained front."""
         completed_trials = [
             trial for trial in trials
             if trial.values is not None and len(trial.values) == 2
@@ -636,11 +680,15 @@ class CTRAINWrapper(nn.Module):
         ]
 
     def _dominates(self, values, other_values):
+        """Return whether the first objective vector weakly improves every maximisation objective
+        and strictly improves at least one.
+        """
         return all(value >= other for value, other in zip(values, other_values)) and any(
             value > other for value, other in zip(values, other_values)
         )
 
     def _optuna_trial_result(self, trial, config_space, output_dir):
+        """Build a trial record containing configuration, accuracies, feasibility and checkpoint path."""
         config = self._config_from_optuna_trial(trial, config_space)
         config_hash = trial.user_attrs.get("config_hash", get_config_hash(config, 32))
         constraints = trial.user_attrs.get("constraints")
@@ -665,6 +713,7 @@ class CTRAINWrapper(nn.Module):
         }
 
     def _optimizer_from_config(self, config):
+        """Resolve the optimiser constructor selected by the sampled configuration."""
         optimizer_name = config["optimizer_func"]
         if optimizer_name == "sgd":
             return torch.optim.SGD
@@ -677,6 +726,7 @@ class CTRAINWrapper(nn.Module):
         raise ValueError(f"Unknown optimizer_func: {optimizer_name}")
 
     def _lr_decay_kwargs_from_config(self, config, epochs):
+        """Translate sampled decay offsets into scheduler milestones and gamma."""
         lr_decay_milestones = [
             config["warm_up_epochs"] + config["ramp_up_epochs"] + config["lr_decay_epoch_1"],
             config["warm_up_epochs"] + config["ramp_up_epochs"] + config["lr_decay_epoch_1"] + config["lr_decay_epoch_2"],
@@ -687,6 +737,7 @@ class CTRAINWrapper(nn.Module):
         }
 
     def _evaluate_hpo_model(self, model_wrapper, val_loader, cert_eval_samples, output_dir, config_hash, complete_verify):
+        """Evaluate a trial using incomplete bounds or the requested complete-verification workflow."""
         if complete_verify:
             return model_wrapper.evaluate_complete(
                 test_loader=val_loader,
@@ -697,4 +748,9 @@ class CTRAINWrapper(nn.Module):
         return model_wrapper.evaluate(test_loader=val_loader, test_samples=cert_eval_samples)
 
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, complete_verify=False):
+        """Define the method-specific training and evaluation interface for HPO.
+
+        Concrete wrappers implement this function. The base implementation raises
+        NotImplementedError.
+        """
         raise NotImplementedError('HPO can only be run on the concrete Wrappers!')

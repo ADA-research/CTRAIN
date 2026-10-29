@@ -1,4 +1,4 @@
-"""Sound property bounds using installed auto_LiRPA operators."""
+"""Compute lower satisfaction margins for general input-output specifications using auto_LiRPA."""
 import copy
 from contextlib import nullcontext
 import torch
@@ -12,7 +12,7 @@ CERTIFICATION_METHODS = (*METHODS, 'ALPHA-CROWN')
 
 
 def box_endpoints(boxes, reference):
-    """Round domain endpoints outward when converting their stored dtype."""
+    """Convert stored box endpoints to the model device and dtype with outward rounding."""
     lower64 = torch.stack([b.lower for b in boxes]).to(reference.device)
     upper64 = torch.stack([b.upper for b in boxes]).to(reference.device)
     lower, upper = lower64.to(reference), upper64.to(reference)
@@ -24,6 +24,20 @@ def box_endpoints(boxes, reference):
 
 
 class PropertyBounds:
+    """Compute property satisfaction bounds while sharing the original network weights.
+
+    Affine comparisons are bounded through specification matrices. Boolean
+    formulas are appended to the network as fixed satisfaction-margin graphs;
+    property_bound='atomic' instead bounds and combines their affine leaves.
+    Outer conjunctions are treated as separate requirements.
+
+    Args:
+        model (torch.nn.Module): Verification network referenced by the specifications.
+        input_shape (tuple): Verification input shape without the batch dimension.
+        specs (Iterable[PropertySpec]): Specifications defining formulas and input boxes.
+        bound_opts (dict, optional): auto_LiRPA options and optional property_bound='graph'
+            or 'atomic'.
+    """
     def __init__(self, model, input_shape, specs, bound_opts=None):
         self.model, self.specs = model, tuple(specs)
         self.reference = next(model.parameters(), None)
@@ -69,9 +83,11 @@ class PropertyBounds:
 
     @property
     def modules(self):
+        """Return the bounded network and composed formula graphs sharing its parameters."""
         return (self.raw, *self.graphs.values())
 
     def sync_buffers(self):
+        """Synchronise verification-graph buffers with the current network buffers."""
         buffers = dict(self.model.named_buffers())
         with torch.no_grad():
             for name, value in self.raw.named_buffers():
@@ -87,7 +103,11 @@ class PropertyBounds:
                             value.copy_(source)
 
     def point_margins(self, spec_index, output, *, boolean=False):
-        """Reuse the affine compiler for point losses and Boolean attack success."""
+        """Evaluate each top-level requirement on a batch of network outputs.
+
+        With boolean=True, return exact pointwise satisfaction tests, including strict
+        comparison ties. Otherwise return differentiable satisfaction margins.
+        """
         results = []
         for index, formula in enumerate(obligations(self.specs[spec_index].formula)):
             key = (spec_index, index)
@@ -97,6 +117,23 @@ class PropertyBounds:
         return torch.cat(results, dim=1)
 
     def __call__(self, spec_index, boxes, method='CROWN-IBP', *, relu_upper_retention=1.):
+        """Bound every top-level requirement over the supplied boxes.
+
+        Args:
+            spec_index (int): Index of the specification in the constructor's specs.
+            boxes (Sequence[Box]): Nonempty batch of regions in verification coordinates.
+            method (str): IBP, CROWN-IBP, CROWN or ALPHA-CROWN.
+            relu_upper_retention (float): Training-only IBP retention in (0, 1]. Values below
+                one are unsound surrogates.
+
+        Returns:
+            (torch.Tensor): Lower margins of shape (number of boxes, number of requirements).
+                Positive finite bounds establish satisfaction when retention is one.
+
+        The computation uses evaluation-mode buffers while preserving caller modes
+        and parameter gradient flags. Gradients through model weights remain
+        available for training except during alpha-CROWN slope optimisation.
+        """
         if method not in CERTIFICATION_METHODS:
             raise ValueError(f'bound_method must be one of {CERTIFICATION_METHODS}')
         if not boxes:

@@ -1,3 +1,9 @@
+"""Evaluate predictive performance and robustness using attacks and verification.
+
+Adversarial attacks search for counterexamples, incomplete methods certify
+samples through bounds, and complete systems resolve harder queries within
+a configured budget. Classification accuracies are returned as fractions.
+"""
 import copy
 import hashlib
 import json
@@ -37,6 +43,7 @@ import gc
 
 
 class _BoxPerturbation(PerturbationLpNorm):
+    """Preserve the input dtype when LiRPA constructs sparse box coefficients."""
     def init_sparse_linf(self, x, x_L, x_U):
         # Installed LiRPA creates sparse coefficients in the default dtype.
         linear, center, aux = super().init_sparse_linf(x, x_L, x_U)
@@ -46,32 +53,52 @@ class _BoxPerturbation(PerturbationLpNorm):
 
 @contextmanager
 def suppress_stdout():
+    """Temporarily suppress standard output while retaining exceptions."""
     with open(os.devnull, "w") as null:
         with redirect_stdout(null):
             yield
 
 @contextmanager
 def redirect_stdout_to_file(filename):
+    """Redirect standard output to the specified file for the duration of the context."""
     with open(filename, "w") as file:
         with redirect_stdout(file):
             yield
 
 def write_json_atomic(filename, payload):
+    """Write JSON through a temporary file and atomically replace the destination."""
     tmp_filename = f"{filename}.tmp"
     with open(tmp_filename, "w") as f:
         json.dump(payload, f, indent=2)
     os.replace(tmp_filename, filename)
 
 def _canonical_methods(methods):
+    """Normalise method spelling and resolve ZONOTOPE to the FORWARD evaluation method."""
     if isinstance(methods, str):
         method = methods.replace("_", "-")
         return 'FORWARD' if method == 'ZONOTOPE' else method
     return [_canonical_methods(method) if isinstance(method, str) else method for method in methods]
 
 def _to_device_tensor(value, device):
+    """Move an existing tensor or construct a value tensor on the requested device."""
     return value.to(device) if torch.is_tensor(value) else torch.as_tensor(value, device=device)
 
 def eval_acc(model, test_loader, test_samples=np.inf, device=None):
+    """Compute natural classification accuracy on a prefix of the loader.
+
+    Args:
+        model (torch.nn.Module): Classifier returning a batch of class logits.
+        test_loader (DataLoader): Loader providing inputs and integer class labels.
+        test_samples (int or float): Positive sample budget; infinity evaluates all inputs.
+        device (str or torch.device, optional): Evaluation device; None chooses an available
+            accelerator or CPU.
+
+    Returns:
+        (float): Fraction of inputs classified correctly.
+
+    Evaluation preserves caller module modes and gradient flags, but moves the
+    model to the chosen device.
+    """
     test_samples = validate_test_samples(test_samples)
     with preserve_model_state(model):
         device = torch.device(device) if device is not None else torch.device(
@@ -110,19 +137,23 @@ def eval_acc(model, test_loader, test_samples=np.inf, device=None):
         return correct / total
 
 def eval_ibp(model, eps, data_loader, n_classes=10, test_samples=np.inf, device="cuda"):
-    """
-    Evaluate a model using Interval Bound Propagation (IBP) for certification.
+    """Certify local robustness using IBP bounds.
+
+    Interval arithmetic provides inexpensive output enclosures.
+    An input is certified when every true-class margin has a positive lower
+    bound. Uncertified inputs remain unresolved by this bounding method.
 
     Args:
-        model (auto_LiRPA.BoundedModule): The neural network model to be evaluated.
-        eps (float): The l_inf perturbation bound for for certification.
-        data_loader (torch.utils.data.DataLoader): DataLoader providing the dataset to evaluate.
-        n_classes (int, optional): Number of classes in the classification task. Default is 10.
-        test_samples (int, optional): Number of samples to test in order of the test loader. Default is np.inf (test all samples).
-        device (str, optional): Device to run the evaluation on ('cuda', 'mps', 'cpu'). Default is 'cuda'.
+        model (auto_LiRPA.BoundedModule): Network to evaluate.
+        eps (float or torch.Tensor): Perturbation radius in model input coordinates.
+        data_loader (DataLoader): Inputs, labels and feasible input-domain limits.
+        n_classes (int): Number of output classes.
+        test_samples (int or float): Positive sample budget; infinity evaluates all inputs.
+        device (str or torch.device): Evaluation device.
 
     Returns:
-        (tuple): A tuple containing the number of certified samples, the total number of images evaluated and per-instance result and running time.
+        (tuple): (certified_count, evaluated_count, results), where results maps
+            loader-order input indices to outcomes, method names and running times.
     """
     certified, total, _, results = eval_adaptive(
         model, eps, data_loader, n_classes, test_samples, device, methods=['IBP'])
@@ -131,19 +162,23 @@ def eval_ibp(model, eps, data_loader, n_classes=10, test_samples=np.inf, device=
 def eval_crown_ibp(
     model, eps, data_loader, n_classes=10, test_samples=np.inf, device="cuda"
 ):
-    """
-    Evaluate the model using the CROWN-IBP method.
+    """Certify local robustness using CROWN-IBP bounds.
 
-    Parameters:
-        model (auto_LiRPA.BoundedModule): The neural network model to be evaluated.
-        eps (float): The perturbation bound.
-        data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to be evaluated.
-        n_classes (int, optional): Number of classes in the dataset. Default is 10.
-        test_samples (int, optional): Number of samples to test in order of the test loader. Default is np.inf (test all samples).
-        device (str, optional): Device to run the evaluation on. Default is 'cuda'.
+    CROWN backward relaxations use IBP intermediate bounds.
+    An input is certified when every true-class margin has a positive lower
+    bound. Uncertified inputs remain unresolved by this bounding method.
+
+    Args:
+        model (auto_LiRPA.BoundedModule): Network to evaluate.
+        eps (float or torch.Tensor): Perturbation radius in model input coordinates.
+        data_loader (DataLoader): Inputs, labels and feasible input-domain limits.
+        n_classes (int): Number of output classes.
+        test_samples (int or float): Positive sample budget; infinity evaluates all inputs.
+        device (str or torch.device): Evaluation device.
 
     Returns:
-        (tuple): A tuple containing the number of certified samples, the total number of images evaluated and per-instance result and running time.
+        (tuple): (certified_count, evaluated_count, results), where results maps
+            loader-order input indices to outcomes, method names and running times.
     """
     certified, total, _, results = eval_adaptive(
         model, eps, data_loader, n_classes, test_samples, device, methods=['CROWN-IBP'])
@@ -152,19 +187,23 @@ def eval_crown_ibp(
 def eval_crown(
     model, eps, data_loader, n_classes=10, test_samples=np.inf, device="cuda"
 ):
-    """
-    Evaluate the model using the CROWN method.
+    """Certify local robustness using CROWN bounds.
 
-    Parameters:
-        model (auto_LiRPA.BoundedModule): The neural network model to be evaluated.
-        eps (float): The perturbation bound.
-        data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to be evaluated.
-        n_classes (int, optional): Number of classes in the dataset. Default is 10.
-        test_samples (int, optional): Number of samples to test in order of the test loader. Default is np.inf (test all samples).
-        device (str, optional): Device to run the evaluation on. Default is 'cuda'.
+    Linear relaxations bound the classification margins throughout the network.
+    An input is certified when every true-class margin has a positive lower
+    bound. Uncertified inputs remain unresolved by this bounding method.
+
+    Args:
+        model (auto_LiRPA.BoundedModule): Network to evaluate.
+        eps (float or torch.Tensor): Perturbation radius in model input coordinates.
+        data_loader (DataLoader): Inputs, labels and feasible input-domain limits.
+        n_classes (int): Number of output classes.
+        test_samples (int or float): Positive sample budget; infinity evaluates all inputs.
+        device (str or torch.device): Evaluation device.
 
     Returns:
-        (tuple): A tuple containing the number of certified samples, the total number of images evaluated and per-instance result and running time.
+        (tuple): (certified_count, evaluated_count, results), where results maps
+            loader-order input indices to outcomes, method names and running times.
     """
     certified, total, _, results = eval_adaptive(
         model, eps, data_loader, n_classes, test_samples, device, methods=['CROWN'])
@@ -179,12 +218,25 @@ def eval_alpha_crown(
     device="cuda",
     alpha_iterations=20,
 ):
-    """
-    Evaluate sound alpha-CROWN bounds with ``alpha_iterations`` slope updates.
+    """Certify local robustness using alpha-CROWN bounds.
 
-    Returns certified count, evaluated count and per-instance result records.
-    Uses single-image bound computations in loader order and preserves caller
-    modes, gradient flags and optimization options, including on exceptions.
+    Gradient-based slope optimisation tightens the CROWN relaxations.
+    An input is certified when every true-class margin has a positive lower
+    bound. Uncertified inputs remain unresolved by this bounding method.
+
+    Args:
+        model (auto_LiRPA.BoundedModule): Network to evaluate.
+        eps (float or torch.Tensor): Perturbation radius in model input coordinates.
+        data_loader (DataLoader): Inputs, labels and feasible input-domain limits.
+        n_classes (int): Number of output classes.
+        test_samples (int or float): Positive sample budget; infinity evaluates all inputs.
+        device (str or torch.device): Evaluation device.
+        alpha_iterations (int): Number of optimisation iterations for alpha-CROWN relaxation
+            slopes.
+
+    Returns:
+        (tuple): (certified_count, evaluated_count, results), where results maps
+            loader-order input indices to outcomes, method names and running times.
     """
     certified, total, _, results = eval_adaptive(
         model, eps, data_loader, n_classes, test_samples, device,
@@ -194,12 +246,26 @@ def eval_alpha_crown(
 
 def eval_forward(model, eps, data_loader, n_classes=10, test_samples=np.inf,
                  device='cuda', propagation_batch_size=1):
-    """Return certified count, evaluated count and records using forward LiRPA.
+    """Certify local robustness using forward LiRPA bounds.
 
-    eps is in model input coordinates, as for the other certification methods.
-    Native models are converted from a private copy of current weights and BN
-    buffers; BoundedModule inputs use their existing graph. Set n_classes=None
-    to infer it from the model. Chunking limits forward coefficient memory.
+    Same-slope forward relaxations bound the complete clipped input box.
+    An input is certified when every true-class margin has a positive lower
+    bound. Uncertified inputs remain unresolved by this bounding method.
+
+    Args:
+        model (auto_LiRPA.BoundedModule): Network to evaluate; forward LiRPA also accepts
+            native models.
+        eps (float or torch.Tensor): Perturbation radius in model input coordinates.
+        data_loader (DataLoader): Inputs, labels and feasible input-domain limits.
+        n_classes (int): Number of output classes.
+        test_samples (int or float): Positive sample budget; infinity evaluates all inputs.
+        device (str or torch.device): Evaluation device.
+        propagation_batch_size (int): Maximum number of inputs propagated together to limit
+            bound-computation memory.
+
+    Returns:
+        (tuple): (certified_count, evaluated_count, results), where results maps
+            loader-order input indices to outcomes, method names and running times.
     """
     certified, total, _, results = eval_adaptive(
         model, eps, data_loader, n_classes, test_samples, device,
@@ -229,23 +295,42 @@ def eval_complete(
     neuralsat_command=None,
     neuralsat_batch_size=1000,
 ):
-    """
-    Evaluate the model using alpha-beta-CROWN or NeuralSAT. Attention, this evaluation may be very costly!
+    """Evaluate robustness with incomplete screening followed by a complete verifier.
 
-    Parameters:
+    CTRAIN first applies PGD and incomplete bounds to the same captured inputs.
+    Unresolved queries are exported as ONNX networks and VNNLIB specifications
+    for alpha-beta-CROWN or NeuralSAT. A timeout leaves a query unresolved.
+    The loader must be sequential with drop_last=False. Captured CPU tensors
+    keep all stages consistent even when dataset transformations are stochastic.
+
+    Results and an identity manifest are saved under results_path. Warm-start
+    reuse requires matching model bytes, inputs, labels, input limits and radius;
+    legacy result files without a matching manifest require a fresh run.
+    Caller modes and gradient flags are restored, including on failure.
+
+    Args:
         model (auto_LiRPA.BoundedModule): The neural network model to be evaluated.
-        eps_std (float): The standard deviation of the perturbation bound.
-        data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to be evaluated.
-        n_classes (int, optional): Number of classes in the dataset. Default is 10.
-        input_shape (list, optional): Shape of the input data. Default is [1, 28, 28].
-        test_samples (int, optional): Number of samples to test in order of the test loader. Default is np.inf (test all samples).
-        timeout (int, optional): Timeout for the ABCROWN evaluation in seconds. Default is 1000.
-        no_cores (int, optional): Number of cores to use for MIP solving during the ABCROWN evaluation (if configured). Default is 28.
-        abcrown_batch_size (int, optional): Batch size for the ABCROWN evaluation. Default is 512.
-        separate_abcrown_process (bool, optional): Whether to run ABCROWN in a separate process. Default is False.
-        device (str, optional): Device to run the evaluation on. Default is 'cuda'.
-        results_path (str, optional): Path to save the results of the ABCROWN evaluation. Default is "./abCROWN_results".
+        eps_std (float): Perturbation radius in model input coordinates.
+        data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to be
+            evaluated.
+        n_classes (int, optional): Number of classes in the dataset.
+        input_shape (list, optional): Shape of the input data.
+        test_samples (int, optional): Number of samples to test in order of the test loader.
+        timeout (int, optional): Timeout for the ABCROWN evaluation in seconds.
+        no_cores (int, optional): Number of cores to use for MIP solving during the ABCROWN
+            evaluation (if configured).
+        abcrown_batch_size (int, optional): Batch size for the ABCROWN evaluation.
+        abcrown_config_dict (dict, optional): Optional alpha-beta-CROWN configuration overrides following the
+            verifier schema.
+        separate_abcrown_process (bool, optional): Whether to run ABCROWN in a separate
+            process.
+        device (str, optional): Device to run the evaluation on.
+        results_path (str, optional): Path to save the results of the ABCROWN evaluation.
         warm_start (bool, optional): Reuse results only when the identity manifest matches.
+        start_idx (int): First loader-order index included in the verification slice.
+        end_idx (int, optional): Exclusive ending index of the verification slice; None uses the available
+            inputs.
+        results_filename (str): JSON result filename within results_path.
         engine (str): "abcrown" (default) or "neuralsat".
         neuralsat_command (list): NeuralSAT argv prefix; None uses the bundled solver.
         neuralsat_batch_size (int): NeuralSAT maximum parallel branches (default 1000).
@@ -595,7 +680,7 @@ def eval_complete(
         return certified_acc, adv_acc
 
 def eval_complete_abcrown(*args, **kwargs):
-    """Backward-compatible alpha-beta-CROWN evaluation entry point."""
+    """Evaluate robustness with alpha-beta-CROWN using the arguments of eval_complete."""
     return eval_complete(*args, **kwargs)
 
 def eval_adaptive(
@@ -609,18 +694,27 @@ def eval_adaptive(
     alpha_iterations=20,
     propagation_batch_size=1,
 ):
-    """
-    Evaluate the model in terms of certified accuracy in an adaptive method. This means, that all methods
-    passed in the methods parameter are used to certify the samples in ascending order of computational complexity (IBP < CROWN-IBP < CROWN).
-    If a sample is certified by one method, it is not evaluated by the following methods.
+    """Certify inputs progressively using the requested incomplete methods.
 
-    Parameters:
+    Methods are applied in increasing computational-cost order, and samples
+    certified by an earlier method are omitted from later bound computations.
+    Thus, inexpensive bounds solve easy cases while tighter methods are reserved
+    for unresolved samples.
+
+    Args:
         model (auto_LiRPA.BoundedModule): The neural network model to be evaluated.
-        eps (float): The perturbation bound.
-        data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to be evaluated.
-        n_classes (int, optional): Number of classes in the dataset. Default is 10.
-        test_samples (int, optional): Number of samples to test in order of the test loader. Default is np.inf (test all samples).
-        device (str, optional): Device to run the evaluation on. Default is 'cuda'.
+        eps (float): Perturbation radius in model input coordinates.
+        data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to be
+            evaluated.
+        n_classes (int, optional): Number of classes in the dataset.
+        test_samples (int, optional): Number of samples to test in order of the test loader.
+        device (str, optional): Device to run the evaluation on.
+        methods (list): Incomplete verification methods to apply progressively to unresolved
+            inputs.
+        alpha_iterations (int): Number of optimisation iterations for alpha-CROWN relaxation
+            slopes.
+        propagation_batch_size (int): Maximum number of inputs propagated together to limit
+            bound-computation memory.
 
     Returns:
         (tuple): Certified count, evaluated count, per-instance certification mask, and result records.
@@ -696,21 +790,33 @@ def eval_certified(
     model, data_loader, eps, n_classes=10, test_samples=np.inf, method="IBP", device=None,
     alpha_iterations=20, propagation_batch_size=1
 ):
-    """
-    Evaluate the certified robustness of a model using a given verification method.
+    """Evaluate certified local robustness using the selected bounding method.
 
-    Parameters:
+    Choose one bound-propagation method, a list for adaptive verification, or
+    COMPLETE for solver-backed evaluation. Radii are already in model input
+    coordinates; wrapper.evaluate performs loader-based normalisation for users.
+
+    Args:
         model (auto_LiRPA.BoundedModule): The neural network model to be evaluated.
-        data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to be evaluated.
-        n_classes (int, optional): Number of classes in the dataset. Default is 10.
+        data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to be
+            evaluated.
         eps (float or Tensor): Perturbation radius in model input coordinates.
+        n_classes (int, optional): Number of classes in the dataset.
+        test_samples (int or float, optional): Number of test samples to evaluate.
+        method (str or list, optional): The certification method to use. Options are
+            'FORWARD', 'IBP', 'CROWN', 'ALPHA-CROWN',
+            'CROWN-IBP', 'ADAPTIVE', 'COMPLETE', or a list of
+            methods (which results in an ADAPTIVE evaluation
+            using these methods).
+        device (str or torch.device, optional): Device on which to run the model and tensor computations.
+        alpha_iterations (int): Number of optimisation iterations for alpha-CROWN relaxation
+            slopes.
         propagation_batch_size (int): Maximum forward-bound chunk size; default 1.
-        test_samples (int or float, optional): Number of test samples to evaluate. Default is np.inf (all samples).
-        method (str or list, optional): The certification method to use. Options are 'FORWARD', 'IBP', 'CROWN', 'ALPHA-CROWN', 'CROWN-IBP', 'ADAPTIVE', 'COMPLETE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'IBP'.
 
     Returns:
-        (float): The certified accuracy of the model on the test examples for the given epsilon.
-        (dict): A dictionary containing per-instance certification results and running times.
+        (tuple): (certified_accuracy, results), with accuracy as a fraction and
+            per-input verification outcomes and running times in results. The legacy
+            COMPLETE branch returns an aggregate placeholder record.
     """
     device = torch.device(device) if device is not None else torch.device(
         "cuda"
@@ -797,27 +903,33 @@ def eval_adversarial(
     method="PGD",
     autoattack_kwargs=None,
 ):
-    """
-    Evaluate adversarial robustness using PGD or optional official AutoAttack.
+    """Search for classification counterexamples using PGD or AutoAttack.
 
-    Parameters:
+    The returned adversarial accuracy is the fraction of inputs for which the
+    attack found no misclassification. It is an empirical upper bound on robust
+    accuracy; failing to find a counterexample does not establish robustness.
+
+    Args:
         model (torch.nn.Module): The model to evaluate.
         data_loader (torch.utils.data.DataLoader): DataLoader providing the dataset.
-        eps (torch.Tensor): The perturbation radius for the PGD attack.
-        return_adv_indices (bool, optional): Whether to return the indices of adversarial samples. Default is False.
-        restarts (int, optional): Number of random restarts for the PGD attack. Default is 5.
-        step_size (float, optional): Step size for the PGD attack. Default is 0.1.
-        n_steps (int, optional): Number of steps for the PGD attack. Default is 40.
-        early_stopping (bool, optional): Whether to stop early if an adversarial example is found. Default is False.
-        n_classes (int, optional): Number of classes in the dataset. Default is 10.
-        device (str, optional): Device to perform computations on. Default is 'cuda'.
-        test_samples (int or float, optional): Number of samples to test. Default is np.inf.
+        eps (torch.Tensor): Perturbation radius in model input coordinates.
+        return_adv_indices (bool, optional): Whether to return a Boolean failure mask and
+            per-input result records.
+        restarts (int, optional): Number of random restarts for the PGD attack.
+        step_size (float, optional): Step size for the PGD attack.
+        n_steps (int, optional): Number of steps for the PGD attack.
+        early_stopping (bool, optional): Whether to stop early if an adversarial example is
+            found.
+        n_classes (int, optional): Number of classes in the dataset.
+        device (str, optional): Device to perform computations on.
+        test_samples (int or float, optional): Number of samples to test.
         method (str): PGD (default) or AUTOATTACK.
         autoattack_kwargs (dict, optional): AutoAttack version, seed and verbose settings.
 
     Returns:
-        (float): Adversarial accuracy of the model.
-        (np.ndarray): Indices of unsafe indices if return_adv_indices is True.
+        (float or tuple): Adversarial accuracy as a fraction. With return_adv_indices=True,
+            return (accuracy, failure_mask, results), where the Boolean mask marks
+            inputs with a found misclassification and results holds per-input outcomes.
     """
     test_samples = validate_test_samples(test_samples)
     with preserve_model_state(model):
@@ -904,24 +1016,31 @@ def eval_model(
     autoattack_kwargs=None,
     propagation_batch_size=1,
 ):
-    """
-    Evaluate the model on standard, certified, and adversarial accuracy.
+    """Evaluate natural, certified and adversarial classification accuracy.
+
+    Sound bounds establish a lower bound on robust accuracy, while adversarial
+    attacks give an empirical upper bound. The same sample budget is used for
+    all three measurements, with eps expressed in model input coordinates.
 
     Args:
         model (auto_LiRPA.BoundedModule): The model to be evaluated.
         data_loader (torch.utils.data.DataLoader): DataLoader for the test dataset.
-        eps (float): Perturbation size for adversarial and certified evaluation.
-        n_classes (int, optional): Number of classes in the dataset. Default is 10.
-        test_samples (int or float, optional): Number of samples to test. Default is np.inf (all samples).
-        method (str or list, optional): The certification method to use. Options are 'FORWARD', 'IBP', 'CROWN', 'ALPHA-CROWN', 'CROWN-IBP', 'ADAPTIVE', 'COMPLETE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'ADAPTIVE'.
-        device (str, optional): Device to perform adversarial evaluation on. Default is 'cuda'.
+        eps (float): Perturbation radius in model input coordinates.
+        n_classes (int, optional): Number of classes in the dataset.
+        test_samples (int or float, optional): Number of samples to test.
+        method (str or list, optional): The certification method to use. Options are
+            'FORWARD', 'IBP', 'CROWN', 'ALPHA-CROWN',
+            'CROWN-IBP', 'ADAPTIVE', 'COMPLETE', or a list of
+            methods (which results in an ADAPTIVE evaluation
+            using these methods).
+        device (str, optional): Device to perform adversarial evaluation on.
         adversarial_method (str): PGD (default) or AUTOATTACK.
-        alpha_iterations (int): Alpha-CROWN optimization iterations; default 20.
+        alpha_iterations (int): Alpha-CROWN optimisation iterations; default 20.
         autoattack_kwargs (dict, optional): AutoAttack version, seed and verbose settings.
         propagation_batch_size (int): Maximum forward-bound chunk size; default 1.
 
     Returns:
-        tuple: (std_acc (float): Standard accuracy of the model, cert_acc (float): Certified accuracy of the model, adv_acc (float): Adversarial accuracy of the model)
+        (tuple): (std_acc (float): Standard accuracy of the model, cert_acc (float): Certified accuracy of the model, adv_acc (float): Adversarial accuracy of the model)
     """
     test_samples = validate_test_samples(test_samples)
     with preserve_model_state(model):
@@ -964,22 +1083,23 @@ def eval_epoch(
     verification_method="IBP",
     results_path="./results",
 ):
-    """
-    Evaluate the model during training. It computes the standard accuracy, certified accuracy,
-    and adversarial accuracy of the model. The results are saved to a specified path in JSON format.
+    """Evaluate and record a model's natural, certified and adversarial accuracies.
 
-    Parameters:
+    The measurements are written as JSON under results_path and returned in
+    the common (standard, certified, adversarial) order.
+
+    Args:
         model (torch.nn.Module): The model to be evaluated.
         data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to evaluate.
-        eps (torch.Tensor): Perturbation radius used during evaluation of standard, certified and adversarial accuracy.
+        eps (torch.Tensor): Perturbation radius in model input coordinates.
         n_classes (int): Number of classes in the dataset.
-        device (str, optional): Device to run the evaluation on. Default is 'cuda'.
-        test_samples (int, optional): Number of samples to use for evaluation. Default is 1000.
-        verification_method (str, optional): Method to use for certification. Default is "IBP".
-        results_path (str, optional): Path to save the evaluation results. Default is "./results".
+        device (str, optional): Device to run the evaluation on.
+        test_samples (int, optional): Number of samples to use for evaluation.
+        verification_method (str, optional): Method to use for certification.
+        results_path (str, optional): Path to save the evaluation results.
 
     Returns:
-        tuple: A tuple containing standard accuracy, certified accuracy, and adversarial accuracy.
+        (tuple): A tuple containing standard accuracy, certified accuracy, and adversarial accuracy.
     """
     test_samples = validate_test_samples(test_samples)
     with preserve_model_state(model):

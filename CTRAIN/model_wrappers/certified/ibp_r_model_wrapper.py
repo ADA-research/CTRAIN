@@ -12,12 +12,18 @@ from CTRAIN.train.certified.losses.ibp_r import validate_ibp_r_options
 
 
 class IBPRModelWrapper(CTRAINWrapper):
-    """IBP-R, De Palma et al. (https://arxiv.org/pdf/2206.14772).
+    """Wrap a classifier for adversarial training with IBP regularisation.
+
+    IBP-R penalises the relaxation areas of unstable ReLUs to encourage tighter
+    bounds. The trainer combines this penalty with adversarial cross-entropy
+    and a scheduled transition from clean to adversarial training.
+
+    See De Palma et al. (2022): https://arxiv.org/abs/2206.14772.
 
     ``train_eps_factor`` is the paper's alpha: it enlarges BOTH the training
     IBP and attack boxes; evaluation still uses ``eps``. ``rho`` is the paper's
     coefficient, so a published rho/2 of 1e-4 means rho=2e-4 here.
-    Shi initialization and regularisation use the common CTRAIN defaults.
+    Shi initialisation and regularisation use the common CTRAIN defaults.
     The remaining defaults use the paper's 2/255 hyperparameters. PGD step size is
     relative to the largest clipped box half-width, following CTRAIN's attack.
     With validation, select by adversarial accuracy at the original epsilon.
@@ -35,6 +41,60 @@ class IBPRModelWrapper(CTRAINWrapper):
                  shi_reg_weight=.5, shi_reg_decay=True, shi_init=True,
                  pgd_early_stopping=False, pgd_alpha_decay_factor=.1,
                  pgd_decay_milestones=(), lr_decay_after_ramp_up=False):
+        """Configure the adversarial objective, relaxation regulariser and training schedule.
+
+        Args:
+            model (torch.nn.Module): PyTorch model to train or evaluate.
+            input_shape (tuple[int, ...]): Shape of a model input, excluding the batch dimension unless supplied
+                explicitly.
+            eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+            num_epochs (int): Total training budget, including warm-up and ramp-up.
+            train_eps_factor (float): Factor applied to the training radius; the nominal evaluation
+                radius remains eps.
+            optimizer_func (callable): Optimiser constructor accepting the model parameters and a learning
+                rate.
+            lr (float): Learning rate passed to the optimiser.
+            warm_up_epochs (int): Initial epochs using only the natural task loss.
+            ramp_up_epochs (int): Epochs over which the perturbation radius increases to its training
+                target.
+            lr_scheduler_func (callable): Constructor for the learning-rate scheduler.
+            lr_decay_kwargs (dict, optional): Scheduler arguments, such as milestones and gamma for MultiStepLR.
+            gradient_clip (float): Maximum parameter-gradient norm. None disables clipping where
+                supported.
+            l1_reg_weight (float): Weight of the L1 parameter regulariser.
+            rho (float): Nonnegative weight of the unstable-ReLU relaxation-area regulariser.
+            regularisation_mask (bool): Whether to apply the relaxation penalty only to correctly
+                classified adversarial examples.
+            pgd_steps (int): Number of projected gradient updates in the training attack.
+            pgd_alpha (float): PGD step-size factor relative to the search-region radius.
+            pgd_restarts (int): Number of random starts for the training attack.
+            checkpoint_save_path (str or pathlib.Path, optional): Optional directory for epoch checkpoints containing the
+                training trajectory.
+            checkpoint_save_interval (int): Save an epoch checkpoint at this interval and at the end
+                of the training call.
+            bound_opts (dict, optional): Bound-propagation options passed to auto_LiRPA.
+            device (str or torch.device): Device on which to run the model and tensor computations.
+            population_bn (bool): Whether to recalibrate BatchNorm on training data after each epoch,
+                before model selection and saving.
+            relu_upper_retention (float): Fraction of unstable ReLU upper bounds retained during
+                training, in (0, 1]. Values below one give an unsound training
+                surrogate.
+            pgd_eps_factor (float): Positive factor scaling the PGD search range, independently of the
+                nominal bound region.
+            shi_reg_weight (float): Weight of the interval-stability regulariser proposed by Shi et al.
+                (2021).
+            shi_reg_decay (bool): Whether to reduce the Shi regulariser as the perturbation radius
+                increases.
+            shi_init (bool): Whether to apply the initialisation proposed by Shi et al. at the start of
+                training.
+            pgd_early_stopping (bool): Whether to stop searching an input once a counterexample has
+                been found.
+            pgd_alpha_decay_factor (float): Multiplier applied to the PGD step size at each decay
+                milestone.
+            pgd_decay_milestones (Sequence[int]): Attack iterations at which to reduce the PGD step size.
+            lr_decay_after_ramp_up (bool): Whether to delay learning-rate decay until the perturbation
+                ramp has completed.
+        """
         validate_ibp_r_options(rho, pgd_steps, pgd_restarts, pgd_alpha,
                               relu_upper_retention, pgd_eps_factor,
                               pgd_alpha_decay_factor, pgd_decay_milestones)
@@ -84,7 +144,25 @@ class IBPRModelWrapper(CTRAINWrapper):
         self.relu_upper_retention = relu_upper_retention
 
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
-        """Train IBP-R; select validation adversarial accuracy or return final weights."""
+        """Train the wrapped model using the configured method and schedule.
+
+        The wrapper forwards its configuration to the corresponding library trainer.
+        start_epoch and end_epoch select a segment of the full schedule, retaining
+        its original warm-up, ramp-up and learning-rate milestones.
+
+        Args:
+            train_loader (torch.utils.data.DataLoader): Training loader providing input and target batches and any required
+                normalisation metadata.
+            val_loader (torch.utils.data.DataLoader, optional): Optional validation loader used for model selection. Without it,
+                training returns the final weights.
+            start_epoch (int): Zero-based starting epoch in the full training schedule.
+            end_epoch (int, optional): Exclusive ending epoch. None runs to the end of the configured schedule.
+
+        Returns:
+            (auto_LiRPA.BoundedModule): Trained model. Validation-selected inference weights are
+                restored when a validation loader is supplied; otherwise final weights
+                are returned. Optimiser and scheduler state remain at the final epoch.
+        """
         trained = ibp_r_train_model(
             original_model=self.original_model, hardened_model=self.bounded_model,
             train_loader=train_loader, start_epoch=start_epoch, end_epoch=end_epoch,
@@ -109,6 +187,12 @@ class IBPRModelWrapper(CTRAINWrapper):
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir,
                     cert_eval_samples=1000, nat_loss_weight=1, adv_loss_weight=1,
                     cert_loss_weight=1, complete_verify=False):
+        """Train and evaluate one hyperparameter configuration.
+
+        Construct a method-specific wrapper, train it and save its inference weights.
+        Return the negative weighted accuracy and the natural, certified and
+        adversarial validation accuracies for the optimisation procedure.
+        """
         seed_ctrain(seed)
         config_hash = get_config_hash(config, 32)
         wrapper = IBPRModelWrapper(

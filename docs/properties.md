@@ -1,311 +1,237 @@
-# General output properties (experimental)
+# General Input-Output Properties
 
-`PropertyModelWrapper` is a separate certified-training workflow for finite
-Boolean combinations of affine output comparisons over declared input boxes.
-Existing robustness wrappers retain their APIs. This is a prototype, not a
-claim to support arbitrary first-order logic or temporal specifications.
+Beyond local robustness for image classification, CTRAIN supports training against more general input-output specifications. These include output-range constraints, safety conditions for controllers and relations between multiple predictions. Users supply a task loss and a collection of specifications, each consisting of closed input boxes and an output property expressed as a finite Boolean combination of affine inequalities.
 
-The API reference is generated from the source docstrings:
-[wrapper and configuration](api/model_wrappers/property_model_wrapper.md) and
-[training algorithm](api/train/certified/properties.md).
+For a network to satisfy a specification, its output property must hold for every input in every declared box. CTRAIN formulates these requirements through satisfaction margins, analogous to the classification margins used for local robustness. This allows existing certified training methods to be adapted to more general specifications while retaining a common interface for training and verification.
+
+CTRAIN provides this workflow through `PropertyModelWrapper`. The wrapper combines the supplied task loss with a property objective, delegates optimisation to the property trainer and exposes fresh certification over the declared domains.
+
+## Training Objective
+
+For network output `y`, an affine comparison `a(y) >= b(y)` has satisfaction margin `a(y) - b(y)`. Conjunction takes the minimum of its constituent margins, while disjunction takes their maximum:
+
+```text
+m(a >= b) = a(y) - b(y)
+m(And(phi, psi)) = min(m(phi), m(psi))
+m(Or(phi, psi)) = max(m(phi), m(psi))
+```
+
+A positive margin therefore implies satisfaction of the formula. CTRAIN appends the operations required to compute these margins to the network and uses auto_LiRPA to obtain lower bounds over each input box. Outer conjunctions are split into separate requirements, while nested disjunctions retain their logical structure.
+
+At each optimisation step, the trainer samples `K` property boxes independently of the task examples. With the default hinge objective, it combines the task loss with the sum of lower-margin deficits:
+
+```text
+L_train = L_task + (lambda / K) * sum_k sum_j max(0, delta - lower_margin[k, j])
+```
+
+Here, `lambda` is controlled by `property_weight`, and `delta` by `margin`. Each property penalty vanishes once its lower bound reaches the positive target margin. This avoids encouraging further increases in satisfaction margins that may come at the expense of task performance. The target margin is distinct from the logical satisfaction threshold of zero.
+
+## Training with CTRAIN
+
+In the following example, we train a small controller whose two actions should remain within `[-0.1, 0.1]` for every state in a declared box. The task loss encourages the controller to match a proportional control law. We use generated state-target pairs to illustrate the workflow; verification will cover the complete box rather than only these sampled states.
+
+First, we import the required functions and define the specification. `Outputs()` provides symbolic references to the network outputs, and `Box` specifies the input domain.
 
 ```python
 import torch
-from CTRAIN import PropertyModelWrapper
+from torch.utils.data import DataLoader, TensorDataset
+
+from CTRAIN.model_wrappers import PropertyModelWrapper
 from CTRAIN.properties import Outputs, And, Or, Box, PropertySpec
 
 y = Outputs()
 property_spec = PropertySpec(
-    'safe_outputs',
-    And(y[0] >= -.1, y[0] <= .1,
-        Or(y[1] >= .3, y[2] <= -.3)),
-    [Box([-1., -1.], [1., 1.])],
+    "bounded_actions",
+    And(y[0] >= -0.1, y[0] <= 0.1,
+        y[1] >= -0.1, y[1] <= 0.1),
+    [Box([-1.0, -1.0], [1.0, 1.0])],
 )
-model = torch.nn.Sequential(torch.nn.Linear(2, 32), torch.nn.ReLU(),
-                            torch.nn.Linear(32, 3))
-wrapper = PropertyModelWrapper(
-    model, (2,), properties=[property_spec], task_loss=torch.nn.MSELoss(),
-    num_epochs=50, training_method='CROWN-IBP', property_weight=20.,
-    refinement=True,
-    warm_up_epochs=5, weight_ramp_epochs=20,
-)
-# train_loader and val_loader yield (input, target) pairs.
-# wrapper.train_model(train_loader, val_loader)
-# report = wrapper.certify_properties(method='CROWN-IBP')
 ```
 
-The schedule fits inside `num_epochs`: first `warm_up_epochs` optimize the task
-loss alone, then `weight_ramp_epochs` linearly increase the property-loss weight,
-then the remaining epochs use the full weight. Both durations default to zero.
-Warm-up computes no property samples, attacks, losses, certification scans or
-refinement. Its history records `certified=None` and `property_evaluated=False`.
-The ramp is updated per batch and starts after warm-up; zero ramp applies the
-full weight at the first update after warm-up. Property regions retain their
-declared size. Validation-based epoch selection starts once the ramp finishes.
-Checkpoint resumption continues the schedule from the restored epoch; old
-checkpoints without `warm_up_epochs` are interpreted as zero warm-up.
-
-## Choosing a training strategy
-
-Large collections sharing one formula can supply a `property_dataset` to
-`PropertyModelWrapper`. This finite, indexable object returns a `Box` for each
-index and exposes `to_dict()` with reconstruction settings and content hashes.
-The single `PropertySpec` supplies the formula and an initial domain for graph
-construction; the dataset supplies the full training and certification domain
-collection. Boxes are sampled uniformly with replacement, independently of task
-batches, and generated only when needed. No VNNLIB files or full endpoint pool
-are required.
-
-Epoch diagnostics and `wrapper.certify_properties()` evaluate every dataset box
-in batches and return aggregate results. Dataset mode does not support adaptive
-refinement or complete verification; pass explicit `properties=[...]` to certify
-selected regions with those features. Checkpoints save the dataset descriptor
-and RNG state; the caller reconstructs the same dataset before loading, and
-configuration comparison rejects differing descriptors. The generic wrapper
-supports separate task and property batch sizes. `match_property_batch_size=True`
-instead samples one property box per task example, including partial batches.
-
-Robustness wrappers still accept `eps`; they do not require a property object.
-Wrapper implementations live in `CTRAIN.model_wrappers.certified` and
-`CTRAIN.model_wrappers.adversarial`. Existing package exports and direct module
-imports remain compatible, including patching through old module paths.
+Now, we construct the controller and task data. The model receives two state coordinates and returns two actions. As in ordinary PyTorch training, the loader supplies input-target pairs for the task loss.
 
 ```python
-from CTRAIN.model_wrappers.certified import ShiIBPModelWrapper, PropertyModelWrapper
-from CTRAIN.model_wrappers.adversarial import PGDModelWrapper
-
-# Classification robustness keeps its existing API.
-robust = ShiIBPModelWrapper(classifier, input_shape=(3, 32, 32),
-                           eps=8 / 255, num_epochs=100)
-
-# Only general-property training needs declared properties and a task loss.
-wrapper = PropertyModelWrapper(
-    model, (2,), properties=[property_spec], task_loss=torch.nn.MSELoss(),
-    num_epochs=50, training_method='MTL-IBP',
-    training_options={'alpha': .8, 'pgd_steps': 20, 'loss': 'cross_entropy'},
-    property_weight=20.,
+model = torch.nn.Sequential(
+    torch.nn.Linear(2, 32),
+    torch.nn.ReLU(),
+    torch.nn.Linear(32, 2),
+)
+states = 2 * torch.rand(256, 2) - 1
+control_targets = -0.05 * states
+train_loader = DataLoader(
+    TensorDataset(states, control_targets), batch_size=32, shuffle=True,
 )
 ```
 
-Choose the training objective with `training_method` (default `CROWN-IBP`);
-no second method argument is required. Fresh full-box epoch diagnostics,
-refinement and checkpoint selection use the same bound method for `IBP`,
-`CROWN-IBP` and `CROWN`, GLS's `training_options['bound_method']` for GLS,
-and `IBP` for the other strategies. These computations always use sound,
-full-box bounds, without training-time ReLU shrinkage.
+We wrap the model with `PropertyModelWrapper` and choose CROWN-IBP for the property bounds. During the first five epochs, the trainer optimises only the task loss. It then increases the property weight linearly over 20 epochs before using its full value for the remaining epochs.
 
-There is no separate selection-method argument.
-`certify_properties(method='CROWN')` independently chooses certification bounds;
-its default remains `CROWN`. No SABR subregion, PGD point, Gaussian sample, or shrunk ReLU interval
-is used as a whole-box certificate. Old bound-training checkpoints remain
-loadable; switching strategy or parameters requires a new trajectory.
+```python
+wrapped_model = PropertyModelWrapper(
+    model=model,
+    input_shape=(2,),
+    properties=[property_spec],
+    task_loss=torch.nn.MSELoss(),
+    num_epochs=50,
+    training_method="CROWN-IBP",
+    property_weight=20.0,
+    margin=1e-3,
+    warm_up_epochs=5,
+    weight_ramp_epochs=20,
+    property_batch_size=8,
+    refinement=True,
+    max_cells=128,
+    max_depth=8,
+    device="cpu",
+)
+wrapped_model.train_model(train_loader)
+```
 
-The old `bound_method` constructor argument has been removed. Use
-`training_method='IBP'` instead of `bound_method='IBP'`. Old checkpoints are
-migrated on load when their training and selection settings match the new
-method-derived policy. A checkpoint with different historical selection bounds
-is rejected before loading weights; resume that trajectory with its original
-CTRAIN version.
+Finally, we compute fresh lower bounds for every requirement over the complete domain. A low training loss alone does not establish that the specification holds.
 
-| Strategy | Property training computation | Additional parameters and defaults |
+```python
+report = wrapped_model.certify_properties(method="CROWN")
+print("Whole domain certified:", report["certified"])
+print("Cell outcomes:", [cell["outcome"] for cell in report["cells"]])
+```
+
+The [controller tutorial](examples/general_properties.ipynb) demonstrates the bounded-action workflow step by step. The [MNIST arithmetic tutorial](examples/mnist_arithmetic.ipynb) trains independently predicted digit values and their sum with an affine consistency property.
+
+## Semantics and Compiler
+
+Output expressions support addition, subtraction and multiplication by finite scalar constants. Comparisons may use `>=`, `<=`, `>` or `<`, or the corresponding named constructors `Ge`, `Le`, `Gt` and `Lt`. Use `And` and `Or` to compose them. For example, the following formula requires bounded first actions and allows either of two conditions on the second action:
+
+```python
+alternative_actions = And(
+    y[0] >= -0.1,
+    y[0] <= 0.1,
+    Or(y[1] >= 0.03, y[1] <= -0.03),
+)
+```
+
+Python's `and`, `or` and chained comparisons cannot represent symbolic formulas. Exact equality, disequality and products between symbolic expressions are unsupported. Approximate equality can be expressed through two inequalities with an explicit tolerance. Named comparisons additionally accept a positive `scale` for normalising margins with different units.
+
+Strict and non-strict comparisons share the same quantitative margin, but their Boolean evaluation distinguishes equality. Certification requires a strictly positive lower margin; a zero bound remains unresolved, including for non-strict inequalities. A negative lower bound alone does not establish a violation, since the relaxation may be loose.
+
+Affine requirements use auto_LiRPA's specification matrix directly, preserving correlations between outputs. Composite formulas use native minimum and maximum operators in a graph sharing the original model's parameters. For complete verification, CTRAIN exports equivalent affine/ReLU constructions. The [property API](api/properties.md) and [bound API](api/bound/properties.md) describe the supported expressions and graph interfaces.
+
+## Choosing a Training Strategy
+
+The `training_method` argument selects the property objective; its default is `"CROWN-IBP"`. Method-specific parameters are supplied through `training_options`.
+
+| Strategy | Property objective | Main options |
 |---|---|---|
-| IBP, CROWN-IBP, CROWN | Bound every obligation over the sampled full box. | IBP supports `relu_upper_retention=1.0`; CROWN-IBP supports `beta=1.0` (CROWN-IBP weight against IBP margins). |
-| MTL-IBP | Mix IBP and adversarial property losses. | `alpha=0.5` is the IBP weight. |
-| CC-IBP | Mix IBP lower margins and adversarial point margins before applying the loss. | `alpha=0.5` is the IBP weight. |
-| EXP-IBP | Geometric mixture of mean IBP and adversarial losses. | `alpha=0.5`; zero hinge factors can suppress gradients. |
-| SABR | PGD selects a center; IBP bounds a coordinatewise contained subregion. | `subselection_ratio=0.1`; half-width is this fraction of each original half-width. |
-| PGD | Apply the property loss at adversarial input points. | The shared PGD controls below. |
-| IBP-R | Adversarial property loss plus unstable ReLU triangle areas from fresh IBP. | `rho=2e-4`, `regularisation_mask=False`; the mask tests formula satisfaction at adversarial points. |
-| GLS | Existing RGS/PGPE optimizer smooths the task/property loss over parameters. Sampled boxes stay fixed across one optimizer step. | `estimator='rgs'`, `samples=2`, `sigma=1e-3`, `sigma_lr=1e-3`, `bound_method='CROWN'`, `sigma_decay_milestones=[]`, `sigma_decay_factor=0.4`. PGPE requires even samples and learns its scale. |
+| [IBP](ibp.md), [CROWN-IBP](crown_ibp.md), CROWN | Bound each requirement over the full sampled box. | CROWN-IBP uses `beta=1.0` to weight CROWN-IBP margins against IBP margins. |
+| [MTL-IBP](expressive_losses.md) | Combine bound-based and adversarial property losses. | `alpha=0.5` weights the IBP loss. |
+| [CC-IBP](expressive_losses.md) | Combine bound-based and adversarial margins before applying the loss. | `alpha=0.5` weights the IBP margins. |
+| [Exp-IBP](expressive_losses.md) | Combine the two property losses geometrically. | `alpha=0.5`; with hinge loss, a zero factor can suppress gradients. |
+| [SABR](sabr.md) | Bound an adversarially selected subregion contained in the nominal box. | `subselection_ratio=0.1`. |
+| PGD | Evaluate the property loss at adversarial input points. | `pgd_steps=8`, `pgd_restarts=1`. |
+| [IBP-R](ibp_r.md) | Combine adversarial property loss with a ReLU-relaxation area penalty. | `rho=2e-4`, `regularisation_mask=False`. |
+| [Gaussian loss smoothing](gls.md) | Smooth the task and property objective over network parameters. | `estimator="rgs"`, `samples=2`, `sigma=1e-3`, `bound_method="CROWN"`. |
 
-All strategies accept `loss='hinge'` (default) or `loss='cross_entropy'`, plus
-`gradient_clip=None`. Cross-entropy reuses CTRAIN's padded-margin loss and does
-not use hinge slack. MTL/CC/Exp/SABR/IBP-R also accept
-`relu_upper_retention=1.0`; smaller retention is an unsound training surrogate
-whose interval operator is restored after each computation, including failures.
+For example, MTL-IBP with a stronger emphasis on bound-based property loss can be selected through:
 
-PGD-based strategies accept `pgd_steps=8`, `pgd_step_size=0.5`,
-`pgd_restarts=1`, `pgd_early_stopping=False`, `pgd_region_factor=1.0`,
-`pgd_decay_factor=0.1`, and `pgd_decay_checkpoints=[]`. The region factor scales
-search around the box midpoint without changing the declared property region.
-SABR always clamps its subregion into the nominal box. Hinge attacks minimize
-the signed formula margin even at satisfied points; cross-entropy attacks
-maximize pointwise margin loss. Successful candidates are retained and attacks
-use only input gradients.
+```python
+mtl_model = PropertyModelWrapper(
+    model=model,
+    input_shape=(2,),
+    properties=[property_spec],
+    task_loss=torch.nn.MSELoss(),
+    num_epochs=50,
+    training_method="MTL-IBP",
+    training_options={"alpha": 0.8, "pgd_steps": 20, "loss": "cross_entropy"},
+    property_weight=20.0,
+)
+```
 
-Point losses and attack success reuse the affine-leaf compiler, evaluating
-shared comparisons together instead of rebuilding thousands of scalar
-operations for large disjunctions. Boolean success preserves strict comparison
-ties; min/max ties use the compiler's valid subgradients.
+All strategies support `loss="hinge"` or `loss="cross_entropy"`. Cross-entropy uses CTRAIN's padded-margin loss and does not use the hinge target margin. PGD-based strategies additionally expose step-size, restart and decay controls. Their `pgd_region_factor` scales the search region around the box midpoint without changing the declared property domain; SABR keeps its selected subregion inside that domain.
 
-These hybrid, adversarial, regularized, and smoothed strategies are experimental
-adaptations to logical properties. They retain this workflow's fixed-statistics
-BatchNorm policy and do not establish paper reproduction scores. TAPS/STAPS
-need a latent property search formulation, set-based training needs a property
-enclosure-size objective, and CC-Dist needs teacher-feature property semantics;
-those names fail explicitly before graph conversion. Classification-specific
-Shi initialization/regularization recipes remain on the existing robustness
-wrappers; `IBP` here denotes the property-bound objective.
+The hybrid, adversarial, regularised and smoothed property strategies are experimental adaptations of the corresponding classification methods. They retain this workflow's fixed-statistics BatchNorm policy. TAPS/STAPS, set-based training and CC-Dist are not supported as property-training strategies. The classification wrappers' Shi initialisation and regularisation recipes are also separate from the property-bound objective.
 
-## Semantics and compiler
+Fresh epoch diagnostics, refinement and model selection use full-box bounds: the selected bound method for IBP, CROWN-IBP and CROWN, the configured `bound_method` for GLS, and IBP for the other strategies. Supported `relu_upper_retention` settings below one affect training surrogates only. Certification independently chooses its bound method and never treats an attack point, SABR subregion or shrunk interval as a certificate for the whole box.
 
-`Outputs()[i]` indexes the model's batched vector output. Expressions support
-addition, subtraction and multiplication by finite scalar constants. Use
-`And(...)` and `Or(...)`, and `>=`, `<=`, `>`, `<` or named `Ge`, `Le`, `Gt`,
-`Lt` constructors. Python `and`/`or`, chained comparisons, symbolic products,
-exact equality and disequality are rejected. Express approximate equality as
-two inequalities with an explicit tolerance. Named comparisons accept a
-positive `scale` to normalize margins with different units.
+## Training and Domains
 
-An atom `a(y) >= b(y)` has margin `a(y)-b(y)`. Conjunction uses minimum and
-disjunction uses maximum. Strict and non-strict atoms have the same quantitative
-margin, but their Boolean evaluation distinguishes equality. A strictly
-positive certified lower margin suffices for every supported formula. Zero is
-conservatively unresolved, including for non-strict inequalities; a negative
-lower bound alone does not establish a violation.
+Property boxes use exactly the coordinates consumed by the verification model. No dataset normalisation or perturbation radius is inferred. Multiple boxes describe a finite union; original boxes may overlap. Initially, each original box receives equal sampling weight, rather than weight proportional to its volume.
 
-Affine obligations use auto_LiRPA's specification matrix directly, preserving
-output correlations. Composite obligations append native minimum/maximum
-operators to a graph sharing the original model's parameters. Export replaces
-these with equivalent affine/ReLU constructions. Scales are folded into affine
-coefficients: explicit division triggers graph rewrites in the bundled LiRPA
-version that lose perturbation metadata. Affine graph constants are registered
-buffers, and affine evaluation uses `linear` to avoid an intermediate-bound
-dtype inconsistency observed with elementwise reduction in float64. No custom
-LiRPA bound operator is installed.
+With `refinement=True`, the trainer splits unresolved cells at the midpoint of their widest normalised coordinate. Children cover their parent and inherit half its sampling weight. Refinement can tighten bounds without increasing the original region's contribution to the training objective. The `max_cells` and `max_depth` limits apply per original box. A fraction of certified cells does not establish certification of the complete domain.
 
-## Training and domains
+By default, `property_batch_size` controls how many cells are sampled per task batch and how many are bounded together during certification. Sampling is with replacement and independent of task data. `match_property_batch_size=True` instead samples one property box per task example, including in partial batches.
 
-The default remains bound-based training with `IBP`, `CROWN-IBP`, or `CROWN`.
-Use `training_method` to select another strategy and `training_options` to set
-its parameters. The default loss sums hinge penalties
-`max(0, margin - lower_bound)` over top-level conjuncts and adds a weighted
-property term to the supplied task loss. Nested disjunctions retain their full
-logical structure. A positive training margin supplies slack; it is distinct
-from the logical threshold of zero. An optional linear weight ramp is available.
+Large finite collections sharing a single formula can supply a `property_dataset`, an indexable object yielding `Box` instances and exposing a serialisable `to_dict()` descriptor with reconstruction settings and content hashes. The dataset supplies the complete region collection, generated on demand, while the single `PropertySpec` supplies the formula and initial graph domain. Certification evaluates every dataset box in batches. Adaptive refinement and complete verification require explicit property boxes rather than dataset mode.
 
-Domains are explicit finite unions of closed boxes, in exactly the coordinates
-consumed by the verification model. No implicit dataset normalization or input
-radius is applied. Floating-point casts expand box endpoints outward. A
-`verification_model` can append fixed dynamics or other supported computations;
-it must contain the task model by identity and add no trainable parameters.
-The controller example uses this to train actions while checking next states.
+A `verification_model` can append fixed dynamics or other supported computations to the task model. It must contain the supplied task model by identity and introduce no additional trainable parameters. `verification_input_shape` specifies its input shape when this differs from the task model's input shape.
 
-Optional refinement splits uncertified cells at the midpoint of their widest
-normalized coordinate. Children cover the parent and share its sampling weight,
-so splitting does not increase that region's training weight. `max_cells` and
-`max_depth` apply per original box. Original boxes may overlap; the training
-sampling measure weights each original box equally rather than measuring union
-volume. Certification validates the entire partition cover. A fraction of
-certified cells is never presented as a whole-domain certificate.
+Training evaluates both models with fixed BatchNorm statistics and parameter gradients enabled. Optional `population_bn=True` recalibrates statistics on task training inputs after each epoch. With validation, model selection starts after the weight ramp and prioritises complete property certification, then task loss; until certification is achieved, it prioritises the minimum lower bound. Without validation, the final weights are returned.
 
-Training uses fixed BatchNorm statistics in evaluation mode with parameter
-gradients enabled. `population_bn=True` optionally recalibrates statistics on
-training inputs after each epoch, before selection and evaluation. Caller modes
-and gradient flags are restored. With validation, selection prioritizes full
-certification and then task loss; before certification it prioritizes the
-minimum lower bound. Without validation, the final weights are returned.
+The [checkpoint guide](guides/checkpoints.md#general-property-checkpoints) explains trajectory saving, configuration matching and RNG restoration. Reconstruct a property dataset before loading its checkpoint; mismatched dataset descriptors are rejected. Selected inference weights are distinct from a resumable training trajectory.
 
-Epoch checkpoints contain trajectory weights, optimizer/scheduler, partition,
-selection history and RNG states, including an explicit loader generator.
-Load trusted checkpoints into a wrapper with matching configuration to resume.
-Validation-selected inference weights are kept distinct: saving or continuing
-a trajectory after selection requires loading an epoch checkpoint first.
-Exact CPU resumption is tested for the supplied single-worker deterministic
-loader; arbitrary multi-worker or nondeterministic CUDA trajectories are not
-claimed reproducible.
+## Certification and Complete Verification
 
-## Certification and complete verification
+`certify_properties` computes fresh bounds and reports results for individual cells and the complete domain. Its default bound method is CROWN. Other choices include IBP, CROWN-IBP and `"ALPHA-CROWN"`; slope-optimisation iterations can be configured through `bound_opts={"optimize_bound_args": {"iteration": 100}}` when constructing the wrapper.
 
-`certify_properties` always computes fresh bounds using the requested method.
-`method='ALPHA-CROWN'` uses auto_LiRPA's slope optimization. Configure iterations
-through the wrapper's `bound_opts={'optimize_bound_args': {'iteration': 100}}`
-(auto_LiRPA defaults to 20). Model weights and existing gradients are preserved;
-this option is for certification, while training retains its existing methods.
-Reports distinguish certified, unknown, timeout and witnessed violations.
-A whole-domain result requires all obligations on every covering cell. These
-are floating-point LiRPA certificates without a directed-rounding arithmetic
-proof; constants and model operations use the configured model dtype.
+A complete-domain certificate requires every requirement to hold on every covering cell. Reports distinguish certification, unresolved cases, timeouts and witnessed violations. These results use floating-point LiRPA bounds; they do not include a directed-rounding arithmetic proof.
 
-For unresolved cells, `complete=True` first searches for a genuine Boolean
-counterexample and then exports an equivalent scalar-margin ONNX graph and
-VNNLIB query to CTRAIN's existing alpha-beta-CROWN runner. Supply a fresh
-`results_path` and a positive `timeout`. Export checks native/ReLU and ONNX
-Runtime parity, and normalizes constant aliases for the bundled ONNX importer.
-An `unsat` result certifies the exported graph. A solver `sat` response without
-an accessible, checked witness stays unknown. Export parity checks do not prove
-bitwise or real-arithmetic equivalence between PyTorch and ONNX; reports record
-which graph was certified. A small overlapping-disjunction example was actually
-proved by this path, in addition to mocked status-handling regressions.
+For unresolved cells, `complete=True` first searches for a Boolean counterexample and then passes scalar-margin ONNX graphs and VNNLIB queries to CTRAIN's abCROWN integration. Supply a fresh results directory and a positive timeout:
 
-## User-selected networks and specifications
+```python
+complete_report = wrapped_model.certify_properties(
+    method="CROWN",
+    complete=True,
+    results_path="./verification/bounded_actions",
+    timeout=300,
+)
+```
 
-The user can choose any local ONNX/VNNLIB pair within the supported operator
-and specification subset, without a network registry or preset manifest:
+An `unsat` result certifies the exported graph. A `sat` response is recorded as a violation only when an accessible witness has been checked; otherwise it remains unresolved. Export checks compare native, affine/ReLU and ONNX Runtime outputs, but these numerical checks do not prove equivalence for all inputs. The report records which graph was certified. This property workflow currently uses abCROWN; the [classification complete-verification interface](complete_verification.md) additionally supports NeuralSAT.
+
+## User-Selected Networks and Specifications
+
+Existing ONNX models and VNNLIB specifications can also be used for training or repair. First, we load the model and specification; then, we construct the property wrapper with a task loss appropriate for the original task:
 
 ```python
 from CTRAIN.data_loaders import load_vnnlib_problem
 
-model, spec, provenance = load_vnnlib_problem('my_network.onnx', 'my_property.vnnlib')
-wrapper = PropertyModelWrapper(
-    model, tuple(spec.domains[0].lower.shape), properties=[spec],
-    task_loss=torch.nn.MSELoss(), num_epochs=20,
+imported_model, imported_spec, provenance = load_vnnlib_problem(
+    "my_network.onnx", "my_property.vnnlib",
+)
+repair_model = PropertyModelWrapper(
+    model=imported_model,
+    input_shape=tuple(imported_spec.domains[0].lower.shape),
+    properties=[imported_spec],
+    task_loss=torch.nn.MSELoss(),
+    num_epochs=20,
 )
 ```
 
-The importer supports arbitrary contiguous `X_i`/`Y_i` counts, finite closed
-input boxes, affine output expressions, inequalities and nested `and`/`or`/`not`.
-It preserves strictness and tie behavior. **By default output assertions describe
-unsafe states and are complemented to obtain the desired property.** Pass
-`output_semantics='safe'` for files already stating the desired condition.
-For example, unsafe `(<= Y_0 Y_1)` becomes desired `Y_0 > Y_1`.
+For score-preserving repair, task loaders can supply the original model's scores as targets. The [ONNX/VNNLIB tutorial](examples/onnx_vnnlib.ipynb) demonstrates the complete workflow.
 
-`load_vnnlib_property` imports a specification alone, so it can also be paired
-with a caller-created PyTorch model. The problem loader infers static ONNX input
-dimensions; both functions accept `input_shape` to reshape flattened coordinates
-or resolve dynamic image dimensions. Input And/Or combinations of coordinate
-bounds produce a finite union of boxes (at most 1024), including ACAS property 6.
-Coupled input inequalities, mixed input/output logic, exact equality, nonlinear terms and arbitrary
-SMT-LIB commands are rejected explicitly. No input normalization is inferred.
-Numeric parsing uses floating-point arithmetic, not an exact-rational proof.
+By default, VNNLIB output assertions describe unsafe states and are complemented to obtain the desired property. For example, unsafe `Y_0 <= Y_1` becomes the desired condition `Y_0 > Y_1`. Use `output_semantics="safe"` for files that already describe the desired condition. `load_vnnlib_property` imports only the specification when a PyTorch model is already available.
 
-The general loader checks converted ONNX predictions and records file hashes.
-Optional `expected_sha256` checks caller-supplied digests before parsing. Unlike
-the benchmark presets, local files do not need all four artifact files or a
-pinned upstream commit. This does not authenticate a claimed upstream source.
+The importer supports affine output expressions, strict and non-strict inequalities, nested Boolean logic and finite unions of closed input boxes. Coupled input inequalities, mixed input/output logic, exact equality and nonlinear terms are unsupported. Input normalisation is never inferred. The `input_shape` option resolves dynamic dimensions or reshapes flattened coordinates. The loader checks converted predictions and records file hashes; optional `expected_sha256` values check caller-supplied digests. These checks provide numerical and file provenance checks, rather than a proof of graph equivalence or source authenticity.
 
-## ACAS presets
+### ACAS Presets
 
-ACAS artifact handling and source checks are also available as convenience calls:
+For the supported ACAS Xu examples, `load_acasxu` loads locally available artifacts and checks their pinned manifest. It performs no download:
 
 ```python
 from CTRAIN.data_loaders import load_acasxu
 
-model, spec, manifest = load_acasxu('/path/to/pinned/artifacts', case='7')
-wrapper = PropertyModelWrapper(
-    model, (5,), properties=[spec], task_loss=torch.nn.MSELoss(),
-    num_epochs=20, refinement=True,
+acas_model, acas_spec, manifest = load_acasxu(
+    "/path/to/pinned/artifacts", case="7",
 )
-# Supply task loaders containing original-model scores as preservation targets.
-# wrapper.train_model(train_loader, val_loader)
-# report = wrapper.certify_properties(method='CROWN-IBP')
+acas_wrapper = PropertyModelWrapper(
+    model=acas_model,
+    input_shape=(5,),
+    properties=[acas_spec],
+    task_loss=torch.nn.MSELoss(),
+    num_epochs=20,
+    refinement=True,
+)
 ```
 
-`download_acasxu(new_directory, revision)` explicitly acquires the four preset
-files and writes a pinned hash manifest. `load_acasxu` performs no download and
-rejects missing hashes or a different source convention. `acasxu_property`
-also exposes the presets for a caller-supplied box. See the generated
-[loader reference](api/data_loaders/data_loaders.md).
+`download_acasxu(new_directory, revision)` explicitly downloads the preset artifacts and records a pinned hash manifest. `acasxu_property` exposes the preset specifications for caller-supplied boxes. See the [data-loader reference](api/data_loaders/data_loaders.md) for the available cases and import options.
 
-Other pretrained ONNX models can use
-[`load_onnx_model(path, probes)`](api/util/util.md): supply a representative batch
-in the original input dtype and coordinates. The helper checks runtime parity
-and returns a trainable CPU model. The property wrapper still needs to support
-the converted graph's operators. Neither import nor sampling checks prove graph
-equivalence or certify properties.
+## API Reference
 
-The DSL, quantitative logic and graph compilation reuse established ideas from
-logical and certified constrained training. The prototype's contribution is
-their integration with CTRAIN, domain-cover refinement, explicit certification
-results and reproducible examples; no novelty or faithful reproduction of DL2
-or ART is claimed.
+The API reference documents the [property wrapper](api/model_wrappers/property_model_wrapper.md), [specification language](api/properties.md), [trainer](api/train/certified/properties.md), [property losses](api/train/certified/losses/properties.md), [bounds](api/bound/properties.md) and [certification functions](api/eval/properties.md).

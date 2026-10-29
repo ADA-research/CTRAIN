@@ -1,3 +1,4 @@
+"""Combine feature bounds, latent searches and gradient links for TAPS and STAPS training."""
 import math
 import torch
 from torch import nn
@@ -11,7 +12,9 @@ from CTRAIN.util.util import preserve_model_state
 
 
 class _BoundGraphBlock(nn.Module):
-    """A view of existing LiRPA nodes, with no conversion or copied BN state."""
+    """View a feature-extractor or classifier segment of an existing LiRPA graph with shared
+    parameters and buffers.
+    """
 
     def __init__(self, graph, end, start=None):
         super().__init__()
@@ -30,6 +33,12 @@ class _BoundGraphBlock(nn.Module):
         self.train(graph.training)
 
     def forward(self, data):
+        """Evaluate the graph segment on image or latent inputs.
+
+        Classifier inputs seed the existing intermediate-node cache. During training,
+        latent forwards use batch statistics without advancing BatchNorm running
+        buffers; the original momentum values are restored afterwards.
+        """
         if self.start is None:
             return self.graph(data, final_node_name=self.end.name)
         # LiRPA has no forward-from-intermediate API. Seed its existing forward
@@ -52,6 +61,7 @@ class _BoundGraphBlock(nn.Module):
                 node.momentum = momentum
 
     def compute_bounds(self, x, **kwargs):
+        """Compute segment bounds, supplying explicit intermediate intervals for classifier inputs."""
         if self.start is not None:
             latent = x[0]
             if latent.ptb.x_L is None or latent.ptb.x_U is None:
@@ -62,7 +72,21 @@ class _BoundGraphBlock(nn.Module):
 
 
 def split_bound_graph(graph, block_sizes, layers):
-    """Use one converted graph for sequential TAPS/STAPS feature/head blocks."""
+    """Expose feature-extractor and classifier views of one converted network.
+
+    The views share the original graph's operators, parameters and BatchNorm
+    buffers. This avoids a second conversion when TAPS alternates between feature
+    bounds and latent classifier searches.
+
+    Args:
+        graph (auto_LiRPA.BoundedModule): Converted sequential single-input network.
+        block_sizes (tuple[int, int]): Positive layer counts covering every layer exactly
+            once.
+        layers (Sequence): Sequential layers corresponding to the graph operators.
+
+    Returns:
+        (list): Feature-extractor and classifier graph views.
+    """
     if (len(block_sizes) != 2
             or any(type(size) is not int or size <= 0 for size in block_sizes)
             or sum(block_sizes) != len(layers)):
@@ -85,30 +109,38 @@ def split_bound_graph(graph, block_sizes, layers):
 def bound_taps(original_model, hardened_model, bounded_blocks, data, target, n_classes, ptb, device='cuda', pgd_steps=20, pgd_restarts=1, pgd_step_size=.2,
                pgd_decay_factor=.2, pgd_decay_checkpoints=(5,7),
                gradient_link_thresh=.5, gradient_link_tolerance=1e-05, propagation="IBP", sabr_args=None, relu_upper_retention=1.0, pgd_eps_factor=1.0):
-    """
-    Compute the bounds of the model's output using the TAPS method.
+    """Estimate classifier margins using interval propagation and latent PGD.
 
-    Parameters:
+    TAPS propagates the input region through the feature extractor using IBP,
+    then searches for pivotal points in its output interval. STAPS uses SABR
+    for feature propagation. The returned latent margins are training proxies;
+    use ordinary full-region bounds for sound certification.
+
+    Args:
         original_model (torch.nn.Module): The original neural network model.
-        hardened_model (autoLiRPA.BoundedModule): The auto_LiRPA model.
+        hardened_model (auto_LiRPA.BoundedModule): The auto_LiRPA model.
         bounded_blocks (list): List of bounded blocks of the model.
         data (Tensor): The input data tensor.
         target (Tensor): The target labels tensor.
         n_classes (int): The number of classes for classification.
-        ptb (auto_LiRPA.PerturbationLpNorm): The perturbation object defining the perturbation set.
-        device (str, optional): The device to run the computation on. Default is 'cuda'.
-        pgd_steps (int, optional): The number of steps for the PGD attack. Default is 20.
-        pgd_restarts (int, optional): The number of restarts for the PGD attack. Default is 1.
-        pgd_step_size (float, optional): The step size for the PGD attack. Default is 0.2.
-        pgd_decay_factor (float, optional): The decay factor for the PGD attack. Default is 0.2.
-        pgd_decay_checkpoints (tuple, optional): The decay checkpoints for the PGD attack. Default is (5, 7).
-        gradient_link_thresh (float, optional): The threshold for gradient linking. Default is 0.5.
-        gradient_link_tolerance (float, optional): The tolerance for gradient linking. Default is 1e-05.
-        propagation (str, optional): The propagation method to use ('IBP' or 'SABR'). Default is 'IBP'.
-        sabr_args (dict, optional): The arguments for the SABR method. Default is None.
-
-        relu_upper_retention (float): Unstable ReLU upper bound fraction for this training bound; default 1. Values below 1 are not sound certificates.
-        pgd_eps_factor (float): Positive latent PGD search-range factor; also scales SABR input searches in STAPS. Nominal IBP regions are unchanged.
+        ptb (auto_LiRPA.PerturbationLpNorm): The perturbation object defining the
+            perturbation set.
+        device (str, optional): The device to run the computation on.
+        pgd_steps (int, optional): The number of steps for the PGD attack.
+        pgd_restarts (int, optional): The number of restarts for the PGD attack.
+        pgd_step_size (float, optional): Latent-PGD step-size factor; None uses max(0.2, 2 /
+            steps) for positive step counts.
+        pgd_decay_factor (float, optional): The decay factor for the PGD attack.
+        pgd_decay_checkpoints (tuple, optional): The decay checkpoints for the PGD attack.
+        gradient_link_thresh (float, optional): The threshold for gradient linking.
+        gradient_link_tolerance (float, optional): The tolerance for gradient linking.
+        propagation (str, optional): The propagation method to use ('IBP' or 'SABR').
+        sabr_args (dict, optional): The arguments for the SABR method.
+        relu_upper_retention (float): Unstable ReLU upper bound fraction for this training
+            bound; default 1. Values below 1 are not sound
+            certificates.
+        pgd_eps_factor (float): Positive latent PGD search-range factor; also scales SABR
+            input searches in STAPS. Nominal IBP regions are unchanged.
 
     Returns:
         taps_bound(Tuple[Tensor, Tensor]): The TAPS bounds of the model's output.
@@ -174,20 +206,23 @@ def bound_taps(original_model, hardened_model, bounded_blocks, data, target, n_c
 # TODO: Adapted from TAPS code, should be checked if one wants to use multiestimator PGD loss alone
 # TODO: Refactoring needed!!
 def _get_pivotal_points(block, input_lb, input_ub, pgd_steps, pgd_restarts, pgd_step_size, pgd_decay_factor, pgd_decay_checkpoints, n_classes, C=None):
-    """
-    Estimate pivotal points for the classifier block using Projected Gradient Descent (PGD).
+    """Estimate pivotal points for the classifier block using Projected Gradient Descent (PGD).
 
-    Parameters:
-        block (autoLiRPA.BoundedModule): The neural network block for which to estimate pivotal points.
+    Args:
+        block (auto_LiRPA.BoundedModule): The neural network block for which to estimate
+            pivotal points.
         input_lb (torch.Tensor): Lower bound of the input to the network block.
         input_ub (torch.Tensor): Upper bound of the input to the network block.
         pgd_steps (int): Number of PGD steps to perform.
         pgd_restarts (int): Number of PGD restarts to perform.
-        pgd_step_size (float): Step size for PGD.
+        pgd_step_size (float): Latent-PGD step-size factor; None uses max(0.2, 2 / steps)
+            for positive step counts.
         pgd_decay_factor (float): Decay factor for PGD step size.
-        pgd_decay_checkpoints (list of int): Checkpoints at which to decay the PGD step size.
+        pgd_decay_checkpoints (list of int): Checkpoints at which to decay the PGD step
+            size.
         n_classes (int): Number of classes in the classification task.
-        C (torch.Tensor, optional): Matrix specifying the correct class for bound margin calculation. Must be provided.
+        C (torch.Tensor, optional): Matrix specifying the correct class for bound margin
+            calculation. Must be provided.
 
     Returns:
         (list of torch.Tensor): List containing the concatenated pivotal points tensor.
@@ -208,21 +243,24 @@ def _get_pivotal_points(block, input_lb, input_ub, pgd_steps, pgd_restarts, pgd_
     return [pts, ]
 
 def _get_pivotal_points_one_batch(block, lb, ub, pgd_steps, pgd_restarts, pgd_step_size, pgd_decay_factor, pgd_decay_checkpoints, C, n_classes, device=None):
-    """
-    Estimate pivotal points for a batch using Projected Gradient Descent (PGD).
+    """Estimate pivotal points for a batch using Projected Gradient Descent (PGD).
 
     Args:
-        block (autoLiRPA.BoundedModule): The neural network block for which to estimate pivotal points.
+        block (auto_LiRPA.BoundedModule): The neural network block for which to estimate
+            pivotal points.
         lb (torch.Tensor): Lower bound of the input.
         ub (torch.Tensor): Upper bound of the input.
         pgd_steps (int): Number of PGD steps.
         pgd_restarts (int): Number of PGD restarts.
-        pgd_step_size (float): Step size for PGD.
+        pgd_step_size (float): Latent-PGD step-size factor; None uses max(0.2, 2 / steps)
+            for positive step counts.
         pgd_decay_factor (float): Decay factor for learning rate.
         pgd_decay_checkpoints (list): Checkpoints for learning rate decay.
-        C (torch.Tensor): Matrix specifying the correct class for bound margin calculation. Must be provided.
+        C (torch.Tensor): Matrix specifying the correct class for bound margin calculation.
+            Must be provided.
         n_classes (int): Number of classes.
-        device (str, optional): Compatibility argument; allocation uses the bounds' device and dtype.
+        device (str, optional): Compatibility argument; allocation uses the bounds' device
+            and dtype.
 
     Returns:
         (torch.Tensor): Adversarial examples per class for whole batch.
@@ -268,14 +306,17 @@ def _get_pivotal_points_one_batch(block, lb, ub, pgd_steps, pgd_restarts, pgd_st
 
 
 def _get_bound_estimation_from_pts(block, pts, dim_to_estimate, C=None):
-    """
-    Estimate bounds for specified dimensions from given adversarial examples.
+    """Estimate bounds for specified dimensions from given adversarial examples.
 
-    Parameters:
-        block (autoLiRPA.BoundedModule): The neural network block for which to estimate pivotal points.
-        pts (torch.Tensor): Tensor of adversarial examples of shape (batch_size, num_pivotal, *shape_in[1:]).
-        dim_to_estimate (torch.Tensor): Tensor indicating the dimensions to estimate, shape (batch_size, num_dims, dim_size).
-        C (torch.Tensor): Matrix specifying the correct class for bound margin calculation. Must be provided.
+    Args:
+        block (auto_LiRPA.BoundedModule): The neural network block for which to estimate
+            pivotal points.
+        pts (torch.Tensor): Tensor of adversarial examples of shape (batch_size,
+            num_pivotal, *shape_in[1:]).
+        dim_to_estimate (torch.Tensor): Tensor indicating the dimensions to estimate, shape
+            (batch_size, num_dims, dim_size).
+        C (torch.Tensor): Matrix specifying the correct class for bound margin calculation.
+            Must be provided.
 
     Returns:
         estimated_bounds(torch.Tensor): Estimated bounds tensor of shape (batch_size, num_pivotal) if C is None,
@@ -305,30 +346,23 @@ def _get_bound_estimation_from_pts(block, pts, dim_to_estimate, C=None):
     return estimated_bounds
 
 class RectifiedLinearGradientLink(torch.autograd.Function):
-    """
-    RectifiedLinearGradientLink is a custom autograd function that establishes a rectified linear gradient link
-    between the IBP bounds of the feature extractor (lb, ub) and the
-    PGD bounds (x_adv) of the classifier. This function is not a valid gradient with respect
-    to the forward function.
+    """Link latent pivotal-point gradients to feature interval endpoints for TAPS.
 
-    Attributes:
-        c (float): A constant used to determine the slope.
-        tol (float): A tolerance value to avoid division by zero.
-
-    Methods:
-        forward(ctx, lb, ub, x, c: float, tol: float)
-        backward(ctx, grad_x):
+    The forward computation returns the selected point. Backward assigns
+    endpoint gradients according to its distance from each interval boundary.
+    This is the method's surrogate gradient, not the derivative of the identity
+    forward computation. The threshold c determines the linked boundary region,
+    and tol limits division near zero-width intervals.
     """
     @staticmethod
     def forward(ctx, lb, ub, x, c:float, tol:float):
-        """
-        Saves the input tensors and constants for backward computation.
+        """Return the pivotal point and retain the feature bounds for the surrogate backward pass.
 
         Args:
-            ctx: Context object to save information for backward computation.
-            lb: Lower bound tensor.
-            ub: Upper bound tensor.
-            x: Input tensor.
+            ctx (torch.autograd.function.FunctionCtx): Context object to save information for backward computation.
+            lb (torch.Tensor): Lower bound tensor.
+            ub (torch.Tensor): Upper bound tensor.
+            x (torch.Tensor): Input tensor.
             c (float): A constant used to determine the slope.
             tol (float): A tolerance value to avoid division by zero.
 
@@ -341,12 +375,11 @@ class RectifiedLinearGradientLink(torch.autograd.Function):
         return x
     @staticmethod
     def backward(ctx, grad_x):
-        """
-        Computes the gradient of the loss with respect to the input bounds (lb, ub).
+        """Distribute pivotal-point gradients to nearby lower and upper feature bounds.
 
         Args:
-            ctx: Context object containing saved tensors and constants.
-            grad_x: Gradient of the loss with respect to the output of the forward function.
+            ctx (torch.autograd.function.FunctionCtx): Context object containing saved tensors and constants.
+            grad_x (torch.Tensor): Gradient of the loss with respect to the output of the forward function.
 
         Returns:
             (Tuple[Tensor, Tensor, None, None, None]): Gradients with respect to lb, ub, and None for other inputs.
@@ -366,27 +399,21 @@ class RectifiedLinearGradientLink(torch.autograd.Function):
         return grad_lb, grad_ub, None, None, None
 
 class GradExpander(torch.autograd.Function):
-    """
-    A custom autograd function that scales the gradient during the backward pass.
-    This function allows you to define a custom forward and backward pass for a
-    PyTorch operation. The forward pass simply returns the input tensor, while
-    the backward pass scales the gradient by a specified factor `alpha`.
-    Methods:
-        forward(ctx, x, alpha: float = 1):
-        backward(ctx, grad_x):
+    """Scale a TAPS loss gradient while preserving its forward value.
 
+    This custom autograd operation lets the training objective weight the
+    latent-loss derivative by alpha without multiplying the reported loss.
     """
 
     @staticmethod
     def forward(ctx, x, alpha:float=1):
-        """
-        Forward pass for the custom operation.
+        """Return x unchanged and retain the requested gradient multiplier.
 
         Args:
-            ctx: The context object that can be used to stash information
+            ctx (torch.autograd.function.FunctionCtx): The context object that can be used to stash information
                 for backward computation.
-            x: The input tensor.
-            alpha (float, optional): A scaling factor. Defaults to 1.
+            x (torch.Tensor): The input tensor.
+            alpha (float, optional): A scaling factor.
 
         Returns:
             (torch.Tensor): The input tensor `x`.
@@ -396,12 +423,12 @@ class GradExpander(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_x):
-        """
-        Performs the backward pass for the custom autograd function.
+        """Multiply the incoming gradient by alpha; return no gradient for the multiplier.
 
         Args:
-            ctx: The context object that can be used to stash information for backward computation.
-            grad_x: The gradient of the loss with respect to the output of the forward pass.
+            ctx (torch.autograd.function.FunctionCtx): The context object that can be used to stash information for backward
+                computation.
+            grad_x (torch.Tensor): The gradient of the loss with respect to the output of the forward pass.
 
         Returns:
             (Tuple[Tensor, None]): A tuple containing the gradient of the loss with respect to the input of the forward pass and None (as there is no gradient with respect to the second input).

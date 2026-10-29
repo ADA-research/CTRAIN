@@ -1,4 +1,4 @@
-"""CC-Dist uses the shared expressive schedules, regularization and checkpoints."""
+"""CC-Dist uses the shared expressive schedules, regularisation and checkpoints."""
 from functools import partial
 
 from CTRAIN.train.certified.expressive_ibp import expressive_ibp_train_model
@@ -6,7 +6,11 @@ from CTRAIN.train.certified.losses.cc_dist import get_cc_dist_loss, validate_cc_
 
 
 def cc_dist_train_model(*args, teacher_features=None, distillation_weight=None, **kwargs):
-    """Train CC-Dist; arguments otherwise match expressive_ibp_train_model."""
+    """Train CC-Dist using the shared expressive IBP training procedure.
+
+    Arguments follow expressive_ibp_train_model; this entry point selects the
+    method-specific loss while reusing its schedules and training loop.
+    """
     model = kwargs['hardened_model'] if 'hardened_model' in kwargs else args[1]
     validate_cc_dist_bn_options(model, model.bound_opts)
     if 'loss_func' not in kwargs:

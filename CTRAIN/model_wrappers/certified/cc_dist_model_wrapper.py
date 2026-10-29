@@ -14,19 +14,36 @@ from CTRAIN.train.adversarial.pgd import validate_pgd_training_options
 
 
 class CCDistModelWrapper(CCIBPModelWrapper):
-    """CC-Dist from arXiv:2602.02626, Algorithm 1.
+    """Train a certified student using feature distillation from an adversarial teacher.
 
-    ``teacher`` is a pretrained native classifier with ``layers`` (or a
-    Sequential), ending in Linear. Its feature width must match the student's
-    final Linear input. A private frozen copy supplies clean teacher features.
-    All CC-IBP training/evaluation/HPO options remain available; beta defaults
-    to 5 divided by the feature width. Set beta=0 for the paper's CC-IBP control.
+    CC-Dist extends CC-IBP by aligning mixed adversarial and bounded student
+    features with clean teacher features. The teacher must have the same feature
+    width and class count as the student. A private frozen feature extractor
+    supplies training targets and is excluded from the student's inference model.
+    Both classifiers must expose a sequential forward graph ending in Linear.
+
+    The distillation weight defaults to 5 divided by the feature width; zero gives
+    the CC-IBP control. Other training and evaluation options are inherited from
+    CCIBPModelWrapper. See https://arxiv.org/abs/2602.02626.
     """
     _trainer = staticmethod(cc_dist_train_model)
     _clean_forward = False
 
     def __init__(self, model, input_shape, eps, num_epochs, *, teacher,
                  distillation_weight=None, **kwargs):
+        """Configure student training and validate the frozen teacher feature extractor.
+
+        Args:
+            model (torch.nn.Module): PyTorch model to train or evaluate.
+            input_shape (tuple[int, ...]): Shape of a model input, excluding the batch dimension unless supplied
+                explicitly.
+            eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+            num_epochs (int): Total training budget, including warm-up and ramp-up.
+            teacher (torch.nn.Module): Pretrained adversarial classifier with matching feature width and number of
+                output classes.
+            distillation_weight (float, optional): Feature-distillation weight. None uses 5 divided by the feature
+                width.
+        """
         warm, ramp = kwargs.get('warm_up_epochs', 1), kwargs.get('ramp_up_epochs', 70)
         if (type(num_epochs) is not int or num_epochs < 1 or type(warm) is not int
                 or type(ramp) is not int or warm < 0 or ramp < 0 or warm+ramp > num_epochs):
@@ -64,6 +81,7 @@ class CCDistModelWrapper(CCIBPModelWrapper):
                                   distillation_weight=distillation_weight)
 
     def _hpo_extra_options(self, config):
+        """Recreate the frozen teacher features and distillation weight for an HPO trial."""
         teacher = nn.Sequential(*copy.deepcopy(list(self.teacher_features)),
                                 copy.deepcopy(self.original_model.layers[-1]
                                               if hasattr(self.original_model, 'layers')

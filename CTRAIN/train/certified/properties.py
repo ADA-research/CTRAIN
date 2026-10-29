@@ -29,7 +29,20 @@ from CTRAIN.train.certified.progress import progress_bar, tqdm
 
 @dataclass
 class PropertyTrainingState:
-    """Mutable property trajectory, independent of model wrappers."""
+    """Retain the state required to continue a property-training trajectory.
+
+    The trainer updates the covering partition, completed epoch count, history
+    and validation selection in place. A wrapper can expose these fields without
+    owning the numerical training procedure.
+
+    Attributes:
+        partition (list[dict]): Covering cells, split lineages and sampling probabilities.
+        epoch (int): Number of completed epochs.
+        history (list[dict]): Per-epoch task losses, property losses and cover diagnostics.
+        selection_state (dict): Best validation score, inference weights and selected epoch.
+        inference_selected (bool): Whether selected inference weights have replaced trajectory weights.
+        loader_rng (object): Pending loader-generator state for checkpoint resumption.
+    """
     partition: list
     epoch: int = 0
     history: list = field(default_factory=list)
@@ -40,7 +53,7 @@ class PropertyTrainingState:
 
 def save_property_checkpoint(path, original_model, optimizer, lr_scheduler, state,
                              configuration, train_loader=None):
-    """Save common trajectory fields plus property cover, configuration and RNG."""
+    """Save a property-training trajectory, including its cover, configuration and RNG states."""
     if state.inference_selected:
         raise ValueError('Selected inference weights are not a resumable trajectory; load an epoch checkpoint first')
     path = Path(path)
@@ -57,7 +70,8 @@ def save_property_checkpoint(path, original_model, optimizer, lr_scheduler, stat
 
 
 def _recalibrate(original_model, bounds, loader, reference, population_bn):
-    """Optionally refresh BN running statistics and synchronize bound buffers.
+    """Refresh property-training BatchNorm statistics and synchronise verification buffers when
+    requested.
 
     Only BatchNorm layers enter training mode; all other layers stay in eval
     mode. Batch statistics are averaged equally across loader batches. Caller
@@ -84,7 +98,7 @@ def _recalibrate(original_model, bounds, loader, reference, population_bn):
 
 
 def _task_value(original_model, task_loss, loader, reference):
-    """Average task loss by example count without accumulating gradients."""
+    """Compute the sample-weighted task loss without accumulating gradients."""
     total, count = 0., 0
     with torch.no_grad():
         for data, target in loader:
@@ -109,7 +123,7 @@ def property_train_model(original_model=None, train_loader=None, val_loader=None
                          population_bn=False, property_dataset=None,
                          results_path=None, checkpoint_save_interval=10,
                          configuration=None, epoch_metrics=None, wrapper=None):
-    """Optimize task and property losses, then freshly bound the whole cover.
+    """Optimise task and property losses, then freshly bound the whole cover.
 
     For each task batch, sample covering cells with replacement according to
     their stored weights. A lazy property dataset instead samples uniformly from
@@ -117,16 +131,16 @@ def property_train_model(original_model=None, train_loader=None, val_loader=None
     lower margins using the selected training strategy. IBP/CROWN use full regions;
     MTL/CC/Exp combine adversarial and IBP components; SABR bounds contained
     subregions; PGD uses adversarial points; IBP-R adds unstable ReLU areas;
-    GLS uses its existing Gaussian optimizer with a fixed sampled cover per
+    GLS uses its existing Gaussian optimiser with a fixed sampled cover per
     update. Nested disjunctions retain their compiled graph.
-    The update minimizes::
+    The update minimises::
 
         mean(task_loss) + property_weight * ramp * mean(sampled_cell_penalties)
 
     The default hinge penalty is `sum(max(0, margin - training_margin))`;
     cross-entropy uses the padded-margin loss. Training margins may be bounds
     or adversarial point margins, depending on the selected strategy.
-    The first `warm_up_epochs` optimize only the task loss, without sampling or
+    The first `warm_up_epochs` optimise only the task loss, without sampling or
     evaluating properties. The ramp starts afterward and reaches one after
     `weight_ramp_epochs`; zero ramp epochs apply the full weight after warm-up.
     Both phases are included in `num_epochs`. Cells describe whole input regions;
@@ -141,7 +155,7 @@ def property_train_model(original_model=None, train_loader=None, val_loader=None
     margin. A negative bound means unresolved, not a proven counterexample.
 
     All graphs run in evaluation mode with weight gradients enabled, keeping
-    BatchNorm statistics fixed during optimizer updates and disabling dropout.
+    BatchNorm statistics fixed during optimiser updates and disabling dropout.
     Caller modes and parameter gradient flags are restored even on failure.
 
     Shared lifecycle arguments have the same meaning as in classifier trainers.

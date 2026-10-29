@@ -1,28 +1,56 @@
 site_name: CTRAIN Documentation
 nav:
   - Home: index.md
+  - Getting Started: getting_started.md
+  - IBP: ibp.md
+  - CROWN-IBP: crown_ibp.md
+  - SABR: sabr.md
+  - TAPS and STAPS: taps_staps.md
+  - Set-Based Training: set_based.md
+  - General Properties: properties.md
+  - IBP-R: ibp_r.md
+  - Gaussian Loss Smoothing: gls.md
   - Expressive Losses: expressive_losses.md
   - CC-Dist: cc_dist.md
-  - General Properties: properties.md
-  - Examples:
+  - Complete Verification: complete_verification.md
+  - Guides:
+    - Data and Models: guides/data_and_models.md
+    - Training: guides/training.md
+    - Checkpoints and Model Selection: guides/checkpoints.md
+    - Hyperparameter Optimisation: guides/hpo.md
+    - Evaluation and Verification: guides/evaluation.md
+    - Troubleshooting: guides/troubleshooting.md
+  - Tutorials:
+    - Overview: examples/README.md
     - Certified Training: examples/certified_training.ipynb
     - Model Evaluation: examples/model_evaluation.ipynb
     - Hyperparameter Optimisation: examples/hyperparameter_optimisation.ipynb
-    - Pareto-front Models: examples/pareto_front_models.md
+    - General Output Properties: examples/general_properties.ipynb
+    - ONNX and VNNLIB: examples/onnx_vnnlib.ipynb
+    - MNIST Arithmetic: examples/mnist_arithmetic.ipynb
   - API Reference:
       - attacks:
         - pgd: api/attacks/pgd.md
+      - Bound Overview: api/bound.md
+      - Properties: api/properties.md
       - bound:
         - ibp: api/bound/ibp.md
         - crown: api/bound/crown.md
         - sabr: api/bound/sabr.md
         - taps: api/bound/taps.md
+        - General Properties: api/bound/properties.md
+        - Set Propagation: api/bound/set_based_zono.md
       - complete_verification:
         - abCROWN: api/complete_verification/abCROWN.md
+        - NeuralSAT: api/complete_verification/neuralsat.md
       - data_loaders: api/data_loaders/data_loaders.md
-      - eval: api/eval/eval.md
+      - eval:
+        - Robustness: api/eval/eval.md
+        - General Properties: api/eval/properties.md
       - model_definitions: api/model_definitions/model_definitions.md
       - model_wrappers:
+        - Configuration Spaces: api/model_wrappers/configs.md
+        - Set-Based Training: api/model_wrappers/set_based_model_wrapper.md
         - General Properties: api/model_wrappers/property_model_wrapper.md
         - CC-Dist: api/model_wrappers/cc_dist_model_wrapper.md
         - PGD Teachers: api/model_wrappers/pgd_model_wrapper.md
@@ -31,6 +59,8 @@ nav:
         - MTL IBP: api/model_wrappers/mtl_ibp_model_wrapper.md
         - CC IBP: api/model_wrappers/cc_ibp_model_wrapper.md
         - Exp IBP: api/model_wrappers/exp_ibp_model_wrapper.md
+        - IBP-R: api/model_wrappers/ibp_r_model_wrapper.md
+        - GLS: api/model_wrappers/gls_model_wrapper.md
         - SABR: api/model_wrappers/sabr_model_wrapper.md
         - SHI IBP: api/model_wrappers/shi_ibp_model_wrapper.md
         - TAPS: api/model_wrappers/taps_model_wrapper.md
@@ -39,9 +69,13 @@ nav:
       - train:
         - adversarial:
           - PGD Teachers: api/train/adversarial/pgd.md
+          - PGD Loss: api/train/adversarial/losses/pgd.md
         - certified:
-          - General Properties: api/train/certified/properties.md
           - CC-Dist: api/train/certified/cc_dist.md
+          - General Properties: api/train/certified/properties.md
+          - Set-Based Training: api/train/certified/set_based.md
+          - IBP-R: api/train/certified/ibp_r.md
+          - GLS: api/train/certified/gls.md
           - IBP: api/train/certified/ibp.md
           - CROWN IBP: api/train/certified/crown_ibp.md
           - SABR: api/train/certified/sabr.md
@@ -63,8 +97,11 @@ nav:
             - convex_combinations: api/train/certified/losses/convex_combinations.md
             - crown_ibp: api/train/certified/losses/crown_ibp.md
             - ibp: api/train/certified/losses/ibp.md
+            - ibp_r: api/train/certified/losses/ibp_r.md
             - sabr: api/train/certified/losses/sabr.md
             - taps: api/train/certified/losses/taps.md
+            - General Properties: api/train/certified/losses/properties.md
+            - Set-Based Training: api/train/certified/losses/set_based.md
             - util: api/train/certified/losses/util.md
       - util: api/util/util.md
 

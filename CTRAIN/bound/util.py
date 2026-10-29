@@ -8,6 +8,11 @@ from auto_LiRPA.operators.relu import BoundRelu
 
 
 def validate_hybrid_options(relu_upper_retention=1.0, pgd_eps_factor=1.0):
+    """Validate ReLU retention and PGD search-range factors before bound computation.
+
+    Retention must lie in (0, 1] and the attack factor must be positive and finite.
+    Invalid values raise ValueError.
+    """
     if not math.isfinite(relu_upper_retention) or not 0 < relu_upper_retention <= 1:
         raise ValueError("relu_upper_retention must be in (0, 1]")
     if not math.isfinite(pgd_eps_factor) or pgd_eps_factor <= 0:
@@ -15,7 +20,13 @@ def validate_hybrid_options(relu_upper_retention=1.0, pgd_eps_factor=1.0):
 
 
 def get_pgd_ptb(ptb, data, factor=1.0, data_min=None, data_max=None, eps=None):
-    """Scale the attack region, retaining the caller's nominal perturbation."""
+    """Construct an attack region independently of the nominal bounding region.
+
+    The factor scales the search radius about data, with optional input-domain
+    clipping. A factor of one returns the supplied perturbation unchanged.
+    Pass the scheduled radius as eps when available: auto_LiRPA may replace a
+    perturbation's eps with the half-width of an already clipped interval.
+    """
     validate_hybrid_options(pgd_eps_factor=factor)
     if factor == 1:
         return ptb
@@ -31,10 +42,13 @@ def get_pgd_ptb(ptb, data, factor=1.0, data_min=None, data_max=None, eps=None):
 
 
 def compute_ibp_bounds(model, relu_upper_retention=1.0, **kwargs):
-    """Apply the training heuristic to this IBP call only, including on failure.
+    """Compute IBP bounds with optional training-only ReLU upper-bound retention.
 
-    auto_LiRPA exposes no per-call ReLU interval option. Override its interval
-    operator during computation; ordinary subsequent bounds remain sound.
+    Ordinary IBP is used when retention is one. Smaller values multiply unstable
+    ReLU upper bounds by the requested fraction, producing an unsound training
+    surrogate. Since auto_LiRPA has no per-call option for this operation, its
+    interval operators are temporarily adapted and restored even on failure.
+    Arguments in kwargs are forwarded to model.compute_bounds.
     """
     validate_hybrid_options(relu_upper_retention)
     if relu_upper_retention == 1:

@@ -1,8 +1,10 @@
+"""Weight initialisation for stable IBP training following Shi et al. (2021)."""
 import torch
 import math
 from auto_LiRPA.operators import BoundConv, BoundLinear, BoundAdd
 
 def get_params(model):
+    """Collect named weight and bias parameter pairs for Shi initialisation."""
     weights = []
     biases = []
     for p in model.named_parameters():
@@ -15,8 +17,12 @@ def get_params(model):
     return weights, biases
 
 def ibp_init_shi(model_ori, model, init_last_layer=False, zero_bias=False):
-    """
-    Reinitialize weights using Shi et al. (2021), std = sqrt(2*pi)/fan_in.
+    """Initialise weights for stable IBP training following Shi et al. (2021).
+
+    Affine and convolutional weights use standard deviation sqrt(2*pi)/fan_in.
+    By default the final named weight tensor and existing biases are retained;
+    init_last_layer and zero_bias explicitly change those choices. Residual
+    connections receive the corresponding scale adjustment in the bounded graph.
 
     Args:
         model_ori (torch.nn.Module): The original model.
@@ -27,7 +33,7 @@ def ibp_init_shi(model_ori, model, init_last_layer=False, zero_bias=False):
             False preserves their existing values.
 
     Returns:
-        None
+        (None): This function updates the supplied state in place.
     """
     if type(init_last_layer) is not bool or type(zero_bias) is not bool:
         raise ValueError('init_last_layer and zero_bias must be booleans')

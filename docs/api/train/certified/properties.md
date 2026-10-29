@@ -2,13 +2,10 @@
 
 This trainer is normally called through
 [`PropertyModelWrapper`](../../model_wrappers/property_model_wrapper.md).
+The [property/task losses](losses/properties.md) and
+[certification functions](../../eval/properties.md) have separate references.
 
 ::: CTRAIN.train.certified.properties.property_train_model
-    options:
-      docstring_style: google
-      show_root_heading: true
-
-::: CTRAIN.train.certified.losses.properties.advisory_cross_entropy
     options:
       docstring_style: google
       show_root_heading: true

@@ -1,3 +1,4 @@
+"""Interval-stability regularisation for IBP-based training."""
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -8,25 +9,30 @@ from auto_LiRPA.perturbations import PerturbationLpNorm
 from CTRAIN.bound import bound_ibp
 
 def get_shi_regulariser(model, ptb, data, target, eps_scheduler, n_classes, device, tolerance=.5, verbose=False, included_regularisers=['relu', 'tightness'], regularisation_decay=True, loss_fusion=False, relu_upper_retention=1.0):
-    """
-    Compute the Shi regularisation loss for a given model. See Shi et al. (2020) for more details.
-    
+    """Compute the interval-stability regulariser proposed by Shi et al. (2021).
+
     Args:
-        model (auto_LiRPA.BoundedModule): The bounded model. IMPORTANT: Do not pass the original model, but the hardened model.
-        ptb (autoLiRPA.PerturbationLpNorm): The perturbation applied to the input data.
+        model (auto_LiRPA.BoundedModule): The bounded model. IMPORTANT: Do not pass the
+            original model, but the hardened model.
+        ptb (auto_LiRPA.PerturbationLpNorm): The perturbation applied to the input data.
         data (torch.Tensor): Input data tensor.
         target (torch.Tensor): Target labels tensor.
         eps_scheduler (BaseScheduler): Scheduler for epsilon values.
         n_classes (int): Number of classes in the classification task.
         device (torch.device): Device to perform computations on (e.g., 'cpu' or 'cuda').
-        tolerance (float, optional): Tolerance value for regularisation. Default is 0.5.
-        verbose (bool, optional): If True, prints detailed information during computation. Default is False.
-        included_regularisers (list of str, optional): List of regularisers to include in the loss computation. Default is ['relu', 'tightness'].
-        regularisation_decay (bool, optional): If True, applies decay to the regularisation loss. Default is True.
-        loss_fusion (bool, optional): If True, uses loss fusion. Default is False.
-    
+        tolerance (float, optional): Tolerance value for regularisation.
+        verbose (bool, optional): If True, prints detailed information during computation.
+        included_regularisers (list of str, optional): List of regularisers to include in
+            the loss computation.
+        regularisation_decay (bool, optional): If True, applies decay to the regularisation
+            loss.
+        loss_fusion (bool, optional): If True, uses loss fusion.
+        relu_upper_retention (float): Fraction of unstable ReLU upper bounds retained during
+            training, in (0, 1]. Values below one give an unsound training
+            surrogate.
+
     Returns:
-        torch.Tensor: The computed SHI regulariser loss.
+        (torch.Tensor): The computed SHI regulariser loss.
     """
     loss = torch.zeros(()).to(device)
 

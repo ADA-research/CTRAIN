@@ -10,7 +10,7 @@ from CTRAIN.util.util import preserve_model_state
 
 
 def validate_cc_dist_bn_options(model, bound_opts):
-    """Bounds must reuse the adversarial forward's BatchNorm statistics."""
+    """Validate that CC-Dist bounds reuse the adversarial forward pass's BatchNorm statistics."""
     bound_opts = {} if bound_opts is None else bound_opts
     has_bn = any(isinstance(m, (nn.modules.batchnorm._BatchNorm, BoundBatchNormalization))
                  for m in model.modules())
@@ -21,7 +21,13 @@ def validate_cc_dist_bn_options(model, bound_opts):
 
 
 def feature_distillation_loss(adversarial, lower, upper, teacher, alpha, weight=None):
-    """Batch mean of the sum of worst endpoint distances, with beta=5/w."""
+    """Align adversarial and bounded student features with clean teacher features.
+
+    The loss averages the sum of the worst squared endpoint distances after
+    mixing adversarial features and interval endpoints with weight alpha.
+    A missing weight uses 5 divided by the feature width. Teacher features are
+    detached, so the loss updates only the student.
+    """
     if not math.isfinite(alpha) or not 0 <= alpha <= 1:
         raise ValueError('alpha must be finite and in [0, 1]')
     if weight is not None and (not math.isfinite(weight) or weight < 0):
@@ -38,11 +44,12 @@ def feature_distillation_loss(adversarial, lower, upper, teacher, alpha, weight=
 
 
 def get_cc_dist_loss(*args, teacher_features, distillation_weight=None, **kwargs):
-    """CC-IBP plus distillation from frozen, clean, evaluation-mode features.
+    """Extend CC-IBP with feature distillation from an adversarially trained teacher.
 
-    The attack and the bounds use the existing CC-IBP implementation. Features
-    and their intervals come from its same LiRPA graph and adversarial BN pass.
-    ``teacher_features`` is the teacher without its final affine classifier.
+    The frozen teacher is evaluated on clean inputs in evaluation mode. Student
+    features and their bounds come from the same CC-IBP graph and adversarial
+    BatchNorm pass. Setting distillation_weight=0 gives the CC-IBP control.
+    Other arguments and optional returns follow get_expressive_ibp_loss.
     """
     if distillation_weight is not None and (
             not math.isfinite(distillation_weight) or distillation_weight < 0):

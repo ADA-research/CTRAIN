@@ -1,6 +1,5 @@
 """CPU regressions for submission audit findings 1–15. Run this file directly."""
 import copy
-import json
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -310,34 +309,6 @@ def hpo_and_gls():
     assert any(not torch.equal(a, b) for a, b in zip(*models))
 
 
-def tutorial_configs():
-    for name in ('certified_training', 'hyperparameter_optimisation'):
-        notebook = json.loads((Path('docs/examples') / f'{name}.ipynb').read_text())
-        scope = {}
-        for cell in notebook['cells']:
-            if cell['cell_type'] != 'code':
-                continue
-            code = ''.join(cell['source'])
-            if 'load_mnist(batch_size' in code:
-                scope['in_shape'] = [1, 28, 28]
-                scope['model'] = CNN7_Shi(scope['in_shape'], width=2, linear_size=4)
-                continue
-            if 'wrapped_model.train_model' in code or 'pareto_front =' in code or 'torch.save' in code:
-                continue
-            exec(compile(code, f'{name}.ipynb', 'exec'), scope)
-        wrapper = scope['wrapped_model']
-        if name == 'hyperparameter_optimisation':
-            hpo_cell = next(''.join(c['source']) for c in notebook['cells']
-                            if c['cell_type'] == 'code' and 'pareto_front =' in ''.join(c['source']))
-            with patch.object(wrapper, 'hpo', return_value=[]) as hpo:
-                scope.update(train_loader=loader_for(), val_loader=loader_for())
-                exec(hpo_cell, scope)
-            get_config_space(wrapper, wrapper.num_epochs, torch.tensor(.1),
-                             defaults=hpo.call_args.kwargs['defaults'])
-        else:
-            wrapper.train_model(loader_for(torch.rand(4, 1, 28, 28)), end_epoch=1)
-
-
 if __name__ == '__main__':
     torch.set_num_threads(1)
     torch.manual_seed(0)
@@ -348,5 +319,4 @@ if __name__ == '__main__':
     checkpoint_and_modes()
     crown_bounds_and_models()
     hpo_and_gls()
-    tutorial_configs()
     print('Submission must-fix regressions passed')

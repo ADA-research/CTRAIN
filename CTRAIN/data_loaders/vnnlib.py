@@ -8,11 +8,12 @@ from CTRAIN.util.onnx import load_onnx_model
 
 def load_vnnlib_problem(model_path, specification_path, *, name=None,
                         input_shape=None, output_semantics='unsafe', expected_sha256=None):
-    """Load a user-selected trainable model, output property and file provenance.
+    """Load an ONNX network and VNNLIB specification for property-aware training.
 
-    No case registry, network naming convention, upstream revision or download
-    is required. Uses `load_vnnlib_property` semantics, and checks ONNX conversion
-    at box endpoints, midpoint and 128 deterministic random inputs.
+    The loader constructs the desired output formula and finite input boxes,
+    converts the model and checks predictions at box endpoints, midpoints and
+    128 deterministic random inputs per box. File paths and hashes record the
+    provenance of the resulting training problem.
 
     Args:
         model_path (str | pathlib.Path): Local single-input/output ONNX model.
@@ -27,10 +28,10 @@ def load_vnnlib_problem(model_path, specification_path, *, name=None,
             the keys `'model'` and `'specification'`. Checked before file parsing.
 
     Returns:
-        tuple: `(model, property_spec, provenance)`. Model is trainable on CPU
-        in eval mode. Provenance records resolved paths, SHA256 hashes, input
-        shape and output semantics. Recorded hashes alone do not authenticate
-        an upstream source. Input normalization remains the caller's choice.
+        (tuple): `(model, property_spec, provenance)`. Model is trainable on CPU
+            in eval mode. Provenance records resolved paths, SHA256 hashes, input
+            shape and output semantics. Recorded hashes alone do not authenticate
+            an upstream source. Input normalisation remains the caller's choice.
 
     Raises:
         ValueError: Hashes, shapes, input dtype or VNNLIB constructs unsupported.

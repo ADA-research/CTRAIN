@@ -11,7 +11,7 @@ import time
 
 
 def validate_neuralsat_command(command):
-    """Default to bundled NeuralSAT in the active Python environment."""
+    """Resolve and validate the NeuralSAT executable, using bundled source by default."""
     if command is None:
         if sys.version_info < (3, 10):
             raise RuntimeError("Bundled NeuralSAT requires Python 3.10+; supply neuralsat_command for a newer interpreter")
@@ -29,7 +29,7 @@ def validate_neuralsat_command(command):
 
 
 def validate_neuralsat_options(timeout, device, batch_size):
-    """Validate options before exporting a model or iterating the dataset."""
+    """Validate the positive solver budget, supported device and parallel branch count."""
     if not math.isfinite(timeout) or timeout <= 0:
         raise ValueError('timeout must be positive and finite')
     if isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size <= 0:
@@ -40,7 +40,11 @@ def validate_neuralsat_options(timeout, device, batch_size):
 
 def neuralsat_eval(model_onnx_path, instance, command=None, timeout=1000,
                    device='cpu', batch_size=1000, log_path=None):
-    """Return elapsed wall time and sat/unsat/unknown/timeout; never infer from logs.
+    """Evaluate an ONNX network and VNNLIB query using the NeuralSAT command line.
+
+    The solver runs in a separate process and writes a structured result file.
+    Failed processes or missing results remain unknown; log text is not treated
+    as a certificate. Returns elapsed wall time and sat, unsat, unknown or timeout.
 
     NeuralSAT runs in its own environment. Failed processes and invalid/missing
     result files are unknown, even if stdout contains a proof-looking string.

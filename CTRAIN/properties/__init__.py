@@ -1,4 +1,10 @@
-"""Finite affine output specifications with exact Boolean and signed semantics."""
+"""Represent input-output specifications through affine comparisons and Boolean formulas.
+
+A PropertySpec associates an output formula with closed input boxes. Affine
+comparisons define satisfaction margins; conjunction and disjunction combine
+them using minimum and maximum. These formulas can be compiled into fixed
+computation graphs for auto_LiRPA bound propagation.
+"""
 from dataclasses import dataclass
 from numbers import Real
 import math
@@ -25,6 +31,16 @@ class _Symbolic:
 
 @dataclass(frozen=True, eq=False)
 class Affine(_Symbolic):
+    """Represent an affine expression over network outputs.
+
+    The expression is the sum of coefficient-weighted outputs plus an offset.
+    Arithmetic and comparison operators construct formulas without evaluating a
+    network. Use Outputs()[i] to select an output coordinate.
+
+    Args:
+        coefficients (tuple): Unique nonnegative output indices paired with finite coefficients.
+        offset (float): Finite constant added to the weighted outputs.
+    """
     coefficients: tuple = ()
     offset: float = 0.
 
@@ -75,6 +91,7 @@ class Affine(_Symbolic):
         return Lt(self, other)
 
     def tensors(self, output):
+        """Return dense affine coefficients and offset in the output tensor's device and dtype."""
         n = output.shape[1]
         values = [0.] * n
         for index, value in self.coefficients:
@@ -84,6 +101,7 @@ class Affine(_Symbolic):
         return output.new_tensor(values), output.new_tensor(self.offset)
 
     def evaluate(self, output):
+        """Evaluate the affine expression on a batch of network outputs."""
         coefficients, offset = self.tensors(output)
         return torch.nn.functional.linear(output, coefficients.unsqueeze(0), offset.reshape(1))
 
@@ -93,11 +111,26 @@ def _affine(value):
 
 
 class Outputs:
+    """Construct symbolic references to network output coordinates.
+
+    For example, y = Outputs() followed by And(y[0] >= -0.75, y[0] <= 0.75)
+    defines an output-range property. Use And and Or to combine comparisons;
+    Python's and, or and chained comparisons do not construct symbolic formulas.
+    """
     def __getitem__(self, index):
         return OutputIndex(self, index)
 
 
 def OutputIndex(output, index):
+    """Return an affine expression selecting one network output.
+
+    Args:
+        output (Outputs): Symbolic output collection.
+        index (int): Nonnegative output coordinate.
+
+    Returns:
+        (Affine): Expression with coefficient one at the selected coordinate.
+    """
     if not isinstance(output, Outputs) or type(index) is not int or index < 0:
         raise ValueError('OutputIndex requires Outputs and a nonnegative integer index')
     return Affine(((index, 1.),))
@@ -105,6 +138,16 @@ def OutputIndex(output, index):
 
 @dataclass(frozen=True, eq=False)
 class Comparison(_Symbolic):
+    """Represent a signed affine output comparison.
+
+    The satisfaction margin is expression / scale. A non-strict comparison is
+    satisfied at zero; a strict comparison requires a positive margin.
+
+    Args:
+        expression (Affine): Left-hand side minus right-hand side of the comparison.
+        strict (bool): Whether equality violates the comparison.
+        scale (float): Positive finite margin-normalisation factor.
+    """
     expression: Affine
     strict: bool = False
     scale: float = 1.
@@ -120,35 +163,52 @@ class Comparison(_Symbolic):
         # Fold constant scaling into coefficients. An explicit division causes
         # the installed LiRPA graph optimizer to lose dependency flags when it
         # replaces division, and then unnecessarily lower native min/max.
+        """Return the scaled affine satisfaction margin for each output."""
         return (self.expression * (1 / self.scale)).evaluate(output)
 
     def evaluate(self, output):
+        """Test each output against the comparison, preserving strict inequalities."""
         margin = self.margin(output)
         return margin > 0 if self.strict else margin >= 0
 
     def to_dict(self):
+        """Return the comparison coefficients, strictness and scale as serialisable data."""
         return dict(op='comparison', coefficients=list(self.expression.coefficients),
                     offset=self.expression.offset, strict=self.strict, scale=self.scale)
 
 
 def Ge(lhs, rhs, scale=1.):
+    """Construct lhs >= rhs with satisfaction margin (lhs - rhs) / scale."""
     return Comparison(_affine(lhs) - rhs, scale=scale)
 
 
 def Le(lhs, rhs, scale=1.):
+    """Construct lhs <= rhs with satisfaction margin (rhs - lhs) / scale."""
     return Ge(rhs, lhs, scale)
 
 
 def Gt(lhs, rhs, scale=1.):
+    """Construct lhs > rhs with satisfaction margin (lhs - rhs) / scale."""
     return Comparison(_affine(lhs) - rhs, strict=True, scale=scale)
 
 
 def Lt(lhs, rhs, scale=1.):
+    """Construct lhs < rhs with satisfaction margin (rhs - lhs) / scale."""
     return Gt(rhs, lhs, scale)
 
 
 @dataclass(frozen=True, eq=False)
 class Junction(_Symbolic):
+    """Combine output formulas through conjunction or disjunction.
+
+    Conjunction takes the minimum child satisfaction margin, while disjunction
+    takes the maximum. Pointwise Boolean evaluation also preserves each affine
+    comparison's strictness. Construct these formulas with And or Or.
+
+    Args:
+        op (str): 'and' or 'or'.
+        children (tuple): At least two affine comparisons or Boolean formulas.
+    """
     op: str
     children: tuple
 
@@ -158,6 +218,7 @@ class Junction(_Symbolic):
             raise ValueError('And/Or require at least two property expressions')
 
     def margin(self, output, relu=False):
+        """Combine child satisfaction margins using minimum for And and maximum for Or."""
         result = self.children[0].margin(output, relu)
         for child in self.children[1:]:
             other = child.margin(output, relu)
@@ -170,6 +231,7 @@ class Junction(_Symbolic):
         return result
 
     def evaluate(self, output):
+        """Evaluate the Boolean formula on each network output."""
         result = self.children[0].evaluate(output)
         for child in self.children[1:]:
             other = child.evaluate(output)
@@ -177,18 +239,22 @@ class Junction(_Symbolic):
         return result
 
     def to_dict(self):
+        """Return the Boolean operator and its child formulas as serialisable data."""
         return dict(op=self.op, children=[c.to_dict() for c in self.children])
 
 
 def And(*children):
+    """Construct a conjunction of at least two output formulas."""
     return Junction('and', tuple(children))
 
 
 def Or(*children):
+    """Construct a disjunction of at least two output formulas."""
     return Junction('or', tuple(children))
 
 
 def obligations(formula):
+    """Extract outer conjunctive requirements while retaining nested disjunctions."""
     if isinstance(formula, Junction) and formula.op == 'and':
         return tuple(item for child in formula.children for item in obligations(child))
     return (formula,)
@@ -196,6 +262,16 @@ def obligations(formula):
 
 @dataclass(frozen=True, eq=False)
 class Box:
+    """Define a closed input region through coordinatewise lower and upper endpoints.
+
+    Endpoints must be finite, ordered and have matching nonempty shapes. They
+    are stored as detached float64 CPU tensors; bounding routines convert them
+    to model coordinates with outward rounding.
+
+    Args:
+        lower (Tensor or sequence): Lower endpoint, excluding the batch dimension.
+        upper (Tensor or sequence): Upper endpoint with the same shape.
+    """
     lower: torch.Tensor
     upper: torch.Tensor
 
@@ -209,11 +285,23 @@ class Box:
         object.__setattr__(self, 'upper', upper)
 
     def to_dict(self):
+        """Return the input endpoints as lists for manifests and checkpoints."""
         return dict(lower=self.lower.tolist(), upper=self.upper.tolist())
 
 
 @dataclass(frozen=True, eq=False)
 class PropertySpec:
+    """Associate an output formula with the input regions where it must hold.
+
+    The specification requires the formula to hold for every input in every
+    supplied box. Task examples and property regions are independent inputs to
+    training.
+
+    Args:
+        name (str): Nonempty specification name, unique within a wrapper.
+        formula (Comparison or Junction): Affine or Boolean output formula.
+        domains (Iterable[Box]): Nonempty collection of closed input regions.
+    """
     name: str
     formula: object
     domains: tuple
@@ -227,16 +315,17 @@ class PropertySpec:
         object.__setattr__(self, 'domains', domains)
 
     def to_dict(self):
+        """Return the specification name, formula and input boxes as serialisable data."""
         return dict(name=self.name, formula=self.formula.to_dict(),
                     domains=[d.to_dict() for d in self.domains])
 
 
 class _AffineFormula(nn.Module):
-    """Shared affine leaves and monotone Boolean reduction of their bounds.
+    """Compile shared affine leaves and their Boolean satisfaction-margin reduction.
 
-    Applied to sound lower bounds on every leaf, ``reduce`` gives a sound
-    lower bound on the complete formula. This can be weaker than propagating
-    through the full Boolean graph, but requires no nonlinear LiRPA operators.
+    Bounding the leaves separately allows inexpensive monotone aggregation of
+    their lower margins. Disjunctions can be weaker than bounds obtained on the
+    complete composed formula graph.
     """
     def __init__(self, formula, width, reference):
         super().__init__()
@@ -277,6 +366,7 @@ class _AffineFormula(nn.Module):
         return self.reduce(atomic, boolean=boolean)
 
     def reduce(self, atomic, *, boolean=False):
+        """Reduce atomic values using the compiled Boolean structure or min/max margins."""
         values = []
         for op, children in self.nodes:
             if op == 'atom':
@@ -294,6 +384,7 @@ class _AffineFormula(nn.Module):
 
 
 class _CompiledFormula(nn.Module):
+    """Compile affine comparisons and Boolean operations into a fixed PyTorch graph."""
     def __init__(self, formula, width, reference, relu):
         super().__init__()
         self.op, self.relu = None, relu
@@ -322,7 +413,19 @@ class _CompiledFormula(nn.Module):
 
 
 class PropertyGraph(nn.Module):
-    """Fixed formula graph; only the supplied model has trainable parameters."""
+    """Append a fixed satisfaction-margin computation to a network.
+
+    The composed graph shares the original network's trainable weights and adds
+    no trainable parameters. Bounding its output gives a lower satisfaction
+    margin over an input region.
+
+    Args:
+        model (torch.nn.Module): Network whose outputs the formula references.
+        formula (Comparison or Junction): Output specification to compile.
+        relu (bool): Whether to express minimum and maximum through ReLU operations.
+        output_width (int, optional): Number of network outputs; required when it cannot be
+            inferred from the last layer.
+    """
     def __init__(self, model, formula, relu=False, output_width=None):
         super().__init__()
         self.model, self.formula, self.relu = model, formula, relu
@@ -337,6 +440,7 @@ class PropertyGraph(nn.Module):
         self.compiled = _CompiledFormula(formula, output_width, reference, relu)
 
     def forward(self, inputs):
+        """Evaluate the network and return its compiled satisfaction margin."""
         return self.compiled(self.model(inputs))
 
 

@@ -1,4 +1,4 @@
-"""Set-based center classification and enclosure-size objective."""
+"""Set-based centre classification and enclosure-size objective."""
 import math
 import torch
 from torch.nn import functional as F
@@ -8,6 +8,7 @@ from CTRAIN.util.util import preserve_model_state
 
 def validate_set_options(tau, input_set, num_generators, error_propagation,
                          propagation_batch_size, pgd_eps_factor):
+    """Validate the enclosure-loss weight, input representation, propagation mode and attack options."""
     if not math.isfinite(tau) or not 0 <= tau <= 1:
         raise ValueError('tau must be finite and in [0, 1]')
     if input_set not in ('box', 'attack'):
@@ -23,7 +24,13 @@ def validate_set_options(tau, input_set, num_generators, error_propagation,
 
 def attack_zonotope(model, data, target, radius, data_min, data_max,
                     num_generators=8, pgd_eps_factor=1., bn_statistics=None, layers=None):
-    """Detached randomized FGSM directions, coordinatewise fitted to the nominal box."""
+    """Construct a contained input zonotope from random-start FGSM directions.
+
+    Attack points are fitted coordinatewise to the nominal clipped input box.
+    Scaling the search radius changes candidate generation, while the resulting
+    zonotope remains within the nominal box. The construction returns detached
+    centres and generators for subsequent differentiable propagation.
+    """
     if type(num_generators) is not int or num_generators <= 0 or not math.isfinite(pgd_eps_factor) or pgd_eps_factor <= 0:
         raise ValueError('Invalid attack generator count or PGD epsilon factor')
     lower, upper = (data - radius).clamp(data_min, data_max), (data + radius).clamp(data_min, data_max)
@@ -67,7 +74,35 @@ def get_set_based_loss(model, data, target, eps, radius, data_min, data_max,
                        tau=.1, input_set='box', num_generators=8,
                        error_propagation='interval', pgd_eps_factor=1.,
                        bn_statistics=None, layers=None, input_zonotope=None):
-    """eps is the scheduled radius BEFORE normalization; radius is in model units."""
+    """Combine centre classification with an output-enclosure size penalty.
+
+    The objective weights centre cross-entropy by 1 - tau and the norm of the
+    output generators and independent radii by tau. The enclosure term is
+    normalised by the number of classes and the scheduled raw-input eps.
+    At eps=0, the function returns ordinary centre cross-entropy.
+
+    Args:
+        model (torch.nn.Module): Supported sequential network.
+        data (torch.Tensor): Nominal batch in model coordinates.
+        target (torch.Tensor): Integer class labels.
+        eps (float): Perturbation radius in model input coordinates.
+        radius (torch.Tensor): Scheduled radius in model coordinates.
+        data_min (torch.Tensor): Lower input-domain limit in model coordinates.
+        data_max (torch.Tensor): Upper input-domain limit in model coordinates.
+        tau (float): Enclosure-penalty weight in [0, 1].
+        input_set (str): Training input representation: 'box' or an attack-generated
+            'zonotope'.
+        num_generators (int): Number of attack directions.
+        error_propagation (str): 'interval' or 'generators' for nonlinear errors.
+        pgd_eps_factor (float): Positive attack-search scaling factor.
+        bn_statistics (dict, optional): Clean batch statistics shared with propagation.
+        layers (list, optional): Previously validated sequential layers.
+        input_zonotope (Zonotope, optional): Explicit training enclosure overriding set
+            construction at positive eps.
+
+    Returns:
+        (torch.Tensor): Scalar set-based training loss.
+    """
     if not math.isfinite(eps) or eps < 0:
         raise ValueError('eps must be nonnegative and finite')
     validate_set_options(tau, input_set, num_generators, error_propagation, 1, pgd_eps_factor)

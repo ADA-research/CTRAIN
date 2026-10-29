@@ -18,10 +18,11 @@ from CTRAIN.train.certified.eps_scheduler import linear_schedule_fraction
 
 
 def clean_bn_statistics(model, data, layers):
-    """Differentiable nominal BN statistics; biased variance, moving retention .99.
+    """Compute differentiable clean-batch statistics for set-based propagation.
 
-    Called once per warm-up batch or robust propagation chunk. Buffer updates
-    are detached; statistics retain the caller's autograd context.
+    The nominal forward pass supplies biased means and variances for each
+    BatchNorm layer. Detached running-buffer updates retain 99% of previous
+    statistics, while the returned batch statistics retain training gradients.
     """
     statistics = {}
     for layer in layers:
@@ -46,6 +47,7 @@ def clean_bn_statistics(model, data, layers):
 
 
 def scheduled_epsilon(eps, epoch, batch, batches, warm_up_epochs, ramp_up_epochs):
+    """Return the linearly ramped raw-input radius at the end of the requested batch."""
     return eps * linear_schedule_fraction(epoch, batch, batches, warm_up_epochs,
                                           ramp_up_epochs, at_batch_end=True)
 
@@ -59,6 +61,60 @@ def set_based_train_model(model, train_loader, optimizer, num_epochs, eps,
                           results_path=None, checkpoint_save_interval=10, device='cpu',
                           selection_state=None, *, validation_eps=None,
                           lr_decay_schedule_unit="epoch", history=None):
+    """Train a classifier through centres and correlated output enclosures.
+
+    After clean warm-up, a linear radius ramp introduces the set-based loss.
+    Propagation chunks accumulate sample-weighted gradients before one optimiser
+    update per logical loader batch. Clean chunk statistics are reused for
+    BatchNorm propagation. Validation selects full-box forward-LiRPA accuracy
+    after ramp-up; without validation, the final model is returned.
+
+    Returns:
+        (torch.nn.Module): Trained model, with selected inference weights when validation is enabled.
+
+    Args:
+        model (torch.nn.Module): PyTorch model to train or evaluate.
+        train_loader (torch.utils.data.DataLoader): Training loader providing input and target batches and any required
+            normalisation metadata.
+        optimizer (torch.optim.Optimizer): Optimiser holding the model parameters and current update state.
+        num_epochs (int): Total training budget, including warm-up and ramp-up.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        val_loader (torch.utils.data.DataLoader, optional): Optional validation loader used for model selection. Without it,
+            training returns the final weights.
+        eval_eps (float or torch.Tensor, optional): Legacy name for validation_eps. Supplying conflicting values is rejected.
+        warm_up_epochs (int): Initial epochs using only the natural task loss.
+        ramp_up_epochs (int): Epochs over which the perturbation radius increases to its training
+            target.
+        lr_scheduler (torch.optim.lr_scheduler.LRScheduler, optional): Learning-rate scheduler associated with the supplied optimiser.
+        tau (float): Weight of the output-enclosure penalty, with 1 - tau weighting centre
+            cross-entropy.
+        input_set (str): Training input representation: 'box' or an attack-generated 'zonotope'.
+        num_generators (int): Number of attack directions used to construct an input zonotope.
+        error_propagation (str): Whether nonlinear interval errors remain an 'interval' or become
+            explicit 'generators'.
+        propagation_batch_size (int): Maximum number of inputs propagated together to limit
+            bound-computation memory.
+        pgd_eps_factor (float): Positive factor scaling the PGD search range, independently of the
+            nominal bound region.
+        population_bn (bool): Whether to recalibrate BatchNorm on training data after each epoch,
+            before model selection and saving.
+        gradient_clip (float): Maximum parameter-gradient norm. None disables clipping where
+            supported.
+        start_epoch (int): Zero-based starting epoch in the full training schedule.
+        end_epoch (int, optional): Exclusive ending epoch. None runs to the end of the configured schedule.
+        results_path (str or pathlib.Path, optional): Directory for the results or checkpoints written by this function.
+        checkpoint_save_interval (int): Save an epoch checkpoint at this interval and at the end
+            of the training call.
+        device (str or torch.device): Device on which to run the model and tensor computations.
+        selection_state (dict, optional): Mutable dictionary retaining the best validation score, inference
+            weights and epoch across training calls.
+        validation_eps (float or torch.Tensor, optional): Fixed raw-input radius used for validation; None uses the training
+            target.
+        lr_decay_schedule_unit (str): Whether to advance the learning-rate scheduler per 'epoch'
+            or per 'batch'.
+        history (list, optional): Optional list to which the trainer appends per-epoch losses, radii and
+            learning rates.
+    """
     validation_eps = resolve_validation_eps(validation_eps, eval_eps)
     validate_set_options(tau, input_set, num_generators, error_propagation, propagation_batch_size, pgd_eps_factor)
     if not math.isfinite(eps) or eps < 0 or (validation_eps is not None and (not math.isfinite(validation_eps) or validation_eps < 0)):

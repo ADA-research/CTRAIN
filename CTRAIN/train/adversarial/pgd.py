@@ -17,6 +17,7 @@ from CTRAIN.util import save_checkpoint
 
 
 def validate_pgd_training_options(eps, steps, alpha, restarts, clip, l1):
+    """Validate the perturbation radius, PGD controls, gradient clipping and L1 weight."""
     if not math.isfinite(eps) or eps < 0:
         raise ValueError('eps must be finite and nonnegative')
     if (type(steps) is not int or steps < 1 or type(restarts) is not int or restarts < 1
@@ -29,7 +30,7 @@ def validate_pgd_training_options(eps, steps, alpha, restarts, clip, l1):
 
 
 def make_pgd_lr_scheduler(optimizer, num_epochs, batches_per_epoch):
-    """The paper's teacher LR triangle, stepping once per optimizer update."""
+    """Construct the triangular per-update learning-rate schedule used for CC-Dist teachers."""
     steps = num_epochs * batches_per_epoch
     if steps < 2:
         raise ValueError('The triangular LR schedule needs at least two batches')
@@ -45,13 +46,44 @@ def pgd_train_model(model, train_loader, optimizer, num_epochs, eps,
                     population_bn=False, results_path=None,
                     checkpoint_save_interval=10, device='cuda', n_classes=10,
                     val_loader=None, eval_eps=None, selection_state=None):
-    """Train a native classifier without constructing a bound graph.
+    """Train a native PyTorch classifier using adversarial cross-entropy.
 
-    Fixed input radius, evaluation-mode PGD, then training-mode adversarial CE.
-    The supplied LR scheduler steps per batch; none gives the CC-Dist teacher
-    triangle 0 -> optimizer's LR -> 0 over the full epoch budget. Final weights
-    are returned. Checkpoints contain the native model, optimizer and scheduler;
-    RNG/loader state is not saved. Partial calls retain the full planned budget.
+    PGD searches run in evaluation mode, and adversarial loss evaluation uses
+    training mode. The supplied triangular learning-rate schedule advances once
+    per optimiser update. Validation selects by adversarial cross-entropy; without
+    validation the trainer returns final weights. LiRPA conversion is unnecessary
+    for this empirical training objective.
+
+    Args:
+        model (torch.nn.Module): PyTorch model to train or evaluate.
+        train_loader (torch.utils.data.DataLoader): Training loader providing input and target batches and any required
+            normalisation metadata.
+        optimizer (torch.optim.Optimizer): Optimiser holding the model parameters and current update state.
+        num_epochs (int): Total training budget, including warm-up and ramp-up.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        lr_scheduler (torch.optim.lr_scheduler.LRScheduler, optional): Learning-rate scheduler associated with the supplied optimiser.
+        start_epoch (int): Zero-based starting epoch in the full training schedule.
+        end_epoch (int, optional): Exclusive ending epoch. None runs to the end of the configured schedule.
+        pgd_steps (int): Number of projected gradient updates in the training attack.
+        pgd_alpha (float): PGD step-size factor relative to the search-region radius.
+        pgd_restarts (int): Number of random starts for the training attack.
+        gradient_clip (float): Maximum parameter-gradient norm. None disables clipping where
+            supported.
+        l1_reg_weight (float): Weight of the L1 parameter regulariser.
+        shi_init (bool): Whether to apply the initialisation proposed by Shi et al. at the start of
+            training.
+        population_bn (bool): Whether to recalibrate BatchNorm on training data after each epoch,
+            before model selection and saving.
+        results_path (str or pathlib.Path, optional): Directory for the results or checkpoints written by this function.
+        checkpoint_save_interval (int): Save an epoch checkpoint at this interval and at the end
+            of the training call.
+        device (str or torch.device): Device on which to run the model and tensor computations.
+        n_classes (int): Number of output classes.
+        val_loader (torch.utils.data.DataLoader, optional): Optional validation loader used for model selection. Without it,
+            training returns the final weights.
+        eval_eps (float or torch.Tensor, optional): Legacy name for validation_eps. Supplying conflicting values is rejected.
+        selection_state (dict, optional): Mutable dictionary retaining the best validation score, inference
+            weights and epoch across training calls.
     """
     selection = prepare_model_selection(selection_state, val_loader, eval_eps)
     end_epoch = num_epochs if end_epoch is None else end_epoch

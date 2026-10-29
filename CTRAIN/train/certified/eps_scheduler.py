@@ -1,3 +1,4 @@
+"""Schedule perturbation radii and loss-mixture weights during certified training."""
 # Much of the following code is adapted from the auto_LiRPA licensed under the BSD 3-Clause License.
 
 import matplotlib.pyplot as plt
@@ -6,7 +7,11 @@ import torch
 
 def linear_schedule_fraction(epoch, batch, batches, warm_up_epochs, ramp_up_epochs,
                              *, at_batch_end=False):
-    """Linear ramp at a batch boundary; keep each method's boundary convention."""
+    """Return progress through a linear ramp at the requested batch boundary.
+
+    Warm-up returns zero and completed ramp-up returns one. at_batch_end selects
+    whether the current batch contributes to the ramp fraction.
+    """
     if epoch < warm_up_epochs:
         return 0.
     elapsed = (epoch - warm_up_epochs + (batch + 1) / batches if at_batch_end
@@ -16,29 +21,36 @@ def linear_schedule_fraction(epoch, batch, batches, warm_up_epochs, ramp_up_epoc
 
 class BaseScheduler():
     
+    """Store the perturbation and loss-mixture schedule shared by certified trainers.
+
+    The scheduler tracks raw-input epsilon together with kappa and beta. Epsilon
+    can be returned in model coordinates using the supplied normalisation
+    statistics. LinearScheduler and SmoothedScheduler implement the updates.
+    """
     def __init__(self, num_epochs, eps, mean, std, start_eps=0, start_kappa=1, end_kappa=0, start_beta=0, end_beta=0, eps_schedule_unit='batch', eps_schedule=(0, 20), batches_per_epoch=None, start_epoch=-1):
-        """
-        Initializes the Base EpsScheduler.
-        
+        """Configure perturbation and mixture schedules with input-normalisation metadata.
+
         Args:
             num_epochs (int): The number of epochs for training.
             eps (float): The epsilon value for the scheduler.
-            mean (float): The mean value for normalization.
-            std (float): The standard deviation value for normalization.
-            start_eps (float, optional): The starting epsilon value. Defaults to 0.
-            start_kappa (float, optional): The starting kappa value. Defaults to 1.
-            end_kappa (float, optional): The ending kappa value. Defaults to 0.
-            start_beta (float, optional): The starting beta value. Defaults to 0.
-            end_beta (float, optional): The ending beta value. Defaults to 0.
-            eps_schedule_unit (str, optional): The unit for epsilon scheduling ('batch' or 'epoch'). Defaults to 'batch'.
-            eps_schedule (tuple, optional): The schedule for epsilon values. Defaults to (0, 20).
-            batches_per_epoch (int, optional): The number of batches per epoch. Defaults to None.
-            start_epoch (int, optional): The starting epoch number. Defaults to -1.
-        
+            mean (float): The mean value for normalisation.
+            std (float): The standard deviation value for normalisation.
+            start_eps (float, optional): The starting epsilon value.
+            start_kappa (float, optional): The starting kappa value.
+            end_kappa (float, optional): The ending kappa value.
+            start_beta (float, optional): The starting beta value.
+            end_beta (float, optional): The ending beta value.
+            eps_schedule_unit (str, optional): The unit for epsilon scheduling ('batch' or
+                'epoch').
+            eps_schedule (tuple, optional): Warm-up, ramp-up and remaining training durations in
+                the selected scheduling unit.
+            batches_per_epoch (int, optional): Positive number of training batches per epoch,
+                required for both scheduling units.
+            start_epoch (int, optional): Starting epoch used to initialise the batch counter; -1
+                denotes a new schedule.
+
         Raises:
-            AssertionError: If num_epochs is None and eps_schedule_unit is 'epoch'.
-            AssertionError: If the length of eps_schedule is not 2 or 3.
-            AssertionError: If num_epochs is incompatible with eps_schedule.
+            ValueError: Invalid schedule durations, epoch budget, batch count, normalisation statistics or mixture endpoints.
         """
         
         if eps_schedule_unit not in ('epoch', 'batch'):
@@ -90,18 +102,7 @@ class BaseScheduler():
             self.no_batches = self.batches_per_epoch * start_epoch - 1            
         
     def get_cur_eps(self, normalise=True):
-        """
-        Get the current epsilon value, optionally normalised.
-
-        Args:
-            normalise (bool): If True, the returned epsilon value will be normalised by the standard deviation.
-
-        Returns:
-            torch.Tensor: The current epsilon value, normalised if specified.
-
-        Notes:
-            - The method checks for numerical instabilities and adjusts the current epsilon value if necessary.
-        """
+        """Return the current perturbation radius, optionally divided by the input standard deviation."""
         max_eps = self.get_max_eps(normalise=False)
         cur_eps = torch.as_tensor(self.cur_eps)
         # Check needed to mitigate numerical instabilities
@@ -111,38 +112,45 @@ class BaseScheduler():
         return cur_eps / torch.as_tensor(self.std) if normalise else self.cur_eps
     
     def get_cur_kappa(self):
+        """Return the current natural-loss mixture weight."""
         return self.cur_kappa
     
     def get_cur_beta(self):
+        """Return the current CROWN-IBP bound-mixture weight."""
         return self.cur_beta
     
     def get_max_eps(self, normalise=True):
+        """Return the target perturbation radius, optionally divided by the input standard deviation."""
         return torch.as_tensor(self.eps) / torch.as_tensor(self.std) if normalise else self.eps
     
     def batch_step(self, metric=None):
+        """Define the batch-step interface; derived schedulers implement the numerical update."""
         raise NotImplementedError
     
     
 
 class LinearScheduler(BaseScheduler):
-    """
-    A scheduler that linearly adjusts epsilon, kappa, and beta values over a specified number of epochs.
-    
+    """Increase epsilon linearly while interpolating the loss-mixture weights.
+
     Args:
         num_epochs (int): Total number of epochs for training.
         eps (float): The target epsilon value.
-        mean (float): The mean value for normalization.
-        std (float): The standard deviation value for normalization.
-        start_eps (float, optional): The starting epsilon value. Defaults to 0.
-        start_kappa (float, optional): The starting kappa value. Defaults to 1.
-        end_kappa (float, optional): The ending kappa value. Defaults to 0.
-        start_beta (float, optional): The starting beta value. Defaults to 1.
-        end_beta (float, optional): The ending beta value. Defaults to 0.
-        eps_schedule_unit (str, optional): The unit for epsilon scheduling ('batch' or 'epoch'). Defaults to 'batch'.
-        eps_schedule (tuple, optional): The schedule for epsilon adjustment. Defaults to (0, 20).
-        batches_per_epoch (int, optional): Number of batches per epoch. Defaults to None.
-        start_epoch (int, optional): The epoch to start the scheduler. Defaults to -1.
-    
+        mean (float): The mean value for normalisation.
+        std (float): The standard deviation value for normalisation.
+        start_eps (float, optional): The starting epsilon value.
+        start_kappa (float, optional): The starting kappa value.
+        end_kappa (float, optional): The ending kappa value.
+        start_beta (float, optional): The starting beta value.
+        end_beta (float, optional): The ending beta value.
+        eps_schedule_unit (str, optional): The unit for epsilon scheduling ('batch' or
+            'epoch').
+        eps_schedule (tuple, optional): Warm-up, ramp-up and remaining training durations in
+            the selected scheduling unit.
+        batches_per_epoch (int, optional): Positive number of training batches per epoch,
+            required for both scheduling units.
+        start_epoch (int, optional): Starting epoch used to initialise the batch counter; -1
+            denotes a new schedule.
+
     Methods:
         batch_step():
             Adjusts the current epsilon, kappa, and beta values based on the current batch number.
@@ -168,6 +176,7 @@ class LinearScheduler(BaseScheduler):
             self.batch_step()
     
     def batch_step(self, metric=None):
+        """Advance epsilon and mixture weights by one training batch."""
         progress = (float(self.no_batches >= self.warm_up) if self.ramp_up == 0 else
                     min(1., max(0., (self.no_batches - self.warm_up) / self.ramp_up)))
         self.cur_eps = self.start_eps + (self.eps - self.start_eps) * progress
@@ -176,26 +185,29 @@ class LinearScheduler(BaseScheduler):
         self.no_batches += 1
 
 class SmoothedScheduler(BaseScheduler):
-    """
-    A scheduler that smoothly transitions epsilon, kappa, and beta values over the course of training.
-    
+    """Increase epsilon through a polynomial segment followed by a matched linear ramp.
+
     Args:
         num_epochs (int): Number of epochs for training.
         eps (float): Final epsilon value.
-        mean (float): Mean value for normalization.
-        std (float): Standard deviation value for normalization.
-        start_eps (float, optional): Initial epsilon value. Default is 0.
-        start_kappa (float, optional): Initial kappa value. Default is 1.
-        end_kappa (float, optional): Final kappa value. Default is 0.
-        start_beta (float, optional): Initial beta value. Default is 1.
-        end_beta (float, optional): Final beta value. Default is 0.
-        eps_schedule_unit (str, optional): Unit for epsilon scheduling ('batch' or 'epoch'). Default is 'batch'.
-        batches_per_epoch (int, optional): Number of batches per epoch. Required if eps_schedule_unit is 'batch'.
-        start_epoch (int, optional): Epoch to start the scheduling. Default is -1.
-        eps_schedule (tuple, optional): Tuple indicating the start and end of epsilon scheduling. Default is (0, 20).
-        midpoint (float, optional): Midpoint for the transition from exponential to linear schedule. Default is 0.25.
-        exponent (float, optional): Exponent for the exponential schedule. Default is 4.0.
-    
+        mean (float): Mean value for normalisation.
+        std (float): Standard deviation value for normalisation.
+        start_eps (float, optional): Initial epsilon value.
+        start_kappa (float, optional): Initial kappa value.
+        end_kappa (float, optional): Final kappa value.
+        start_beta (float, optional): Initial beta value.
+        end_beta (float, optional): Final beta value.
+        eps_schedule_unit (str, optional): Unit for epsilon scheduling ('batch' or 'epoch').
+        batches_per_epoch (int, optional): Positive number of training batches per epoch,
+            required for both scheduling units.
+        start_epoch (int, optional): Starting epoch used to initialise the batch counter; -1
+            denotes a new schedule.
+        eps_schedule (tuple, optional): Warm-up, ramp-up and remaining training durations in
+            the selected scheduling unit.
+        midpoint (float, optional): Ramp fraction where epsilon changes from polynomial
+            growth to a matched linear segment.
+        exponent (float, optional): Power of the initial polynomial epsilon-growth segment.
+
     Methods:
         batch_step():
             Updates the current epsilon, kappa, and beta values based on the current batch number.
@@ -224,6 +236,7 @@ class SmoothedScheduler(BaseScheduler):
     
     
     def batch_step(self, metric=None):
+        """Advance epsilon and mixture weights by one training batch."""
         step = self.no_batches
         init_step = self.warm_up + 1
         final_step = self.warm_up + self.ramp_up

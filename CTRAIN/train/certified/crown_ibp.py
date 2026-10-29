@@ -1,3 +1,4 @@
+"""Functional training procedure for CROWN-IBP, including schedules, validation and checkpoints."""
 from CTRAIN.train.certified.util import (
     prepare_model_selection, update_model_selection, restore_model_selection,
     validate_training_run, checkpoint_due, EpochMetrics,
@@ -44,37 +45,52 @@ def crown_ibp_train_model(
     checkpoint_save_interval=10,
     device="cuda",
     population_bn=False, validation_eps=None, selection_state=None, *, history=None):
-    """
-    Train a model using the CROWN-IBP method.
+    """Train a classifier using mixed CROWN-IBP and IBP margin bounds.
+
+    The perturbation and mixing schedules introduce the certified objective
+    after warm-up. Optional loss fusion bounds the classifier and loss together.
+    The trainer owns optimiser updates, validation, BatchNorm synchronisation
+    and trajectory checkpoints.
 
     Args:
         original_model (torch.nn.Module): The original model to be trained.
         hardened_model (auto_LiRPA.BoundedModule): The bounded model to be trained.
         train_loader (torch.utils.data.DataLoader): DataLoader for the training data.
-        val_loader (torch.utils.data.DataLoader, optional): DataLoader for the validation data. Defaults to None.
-        start_epoch (int, optional): Epoch to start training from. Defaults to 0.
-        end_epoch (int, optional): Epoch to prematurely end training at. Defaults to None.
-        num_epochs (int, optional): Number of epochs to train the model. Defaults to None.
-        eps (float, optional): Epsilon value for perturbation. Defaults to 0.3.
-        eps_std (float, optional): Standardised epsilon value. Defaults to 0.3.
-        eps_schedule (tuple, optional): Schedule for epsilon values. Defaults to (0, 20, 50).
-        eps_schedule_unit (str, optional): Unit for epsilon schedule ('epoch' or 'batch'). Defaults to 'epoch'.
-        eps_scheduler_args (dict, optional): Additional arguments for epsilon scheduler. Defaults to dict().
-        optimizer (torch.optim.Optimizer, optional): Optimizer for training. Defaults to None.
-        lr_decay_schedule (tuple, optional): Schedule for learning rate decay. Defaults to (15, 25).
-        lr_decay_factor (float, optional): Factor by which to decay the learning rate. Defaults to .2.
-        lr_decay_schedule_unit (str, optional): Unit for learning rate decay schedule ('epoch' or 'batch'). Defaults to 'epoch'.
-        n_classes (int, optional): Number of classes in the dataset. Defaults to 10.
-        loss_fusion (bool, optional): Whether to use loss fusion. Defaults to True.
-        loss_fusion_model (auto_LiRPA.BoundedModule, optional): Model to use for loss fusion. Defaults to None.
-        gradient_clip (float, optional): Value for gradient clipping. Defaults to None.
-        l1_regularisation_weight (float, optional): Weight for L1 regularization. Defaults to 0.00001.
-        shi_regularisation_weight (float, optional): Weight for SHI regularization. Defaults to 1.
-        shi_reg_decay (float, optional): Decay factor for SHI regularization. Defaults to 1.
-        results_path (str, optional): Path to save the training results. Defaults to "./results".
-        checkpoint_save_interval (int, optional): Interval for saving checkpoints. Defaults to 10.
+        val_loader (torch.utils.data.DataLoader, optional): DataLoader for the validation
+            data.
+        start_epoch (int, optional): Epoch to start training from.
+        end_epoch (int, optional): Epoch to prematurely end training at.
+        num_epochs (int, optional): Number of epochs to train the model.
+        eps (float, optional): Epsilon value for perturbation.
+        eps_std (float, optional): Legacy normalised-radius argument, retained for
+            positional compatibility; the scheduler uses eps and
+            loader metadata.
+        eps_schedule (tuple, optional): Warm-up, ramp-up and remaining training durations in
+            the selected scheduling unit.
+        eps_schedule_unit (str, optional): Unit for epsilon schedule ('epoch' or 'batch').
+        eps_scheduler_args (dict, optional): Additional arguments for epsilon scheduler.
+        optimizer (torch.optim.Optimizer, optional): Optimizer for training.
+        lr_scheduler (torch.optim.lr_scheduler.LRScheduler, optional): Learning-rate scheduler associated with the supplied optimiser.
+        lr_decay_schedule_unit (str, optional): Unit for learning rate decay schedule
+            ('epoch' or 'batch').
+        n_classes (int, optional): Number of classes in the dataset.
+        loss_fusion (bool, optional): Whether to use loss fusion.
+        loss_fusion_model (auto_LiRPA.BoundedModule, optional): Model to use for loss
+            fusion.
+        gradient_clip (float, optional): Value for gradient clipping.
+        l1_regularisation_weight (float, optional): Weight for L1 regularisation.
+        shi_regularisation_weight (float, optional): Weight for SHI regularisation.
+        shi_reg_decay (float, optional): Decay factor for SHI regularisation.
+        results_path (str, optional): Path to save the training results.
+        checkpoint_save_interval (int, optional): Interval for saving checkpoints.
+        device (str, optional): Device to use for training ('cuda' or 'cpu').
         population_bn (bool): Recalibrate BatchNorm after each epoch; default False.
-        device (str, optional): Device to use for training ('cuda' or 'cpu'). Defaults to 'cuda'.
+        validation_eps (float or torch.Tensor, optional): Fixed raw-input radius used for validation; None uses the training
+            target.
+        selection_state (dict, optional): Mutable dictionary retaining the best validation score, inference
+            weights and epoch across training calls.
+        history (list, optional): Optional list to which the trainer appends per-epoch losses, radii and
+            learning rates.
 
     Returns:
         (auto_LiRPA.BoundedModule): The trained hardened model.

@@ -1,3 +1,4 @@
+"""CTRAIN: a PyTorch library for certified training and neural network verification."""
 _MODEL_WRAPPER_EXPORTS = {
     "PropertyModelWrapper": "CTRAIN.model_wrappers",
     "PGDModelWrapper": "CTRAIN.model_wrappers",
@@ -18,6 +19,7 @@ _MODEL_WRAPPER_EXPORTS = {
 
 
 def __getattr__(name):
+    """Load the requested public symbol on demand, avoiding eager imports of optional dependencies."""
     if name not in _MODEL_WRAPPER_EXPORTS:
         raise AttributeError(f"module 'CTRAIN' has no attribute {name!r}")
 

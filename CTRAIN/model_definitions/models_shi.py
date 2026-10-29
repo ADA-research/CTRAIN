@@ -1,20 +1,23 @@
+"""CNN7 architecture and dataset variants used in IBP-based certified training."""
 import torch.nn as nn
 
 class CNN7_Shi(nn.Module):
-    """
-    CNN7_Shi is a convolutional neural network model designed for image classification tasks proposed by Shi et al.
-    It is the defacto standard neural network architecture to evaluate certified training methods on.
-    
+    """Construct the CNN7 image classifier proposed by Shi et al. (2021).
+
+    The architecture is commonly used to compare IBP-based certified training
+    methods. Dataset normalisation belongs in the loader. downsample_final=True
+    provides the variant with a downsampled final convolutional stage.
+
     Args:
-        in_shape (tuple): Shape of the input images. Default is (1, 28, 28).
-        width (int): Number of channels for the convolutional layers. Default is 64.
-        linear_size (int): Size of the fully connected layer. Default is 512.
-        n_classes (int): Number of output classes. Default is 10.
+        in_shape (tuple): Shape of the input images.
+        width (int): Number of channels for the convolutional layers.
+        linear_size (int): Size of the fully connected layer.
+        n_classes (int): Number of output classes.
         downsample_final (bool): Use stride 2 in the final convolution (TinyImageNet CNN7).
-    
+
     Attributes:
         layers (nn.Sequential): Sequential container of the layers in the network.
-    
+
     Methods:
         forward(x):
             Defines the forward pass of the network.
@@ -51,4 +54,5 @@ class CNN7_Shi(nn.Module):
         )
     
     def forward(self, x):
+        """Return network predictions for the supplied input batch."""
         return self.layers(x)

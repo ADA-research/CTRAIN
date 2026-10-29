@@ -1,3 +1,4 @@
+"""Shared model-state, normalisation, export, checkpoint and reproducibility utilities."""
 import torch
 import os
 import random
@@ -14,7 +15,7 @@ from pathlib import Path
 
 @contextmanager
 def preserve_model_state(*models):
-    """Restore module modes and parameter gradient flags, including on failure."""
+    """Temporarily change model modes or gradient flags and restore them on leaving the context."""
     modes = {module: module.training for model in models for module in model.modules()}
     gradients = {param: param.requires_grad for model in models for param in model.parameters()}
     try:
@@ -36,7 +37,7 @@ def validate_test_samples(test_samples):
 
 
 def loader_radius(eps, loader, data):
-    """Convert a raw-pixel radius to the loader's model input coordinates."""
+    """Express a raw-input perturbation radius in the loader's model coordinates."""
     radius = torch.as_tensor(eps, device=data.device, dtype=data.dtype)
     if getattr(loader, 'normalised', False):
         std = torch.as_tensor(loader.std, device=data.device, dtype=data.dtype)
@@ -49,26 +50,29 @@ def loader_radius(eps, loader, data):
 
 
 def loader_limits(loader, data):
+    """Return the loader's feasible input endpoints in the data tensor's device and dtype."""
     return tuple(torch.as_tensor(getattr(loader, name), device=data.device, dtype=data.dtype)
                  for name in ('min', 'max'))
 
 
 def export_onnx(model, file_name, batch_size, input_shape):
-    """
-    Exports a PyTorch model to the ONNX format.
+    """Export the evaluation network to ONNX and check numerical prediction agreement.
 
-    If FP32 parity fails, retry against a separate CPU float64 reference
-    with the same tolerance. Acceptance through this fallback emits a warning.
+    The exported graph uses dynamic batch dimensions. Predictions are compared
+    with ONNX Runtime at a random input batch. If float32 comparison fails,
+    a separate CPU float64 model is checked with the same tolerance; accepting
+    this fallback emits a warning. This is a numerical check, not an equivalence
+    proof. Caller modes and parameter gradient flags are preserved.
 
     Args:
         model (torch.nn.Module): The PyTorch model to be exported.
         file_name (str): The file path where the ONNX model will be saved.
         batch_size (int): The batch size for the input tensor.
-        input_shape (tuple): The shape of the input tensor. If the shape has 4 dimensions, 
+        input_shape (tuple): The shape of the input tensor. If the shape has 4 dimensions,
                              the first dimension is assumed to be the batch size.
 
     Returns:
-        None
+        (None): This function updates the supplied state in place.
     """
     reference = next(model.parameters(), None)
     if reference is None:
@@ -136,6 +140,7 @@ def export_onnx(model, file_name, batch_size, input_shape):
     print(f"Model exported to {file_name}")
     
 def remove_training_mode_attr(onnx_path, output_path):
+    """Remove ONNX BatchNormalization training_mode attributes and save the resulting graph."""
     model = onnx.load(onnx_path)
     for node in model.graph.node:
         if node.op_type in ["BatchNormalization", "Dropout"]:
@@ -149,15 +154,19 @@ def remove_training_mode_attr(onnx_path, output_path):
 
 def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False, lr_scheduler=None, selection_state=None,
                     *, extra_state=None, filename=None):
-    """
-    Saves the model checkpoint to the specified path.
+    """Save model and optimiser state for a completed training epoch.
+
+    Optional scheduler, selection and method-specific state extend the saved
+    trajectory. Existing checkpoint files are preserved unless overwrite=True.
+    Inference weights can be saved separately with model.state_dict().
 
     Args:
         model (torch.nn.Module): The model to save.
-        optimizer (torch.optim.Optimizer): The optimizer used for training the model.
+        optimizer (torch.optim.Optimizer): The optimiser used for training the model.
         loss (float): The loss value at the time of saving the checkpoint.
         epoch (int): The current epoch number.
         results_path (str): The directory path where the checkpoint will be saved.
+        overwrite (bool): Whether an existing checkpoint file may be replaced.
         lr_scheduler (optional): Save scheduler state for exact LR resumption.
         selection_state (dict, optional): Persistent best score, weights and epoch.
         extra_state (dict, optional): Method-specific trajectory data. Common keys
@@ -190,9 +199,7 @@ def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False
         torch.save(checkpoint, output)
 
 def construct_c(data, target, n_classes):
-    """
-    Constructs a tensor `c` based on the input data, target labels, and the number of classes.
-    This is used to calculate the margins between classes during bound calculation.
+    """Construct specification matrices for true-class minus competing-class logits.
 
     Args:
         data (torch.Tensor): The input data tensor.
@@ -200,7 +207,7 @@ def construct_c(data, target, n_classes):
         n_classes (int): The number of classes.
 
     Returns:
-        torch.Tensor: A tensor `c` of shape (batch_size, n_classes - 1, n_classes) where `batch_size` is the size of the input data.
+        (torch.Tensor): A tensor `c` of shape (batch_size, n_classes - 1, n_classes) where `batch_size` is the size of the input data.
     """
     c = torch.eye(n_classes).type_as(data)[target].unsqueeze(1) - torch.eye(n_classes).type_as(data).unsqueeze(0)
     # remove specifications to self
@@ -209,18 +216,14 @@ def construct_c(data, target, n_classes):
     return c
 
 def seed_ctrain(seed=42):
-    """
-    Set the seed for random number generation in Python, NumPy, and PyTorch to ensure reproducibility.
-    Parameters:
-    seed (int): The seed value to use for random number generation. Default is 42.
-    This function sets the seed for the following:
-    - Python's built-in random module
-    - NumPy's random module
-    - PyTorch's random number generators (both CPU and CUDA, if available)
-    Additionally, if CUDA is available, it sets the following PyTorch settings:
-    - torch.backends.cudnn.deterministic to True
-    - torch.backends.cudnn.benchmark to False
-    These settings ensure that the results are deterministic and reproducible.
+    """Seed the Python, NumPy and PyTorch random-number generators.
+
+    When CUDA is available, seed it and request deterministic cuDNN behaviour
+    with benchmarking disabled. Reproducibility also depends on the selected
+    operations, hardware and data-loading protocol.
+
+    Args:
+        seed (int): Random seed shared by the supported generators.
     """
     random.seed(seed)
     np.random.seed(seed)

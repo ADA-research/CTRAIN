@@ -1,3 +1,4 @@
+"""Execute alpha-beta-CROWN queries and preserve certified, falsified and unresolved outcomes."""
 import json
 import os
 import time
@@ -20,7 +21,12 @@ MAX_LOSS = 10 ** 10
 
 # TODO: automatically point to correct runner path inside of CTRAIN
 def limited_abcrown_eval(work_dir=None, runner_path=None, *args, **kwargs):
-    """Run abCROWN in this interpreter; distinguish outer timeouts from failures."""
+    """Run alpha-beta-CROWN in a subprocess using the active Python interpreter.
+
+    Arguments are exchanged through isolated temporary files. An outer wall-time
+    limit terminates the process group; process failures remain unknown rather
+    than being interpreted as certificates. Returns elapsed time and status.
+    """
     timeout = kwargs['timeout'] * 1.2
     runner_path = runner_path or str(Path(__file__).with_name('runner.py'))
     start = time.monotonic()
@@ -49,7 +55,11 @@ def limited_abcrown_eval(work_dir=None, runner_path=None, *args, **kwargs):
 
 
 def abcrown_eval(*args, **kwargs):
-    """Run with isolated temporary files; failures never become certificates."""
+    """Run one alpha-beta-CROWN query with isolated temporary artifacts.
+
+    The arguments follow _abcrown_eval. Returns elapsed time and solver status;
+    exceptions become unknown and explicit timeouts remain timeout outcomes.
+    """
     start = time.monotonic()
     with tempfile.TemporaryDirectory(prefix='ctrain-abcrown-instance-') as directory:
         try:
@@ -62,22 +72,23 @@ def abcrown_eval(*args, **kwargs):
 
 
 def _abcrown_eval(config, seed, instance, vnnlib_path='../../vnnlib/', model_name='mnist_6_100', model_path='./abCROWN/complete_verifier/models/eran/mnist_6_100_nat.pth', model_onnx_path=None, input_shape=[-1, 1, 28, 28], timeout=600, no_cores=28, par_factor=10, _work_dir=None):
-    """
-    Runs the abCROWN verification process with the given configuration.
-    abCROWN is invoked from inside the program code, so a crash/freeze can only be handled partially.
+    """Run the configured alpha-beta-CROWN instance and read its persisted solver result.
 
     Args:
         config (dict): Configuration dictionary for the verification process.
         seed (int): Seed for random number generation.
         instance (str): Path to the VNN-LIB instance file.
-        vnnlib_path (str, optional): Path prefix for VNN-LIB files. Defaults to '../../vnnlib/'.
-        model_name (str, optional): Name of the model to be verified. Defaults to 'mnist_6_100'.
-        model_path (str, optional): Path to the model file. Defaults to './abCROWN/complete_verifier/models/eran/mnist_6_100_nat.pth'.
-        model_onnx_path (str, optional): Path to the ONNX model file. Defaults to None.
-        input_shape (list, optional): Shape of the input tensor. Defaults to [-1, 1, 28, 28].
-        timeout (int, optional): Timeout for the verification process in seconds. Defaults to 600.
-        no_cores (int, optional): Number of CPU cores to use for parallel solvers, when abCROWN is configured to use MIP Solvers. Defaults to 28.
-        par_factor (int, optional): Penalty factor for running time in case of timeout. Defaults to 10.
+        vnnlib_path (str, optional): Path prefix for VNN-LIB files.
+        model_name (str, optional): Name of the model to be verified.
+        model_path (str, optional): Path to the model file.
+        model_onnx_path (str, optional): Path to the ONNX model file.
+        input_shape (list, optional): Shape of the input tensor.
+        timeout (int, optional): Timeout for the verification process in seconds.
+        no_cores (int, optional): Number of CPU cores to use for parallel solvers, when
+            abCROWN is configured to use MIP Solvers.
+        par_factor (int, optional): Penalty factor for running time in case of timeout.
+        _work_dir (str or pathlib.Path, optional): Temporary directory for the isolated solver configuration and result
+            files.
 
     Returns:
         (tuple): Running time of the verification process and the result of the verification (sat/unsat or timeout/unknown).

@@ -1,3 +1,9 @@
+"""Load image datasets together with their input limits and normalisation metadata.
+
+Bound propagation requires feasible input ranges and, for normalised images,
+the statistics needed to transform raw-pixel perturbation radii. The returned
+loaders expose mean, std, min, max and normalised for this purpose.
+"""
 from CTRAIN.data_loaders.preprocess_tinyimagenet import create_val_img_folder
 import copy
 import os
@@ -130,29 +136,36 @@ def load_mnist(batch_size=64, normalise=True, train_transforms=(),
                   val_split=True, data_root='./data', *, workers=None, download=True,
                   selection_split=None, validation_fraction=.2, seed=None, smoke=False,
                   input_size=None, normalisation_stats=None):
-    """
-    Loads the MNIST dataset with specified transformations and returns data loaders.
-    
-    Args:
-        batch_size (int, optional): The number of samples per batch to load. Default is 64.
-        normalise (bool, optional): Whether to normalize the dataset. Default is True.
-        train_transforms (list, optional): List of additional transformations to apply to the training data. Default is an empty list.
-        val_split (bool, optional): Whether to split the training data into training and validation sets. Default is True.
-        data_root (str, optional): Root directory where the dataset will be stored. Default is './data'.
-    
-    Returns:
-        tuple: If val_split is True, returns a tuple of DataLoader objects (train_loader, val_loader, test_loader). Otherwise, returns (train_loader, test_loader).
+    """Load MNIST and attach the metadata required for bound propagation.
 
-    
-    The returned DataLoader objects have the following additional attributes:
-        - mean (torch.Tensor): The mean value used for normalization.
-        - std (torch.Tensor): The standard deviation value used for normalization.
-        - min (torch.Tensor): The minimum value in the dataset.
-        - max (torch.Tensor): The maximum value in the dataset.
-        - normalised (bool): Whether the dataset was normalized.
-    
-    Example:
-        train_loader, val_loader, test_loader = load_mnist(batch_size=32, normalise=True, train_transforms=[transforms.RandomRotation(10)], val_split=True, data_root='./data')
+    Training transformations apply only to training images. A training holdout
+    uses evaluation transformations, so validation does not augment its inputs.
+
+    Args:
+        batch_size (int): Number of images per loader batch.
+        normalise (bool): Whether to apply channelwise dataset normalisation.
+        train_transforms (Sequence): Image transformations preceding tensor conversion on
+            training data.
+        val_split (bool): Whether to create a training holdout when selection_split is None.
+        data_root (str): Dataset storage directory.
+        workers (int, optional): Number of loader workers; None uses the dataset default.
+        download (bool): Whether to download missing data.
+        selection_split (str, optional): 'validation' uses a training holdout, 'test' reuses
+            the test loader, and 'none' disables selection.
+            None follows val_split.
+        validation_fraction (float): Training fraction reserved for a holdout, in (0, 1).
+        seed (int, optional): Seed for selecting holdout indices.
+        smoke (bool): Whether to return two synthetic images per split for execution checks.
+        input_size (int, optional): Positive centre-crop size; None retains the dataset
+            resolution.
+        normalisation_stats (dict, optional): Custom channel mean and std with
+            normalise=True.
+
+    Returns:
+        (tuple): (train_loader, test_loader) when selection_split is None and
+            val_split=False; otherwise (train_loader, selection_loader, test_loader).
+            The selection loader is None when selection is disabled. All loaders
+            expose mean, std, min, max and normalised attributes.
     """
     return _load_image_data('mnist', batch_size, normalise, train_transforms,
                             val_split, data_root, workers, download, selection_split,
@@ -163,25 +176,36 @@ def load_cifar10(batch_size=64, normalise=True, train_transforms=(transforms.Ran
                   val_split=True, data_root='./data', *, workers=None, download=True,
                   selection_split=None, validation_fraction=.2, seed=None, smoke=False,
                   input_size=None, normalisation_stats=None):
-    """
-    Load the CIFAR-10 dataset with optional normalization and data augmentation.
-    
+    """Load CIFAR-10 and attach the metadata required for bound propagation.
+
+    Training transformations apply only to training images. A training holdout
+    uses evaluation transformations, so validation does not augment its inputs.
+
     Args:
-        batch_size (int, optional): The number of samples per batch to load. Default is 64.
-        normalise (bool, optional): Whether to normalize the dataset. Default is True.
-        train_transforms (list, optional): List of transformations to apply to the training data. Default is [transforms.RandomHorizontalFlip(), transforms.RandomCrop(32, 2, padding_mode='edge')].
-        val_split (bool, optional): Whether to split the training data into training and validation sets. Default is True.
-        data_root (str, optional): Root directory where the dataset will be stored. Default is './data'.
-    
+        batch_size (int): Number of images per loader batch.
+        normalise (bool): Whether to apply channelwise dataset normalisation.
+        train_transforms (Sequence): Image transformations preceding tensor conversion on
+            training data.
+        val_split (bool): Whether to create a training holdout when selection_split is None.
+        data_root (str): Dataset storage directory.
+        workers (int, optional): Number of loader workers; None uses the dataset default.
+        download (bool): Whether to download missing data.
+        selection_split (str, optional): 'validation' uses a training holdout, 'test' reuses
+            the test loader, and 'none' disables selection.
+            None follows val_split.
+        validation_fraction (float): Training fraction reserved for a holdout, in (0, 1).
+        seed (int, optional): Seed for selecting holdout indices.
+        smoke (bool): Whether to return two synthetic images per split for execution checks.
+        input_size (int, optional): Positive centre-crop size; None retains the dataset
+            resolution.
+        normalisation_stats (dict, optional): Custom channel mean and std with
+            normalise=True.
+
     Returns:
-        tuple: If val_split is True, returns a tuple of DataLoader objects (train_loader, val_loader, test_loader). Otherwise, returns (train_loader, test_loader).
-    
-    The DataLoader objects have the following attributes:
-        - mean (torch.Tensor): The mean used for normalization.
-        - std (torch.Tensor): The standard deviation used for normalization.
-        - min (torch.Tensor): The minimum value in the dataset.
-        - max (torch.Tensor): The maximum value in the dataset.
-        - normalised (bool): Whether the dataset was normalized.
+        (tuple): (train_loader, test_loader) when selection_split is None and
+            val_split=False; otherwise (train_loader, selection_loader, test_loader).
+            The selection loader is None when selection is disabled. All loaders
+            expose mean, std, min, max and normalised attributes.
     """
     return _load_image_data('cifar10', batch_size, normalise, train_transforms,
                             val_split, data_root, workers, download, selection_split,
@@ -229,25 +253,29 @@ def load_svhn(batch_size=64, normalise=True, train_transforms=(),
 
 
 def load_gtsrb(batch_size=64, normalise=True, train_transforms=[transforms.RandomRotation(10), transforms.RandomResizedCrop(size=(30, 30), scale=(0.85, 1.0)), transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), shear=15),], val_split=True, data_root='./data'):
-    """
-    Load the German Traffic Sign Recognition Benchmark (GTSRB) dataset with optional normalization and data augmentation.
-    
+    """Load GTSRB with image transforms, track-based validation and normalisation metadata.
+
     Args:
-        batch_size (int, optional): The number of samples per batch to load. Default is 64.
-        normalise (bool, optional): Whether to normalize the dataset using predefined mean and std values. Default is True.
-        train_transforms (list, optional): List of torchvision transforms to apply to the training data. Default includes random rotation, resized crop, and affine transformations.
-        val_split (bool, optional): Whether to split the training data into training and validation sets. Default is True.
-        data_root (str, optional): Root directory where the dataset is stored or will be downloaded. Default is './data'.
-    
+        batch_size (int, optional): The number of samples per batch to load.
+        normalise (bool, optional): Whether to normalise the dataset using predefined mean
+            and std values.
+        train_transforms (list, optional): List of torchvision transforms to apply to the
+            training data. Default includes random rotation,
+            resized crop, and affine transformations.
+        val_split (bool, optional): Whether to split the training data into training and
+            validation sets.
+        data_root (str, optional): Root directory where the dataset is stored or will be
+            downloaded.
+
     Returns:
-        tuple: If val_split is True, returns a tuple of DataLoader objects (train_loader, val_loader, test_loader). Otherwise, returns (train_loader, test_loader).
-    
+        (tuple): If val_split is True, returns a tuple of DataLoader objects (train_loader, val_loader, test_loader). Otherwise, returns (train_loader, test_loader).
+
     The DataLoader objects returned have additional attributes:
-        - mean (torch.Tensor): The mean used for normalization.
-        - std (torch.Tensor): The standard deviation used for normalization.
+        - mean (torch.Tensor): The mean used for normalisation.
+        - std (torch.Tensor): The standard deviation used for normalisation.
         - min (torch.Tensor): The minimum value in the dataset.
         - max (torch.Tensor): The maximum value in the dataset.
-        - normalised (bool): Whether the dataset was normalized.
+        - normalised (bool): Whether the dataset was normalised.
     """
     if normalise:
         mean = torch.tensor([0.3403, 0.3121, 0.3214])
@@ -327,11 +355,13 @@ def load_gtsrb(batch_size=64, normalise=True, train_transforms=[transforms.Rando
         return train_loader, test_loader
     
 def download_tinyimagenet(data_root='./data'):
-    """
-    Downloads the TinyImageNet dataset and extracts it to the specified directory.
-    
+    """Download and extract TinyImageNet when the expected dataset files are missing.
+
+    After extraction, validation images are moved into class subdirectories by
+    create_val_img_folder. Existing complete dataset directories are reused.
+
     Args:
-        data_root (str, optional): Root directory where the dataset will be stored. Default is './data'.
+        data_root (str, optional): Root directory where the dataset will be stored.
     """
     url = 'http://cs231n.stanford.edu/tiny-imagenet-200.zip'
     dataset_dir = os.path.join(data_root, 'tiny-imagenet-200')
@@ -364,25 +394,38 @@ def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=(transform
                   val_split=True, data_root='./data', *, workers=None, download=True,
                   selection_split=None, validation_fraction=.2, seed=None, smoke=False,
                   input_size=None, normalisation_stats=None):
-    """
-    Loads the TinyImageNet dataset with specified transformations and normalization.
-    
+    """Load TinyImageNet and attach the metadata required for bound propagation.
+
+    Training transformations apply only to training images. A training holdout
+    uses evaluation transformations, so validation does not augment its inputs.
+    TinyImageNet accepts both official validation annotations and class-folder
+    layouts. Loading existing images does not reorganise them.
+
     Args:
-        batch_size (int, optional): The number of samples per batch. Default is 64.
-        normalise (bool, optional): Whether to normalize the dataset. Default is True.
-        train_transforms (list, optional): List of transformations to apply to the training data. Default is [transforms.RandomHorizontalFlip(), transforms.RandomCrop(64, 4, padding_mode='edge')].
-        val_split (bool, optional): Whether to split the training data into training and validation sets. Default is True.
-        data_root (str, optional): Root directory of the dataset. Default is './data'.
-    
+        batch_size (int): Number of images per loader batch.
+        normalise (bool): Whether to apply channelwise dataset normalisation.
+        train_transforms (Sequence): Image transformations preceding tensor conversion on
+            training data.
+        val_split (bool): Whether to create a training holdout when selection_split is None.
+        data_root (str): Dataset storage directory.
+        workers (int, optional): Number of loader workers; None uses the dataset default.
+        download (bool): Whether to download missing data.
+        selection_split (str, optional): 'validation' uses a training holdout, 'test' reuses
+            the test loader, and 'none' disables selection.
+            None follows val_split.
+        validation_fraction (float): Training fraction reserved for a holdout, in (0, 1).
+        seed (int, optional): Seed for selecting holdout indices.
+        smoke (bool): Whether to return two synthetic images per split for execution checks.
+        input_size (int, optional): Positive centre-crop size; None retains the dataset
+            resolution.
+        normalisation_stats (dict, optional): Custom channel mean and std with
+            normalise=True.
+
     Returns:
-        tuple: If val_split is True, returns a tuple of DataLoader objects (train_loader, val_loader, test_loader). Otherwise, returns (train_loader, test_loader).
-    
-    The returned DataLoader objects have the following attributes:
-        - mean: The mean used for normalization.
-        - std: The standard deviation used for normalization.
-        - min: The minimum value in the dataset.
-        - max: The maximum value in the dataset.
-        - normalised: Whether the dataset was normalized.
+        (tuple): (train_loader, test_loader) when selection_split is None and
+            val_split=False; otherwise (train_loader, selection_loader, test_loader).
+            The selection loader is None when selection is disabled. All loaders
+            expose mean, std, min, max and normalised attributes.
     """
     return _load_image_data('tinyimagenet', batch_size, normalise, train_transforms,
                             val_split, data_root, workers, download, selection_split,

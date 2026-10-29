@@ -1,4 +1,9 @@
-"""Cover-preserving refinement and fresh whole-domain property certification."""
+"""Evaluate general specifications over complete input covers.
+
+Sound lower satisfaction margins certify requirements over whole boxes.
+Refinement subdivides unresolved regions without discarding any input;
+optional complete verification evaluates the remaining obligations.
+"""
 import math
 import time
 from fractions import Fraction
@@ -9,17 +14,18 @@ from CTRAIN.util.util import preserve_model_state, export_onnx
 
 
 def initial_partition(specs):
+    """Create one equally weighted covering cell for each specification input box."""
     count = sum(len(s.domains) for s in specs)
     return [dict(property=p, domain=d, path='', depth=0, probability=1 / count, box=box)
             for p, spec in enumerate(specs) for d, box in enumerate(spec.domains)]
 
 
 def certify_property_dataset(wrapper, method='CROWN', results_path=None):
-    """Fresh full-box bounds over every region of a lazy property dataset.
+    """Compute fresh full-box bounds for every region in a lazy property dataset.
 
-    Return aggregate results without materializing all box endpoints or changing
-    the random sampling stream. Detailed per-cell/refinement reports use the
-    ordinary explicit-property API.
+    Returns aggregate certification counts and lower margins without materialising
+    all endpoints or consuming the dataset's random sampling stream. Detailed
+    cell refinement and complete verification use explicit property boxes.
     """
     start = time.monotonic()
     report = evaluate_property_dataset(wrapper.bounds, wrapper.property_dataset, method,
@@ -36,7 +42,12 @@ def certify_property_dataset(wrapper, method='CROWN', results_path=None):
 
 
 def evaluate_property_dataset(bounds, dataset, method='CROWN', batch_size=32):
-    """Aggregate fresh bounds over a lazy box pool without consuming RNG state."""
+    """Aggregate sound bounds over all boxes in a lazy property dataset.
+
+    The dataset is visited in index order without random sampling. Returns the
+    whole-dataset certification flag, certified count and fraction, total box
+    count and minimum finite lower bound, or None when a bound is nonfinite.
+    """
     from CTRAIN.bound.properties import CERTIFICATION_METHODS
     if method not in CERTIFICATION_METHODS:
         raise ValueError('Invalid certification method')
@@ -57,15 +68,17 @@ def evaluate_property_dataset(bounds, dataset, method='CROWN', batch_size=32):
 
 
 def partition_state(cells):
+    """Serialise covering-cell endpoints while retaining lineage and sampling weights."""
     return [dict(c, box=c['box'].to_dict()) for c in cells]
 
 
 def restore_partition(state):
+    """Reconstruct covering cells and Box endpoints from checkpoint data."""
     return [dict(c, box=Box(**c['box'])) for c in state]
 
 
 def validate_partition(cells, specs):
-    """Check saved dyadic leaves really cover every original region."""
+    """Validate that saved split lineages, endpoints and probabilities cover every original box."""
     roots = [(p, d) for p, spec in enumerate(specs) for d in range(len(spec.domains))]
     if not cells or any((c['property'], c['domain']) not in roots for c in cells):
         raise ValueError('Invalid partition roots')
@@ -96,6 +109,11 @@ def validate_partition(cells, specs):
 
 
 def evaluate_cells(bounds, cells, method, batch_size=32):
+    """Compute fresh lower satisfaction margins for all supplied covering cells.
+
+    Returns per-cell bounds and outcomes together with elapsed time. A cell is
+    certified only when every requirement has a finite positive lower margin.
+    """
     start = time.monotonic()
     rows = [None] * len(cells)
     with torch.no_grad():
@@ -118,6 +136,12 @@ def evaluate_cells(bounds, cells, method, batch_size=32):
 
 
 def refine_partition(cells, rows, specs, split_count=8, max_cells=1024, max_depth=12):
+    """Bisect unresolved cells while preserving their original input cover.
+
+    Candidates with the smallest lower margin are considered first. Each split
+    uses the widest coordinate relative to its original domain and divides the
+    parent sampling probability equally. Cell and depth limits bound refinement.
+    """
     counts = {}
     for cell in cells:
         key = cell['property'], cell['domain']
@@ -154,6 +178,12 @@ def refine_partition(cells, rows, specs, split_count=8, max_cells=1024, max_dept
 
 
 def find_counterexample(model, formula, box, steps=30):
+    """Search an input box for a concrete violation of the output formula.
+
+    Projected gradient-sign steps minimise the satisfaction margin. Returns a
+    violating input as a list, or None when no violation was found. The search
+    uses inward-rounded endpoints and preserves caller modes and gradient flags.
+    """
     reference = next(model.parameters(), None)
     if reference is None:
         reference = next(model.buffers(), torch.zeros(()))
@@ -185,7 +215,11 @@ def find_counterexample(model, formula, box, steps=30):
 
 
 def export_property_graph(graph, path, input_shape, probes):
-    """Resolve constant aliases for the installed verifier's ONNX loader."""
+    """Export a property-margin graph for complete verification.
+
+    The export resolves constant aliases required by the verifier's ONNX loader
+    and checks numerical prediction agreement on the supplied probes.
+    """
     import onnx
     import onnxoptimizer
     import onnxruntime as ort
@@ -205,6 +239,13 @@ def export_property_graph(graph, path, input_shape, probes):
 
 
 def complete_cells(wrapper, cells, rows, directory, timeout, properties=None):
+    """Evaluate unresolved cell requirements through exported margin graphs and
+    alpha-beta-CROWN.
+
+    The supplied result rows are updated in place with certificates, concrete
+    counterexamples or unresolved outcomes. Each solver query receives timeout
+    seconds and writes its artifacts under directory.
+    """
     from CTRAIN.complete_verification.abCROWN.verify import limited_abcrown_eval
     from CTRAIN.complete_verification.abCROWN.util import get_abcrown_standard_conf
     directory = Path(directory)
@@ -261,11 +302,32 @@ def complete_cells(wrapper, cells, rows, directory, timeout, properties=None):
 def certify_properties(wrapper, method='CROWN', refine=True, complete=False,
                        max_cells=None, max_depth=None, results_path=None, timeout=60,
                        properties=None):
-    """Recompute bounds on the training cover or on separate evaluation specs.
+    """Check general specifications over the full declared input regions.
 
-    Explicit ``properties`` start from their original boxes and use fresh bound
-    graphs with the wrapper's options. Evaluation never changes training specs
-    or the stored partition.
+    Each original region remains covered during optional refinement. The method
+    computes fresh bounds and can pass unresolved cells to alpha-beta-CROWN.
+    Separate properties construct fresh graphs and do not change training
+    specifications or the stored partition.
+
+    Args:
+        wrapper (PropertyModelWrapper): Model, bound options and input specifications.
+        method (str): Sound bound method: IBP, CROWN-IBP, CROWN or ALPHA-CROWN.
+        refine (bool): Whether to subdivide unresolved cells within the refinement budget.
+        complete (bool): Whether to invoke alpha-beta-CROWN on unresolved requirements.
+        max_cells (int, optional): Cell limit per original box; None uses the wrapper
+            setting.
+        max_depth (int, optional): Split-depth limit; None uses the wrapper setting.
+        results_path (str, optional): Solver-artifact directory; required for complete
+            verification.
+        timeout (float): Positive solver time limit in seconds per unresolved requirement.
+        properties (Sequence[PropertySpec], optional): Separate specifications to evaluate
+            from their original boxes.
+
+    Returns:
+        (dict): Whole-cover certified flag, per-property summaries, per-cell
+            bounds and outcomes, method and elapsed seconds. A lazy property
+            dataset instead returns aggregate counts and margins and requires
+            refine=False and complete=False.
     """
     from CTRAIN.bound.properties import CERTIFICATION_METHODS
     if method not in CERTIFICATION_METHODS or type(refine) is not bool or type(complete) is not bool:

@@ -1,6 +1,6 @@
 """Configure certified training for logical output properties over input boxes.
 
-The wrapper owns the model, bounds, optimizer and resumable state. The epoch
+The wrapper owns the model, bounds, optimiser and resumable state. The epoch
 loop lives in `CTRAIN.train.certified.properties.property_train_model`.
 """
 import copy
@@ -20,24 +20,25 @@ from CTRAIN.train.certified.properties import PropertyTrainingState, save_proper
 
 
 class PropertyModelWrapper(nn.Module):
-    """Train a task model while encouraging whole-domain output properties.
+    """Train a task model to satisfy general input-output specifications.
 
-    Each `PropertySpec` pairs an affine/Boolean output formula with one or more
-    input boxes. Bounds are computed over entire boxes, independently of the
-    task examples. The verification graph shares the task model's parameters;
-    an optional fixed computation can expose quantities such as next states.
+    Each PropertySpec associates an affine/Boolean output formula with closed
+    input boxes. Lower satisfaction margins extend the classification-margin
+    formulation used for local robustness to these general properties. The
+    verification graph shares the task network's parameters and may append fixed
+    operations, such as known state-transition dynamics.
 
-    Training minimizes task loss plus the selected weighted property loss.
+    Training minimises task loss plus the selected weighted property loss.
     Bound methods penalize lower margins; adversarial and hybrid methods use
     pointwise or combined surrogates. A low training loss does not establish a
     certificate: use `certify_properties` to check every covering cell afresh.
-    Both training and verification use evaluation-mode model behavior, with
+    Both training and verification use evaluation-mode model behaviour, with
     gradients enabled during training and caller modes restored afterwards.
     Epoch checks use the training bound method, GLS's configured training bound,
     or sound full-box IBP for other methods; no separate selector is required.
 
     Args:
-        model (torch.nn.Module): Task model to optimize and return from training.
+        model (torch.nn.Module): Task model to optimise and return from training.
         input_shape (tuple[int, ...]): Task input shape, excluding the batch axis.
         properties (Iterable[PropertySpec]): Nonempty specifications with unique
             names. Copied at construction to isolate them from caller mutation.
@@ -48,22 +49,14 @@ class PropertyModelWrapper(nn.Module):
             EXP-IBP, SABR, PGD, IBP-R or GLS. Defaults to CROWN-IBP.
             Hybrid, adversarial, regularized and smoothed property methods are
             experimental adaptations, not established paper reproductions.
-        training_options (dict | None): Parameters of the selected method,
-            copied and validated before conversion. Supports loss='hinge' or
-            'cross_entropy' and optional gradient_clip for all methods. Hybrids
-            support PGD controls and ReLU retention; expressive methods add
-            alpha, CROWN-IBP adds beta, SABR adds subselection_ratio, IBP-R
-            adds rho/masking, and GLS adds estimator, samples, sigma, sigma_lr
-            and scale decay. See the
-            property guide for defaults and the support table.
         verification_model (torch.nn.Module | None): Graph whose outputs the
             formulas reference. Defaults to `model`. Must contain `model` by
             identity and may not add trainable parameters.
         verification_input_shape (tuple[int, ...] | None): Verification input
             shape without the batch axis; defaults to `input_shape`. Property
-            boxes use these coordinates, with no implicit normalization.
+            boxes use these coordinates, with no implicit normalisation.
         device (str | torch.device): Model and training device; defaults to CPU.
-        lr (float): Positive optimizer learning rate.
+        lr (float): Positive optimiser learning rate.
         optimizer_func (Callable): Optimizer constructor accepting model
             parameters and `lr`; defaults to Adam.
         lr_scheduler_func (Callable | None): Optional scheduler constructor.
@@ -72,18 +65,11 @@ class PropertyModelWrapper(nn.Module):
         property_weight (float): Nonnegative multiplier of the property loss.
         margin (float): Positive target lower margin for the hinge penalty.
             Logical certification instead requires a lower margin above zero.
-        warm_up_epochs (int): Initial epochs optimizing only the task loss.
-            No property regions, bounds or attacks are computed in this phase.
-            Defaults to zero. Included in `num_epochs`.
         weight_ramp_epochs (int): Epochs after warm-up for linearly increasing
             the property weight from zero to `property_weight`. Zero applies
             the full weight immediately after warm-up. Included in `num_epochs`.
         property_batch_size (int): Number of covering cells sampled with
             replacement per task batch; also the bound-evaluation batch size.
-        match_property_batch_size (bool): Sample as many property boxes as
-            actual task examples in each update, including the final partial
-            batch. `property_batch_size` still controls bound-evaluation batching.
-            Defaults to False, keeping property and task batch sizes independent.
         refinement (bool): Split uncertified cells after each epoch, then
             reevaluate the refined cover. Defaults to False.
         split_count (int): Maximum number of cells split per epoch. Each split
@@ -104,12 +90,27 @@ class PropertyModelWrapper(nn.Module):
             remains sound but can be weaker for disjunctions. Defaults to matrix
             convolution and adaptive ReLU bounds. Automatic parameter-gradient
             toggling is disabled so evaluation-mode training can differentiate.
+        training_options (dict | None): Parameters of the selected method,
+            copied and validated before conversion. Supports loss='hinge' or
+            'cross_entropy' and optional gradient_clip for all methods. Hybrids
+            support PGD controls and ReLU retention; expressive methods add
+            alpha, CROWN-IBP adds beta, SABR adds subselection_ratio, IBP-R
+            adds rho/masking, and GLS adds estimator, samples, sigma, sigma_lr
+            and scale decay. See the
+            property guide for defaults and the support table.
         property_dataset (Sequence[Box] | None): Optional finite, indexable box
             pool generated on demand for a single property formula. Must expose
             `to_dict()` with a JSON-compatible reconstruction descriptor and
-            content hashes. The specification's domains initialize the bound
+            content hashes. The specification's domains initialise the bound
             graph; this dataset defines the training and certification regions.
             Sampling is uniform with replacement. Refinement is unsupported.
+        warm_up_epochs (int): Initial epochs optimizing only the task loss.
+            No property regions, bounds or attacks are computed in this phase.
+            Defaults to zero. Included in `num_epochs`.
+        match_property_batch_size (bool): Sample as many property boxes as
+            actual task examples in each update, including the final partial
+            batch. `property_batch_size` still controls bound-evaluation batching.
+            Defaults to False, keeping property and task batch sizes independent.
 
     Attributes:
         original_model (torch.nn.Module): Task model sharing verification weights.
@@ -239,7 +240,7 @@ class PropertyModelWrapper(nn.Module):
 
     @property
     def partition(self):
-        """Compatibility view of the explicit property trajectory state."""
+        """Current covering cells and their split lineages and sampling weights."""
         return self.training_state.partition
 
     @partition.setter
@@ -248,6 +249,7 @@ class PropertyModelWrapper(nn.Module):
 
     @property
     def epoch(self):
+        """Number of completed epochs in the property-training trajectory."""
         return self.training_state.epoch
 
     @epoch.setter
@@ -256,6 +258,7 @@ class PropertyModelWrapper(nn.Module):
 
     @property
     def history(self):
+        """Per-epoch task losses, property losses and whole-cover diagnostics."""
         return self.training_state.history
 
     @history.setter
@@ -264,6 +267,7 @@ class PropertyModelWrapper(nn.Module):
 
     @property
     def inference_selected(self):
+        """Whether validation-selected inference weights have replaced trajectory weights."""
         return self.training_state.inference_selected
 
     @inference_selected.setter
@@ -272,6 +276,7 @@ class PropertyModelWrapper(nn.Module):
 
     @property
     def loader_rng(self):
+        """Pending loader-generator state to restore on the next training call."""
         return self.training_state.loader_rng
 
     @loader_rng.setter
@@ -280,6 +285,7 @@ class PropertyModelWrapper(nn.Module):
 
     @property
     def best_score(self):
+        """Best validation-selection score retained by the training state."""
         return self.training_state.selection_state.get('score')
 
     @best_score.setter
@@ -288,6 +294,7 @@ class PropertyModelWrapper(nn.Module):
 
     @property
     def best_weights(self):
+        """Inference weights associated with the best validation-selection score."""
         return self.training_state.selection_state.get('weights')
 
     @best_weights.setter
@@ -299,7 +306,11 @@ class PropertyModelWrapper(nn.Module):
         return self.original_model(inputs)
 
     def train_model(self, train_loader, val_loader=None, start_epoch=None, end_epoch=None, *, epoch_metrics=None):
-        """Run the property trainer and return the task model.
+        """Train the wrapped model using the configured method and schedule.
+
+        The wrapper forwards its configuration to the corresponding library trainer.
+        start_epoch and end_epoch select a segment of the full schedule, retaining
+        its original warm-up, ramp-up and learning-rate milestones.
 
         Args:
             train_loader (torch.utils.data.DataLoader): Nonempty loader of
@@ -310,7 +321,7 @@ class PropertyModelWrapper(nn.Module):
                 first and validation loss as a tie-breaker.
             start_epoch (int | None): Zero-based starting epoch. Defaults to the
                 completed `epoch` count and must equal it. Resume by loading a
-                checkpoint rather than skipping optimizer or partition state.
+                checkpoint rather than skipping optimiser or partition state.
             end_epoch (int | None): Exclusive ending epoch; defaults to
                 `num_epochs`. Supports a partial trajectory run.
             epoch_metrics (callable | None): Optional function of the task model
@@ -319,9 +330,9 @@ class PropertyModelWrapper(nn.Module):
                 History is logged to `checkpoint_save_path/history.json` each epoch.
 
         Returns:
-            torch.nn.Module: Validation-selected task model when a validation
-            loader is supplied; otherwise the final trajectory model. Its
-            caller mode is restored. Optimizer state is not rewound on selection.
+            (torch.nn.Module): Validation-selected task model when a validation
+                loader is supplied; otherwise the final trajectory model. Its
+                caller mode is restored. Optimizer state is not rewound on selection.
         """
         from CTRAIN.train.certified.properties import property_train_model
         return property_train_model(
@@ -349,7 +360,7 @@ class PropertyModelWrapper(nn.Module):
         `properties=[...]` evaluates separate specifications, starting from their
         original boxes with fresh bound graphs and the same bound options. This
         leaves the training properties and partition unchanged.
-        `method='ALPHA-CROWN'` optimizes slopes; set its iteration budget through
+        `method='ALPHA-CROWN'` optimises slopes; set its iteration budget through
         `bound_opts={'optimize_bound_args': {'iteration': 100}}` at construction.
         This method is available for certification, not training. `complete=True` enables
         alpha-beta-CROWN fallback and requires `results_path`; `timeout` is the
@@ -362,11 +373,11 @@ class PropertyModelWrapper(nn.Module):
         the dataset descriptor rather than its materialized boxes.
 
         Returns:
-            dict: Whole-cover `certified` flag, per-property summaries, per-cell
-            bounds/outcomes, method and elapsed time. All cells
-            must have strictly positive lower margins or an exported-graph
-            proof. Unknown bounds do not establish a violation. These are
-            floating-point certificates, without a directed-rounding proof.
+            (dict): Whole-cover `certified` flag, per-property summaries, per-cell
+                bounds/outcomes, method and elapsed time. All cells
+                must have strictly positive lower margins or an exported-graph
+                proof. Unknown bounds do not establish a violation. These are
+                floating-point certificates, without a directed-rounding proof.
         """
         from CTRAIN.eval.properties import certify_properties
         if self.property_dataset is not None and kwargs.get('properties') is None:
@@ -376,7 +387,7 @@ class PropertyModelWrapper(nn.Module):
     def save_checkpoint(self, path, train_loader=None):
         """Save the current training trajectory to a new file.
 
-        Includes model, optimizer/scheduler, partition, epoch, selection history
+        Includes model, optimiser/scheduler, partition, epoch, selection history
         and Python/NumPy/PyTorch RNG states. When supplied, the loader's explicit
         generator state is saved too. Automatic epoch saves occur before
         validation-selected inference weights are restored.
@@ -399,7 +410,7 @@ class PropertyModelWrapper(nn.Module):
 
         Reconstruct the same model, verification graph and task loss before
         loading. Property/training configuration must match. This restores the
-        trajectory, optimizer/scheduler, validated cover, history and RNG state;
+        trajectory, optimiser/scheduler, validated cover, history and RNG state;
         loader generator restoration is deferred until the next training call.
         It also clears the inference-selection guard and synchronizes bound
         graph buffers. Arbitrary multi-worker/CUDA determinism is not guaranteed.
@@ -409,7 +420,7 @@ class PropertyModelWrapper(nn.Module):
                 Python deserialization because the checkpoint includes RNG state.
 
         Returns:
-            PropertyModelWrapper: This wrapper, ready to resume training.
+            (PropertyModelWrapper): This wrapper, ready to resume training.
 
         Raises:
             ValueError: Configuration differs or the saved partition fails to

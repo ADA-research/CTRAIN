@@ -33,16 +33,21 @@ def ibp_r_train_model(original_model, hardened_model, train_loader,
                       lr_decay_schedule_unit="epoch", lr_decay_after_ramp_up=False,
                       pgd_early_stopping=False, pgd_decay_factor=.1,
                       pgd_decay_checkpoints=(), selection_state=None, *, validation_eps=None, history=None):
-    """Train with linear mixing; select validation adversarial accuracy if supplied.
+    """Train a classifier with adversarial loss and IBP relaxation regularisation.
+
+    A linear schedule introduces the perturbation radius and adversarial loss.
+    The relaxation penalty encourages tighter unstable-ReLU bounds. Validation
+    selects adversarial accuracy; without validation the final weights are
+    returned. Inference selection leaves optimiser trajectory checkpoints intact.
 
     ``eps`` is the enlarged training radius, in unnormalised pixel units.
     The loader provides mean/std, min/max and normalised, as elsewhere in CTRAIN.
-    Shi initialization and warm-up/ramp-up regularisation follow CTRAIN defaults.
+    Shi initialisation and warm-up/ramp-up regularisation follow CTRAIN defaults.
     Linear mixing is specific to IBP-R. LR decay follows the other trainers;
     ``lr_decay_after_ramp_up=True`` reproduces IBP-R's delayed decay instead.
     Validation selects by adversarial accuracy at the fixed ``eval_eps`` radius.
     Epoch indices determine the schedule, including partial/resumed calls;
-    the caller must restore optimizer/scheduler state separately when resuming.
+    the caller must restore optimiser/scheduler state separately when resuming.
     """
     validation_eps = resolve_validation_eps(validation_eps, eval_eps)
     selection = prepare_model_selection(selection_state, val_loader, validation_eps)

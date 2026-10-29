@@ -11,14 +11,35 @@ from CTRAIN.util.util import preserve_model_state, validate_test_samples
 def eval_autoattack(model, data_loader, eps, return_adv_indices=False,
                     device='cuda', test_samples=np.inf, version='standard',
                     seed=0, verbose=False):
-    """Return empirical Linf robustness, optionally with failure mask/records.
+    """Evaluate empirical robustness using the official AutoAttack ensemble.
+
+    Inputs are mapped from loader coordinates to pixel space for the attack,
+    then transformed back before model evaluation. This gives an empirical
+    upper bound on robust accuracy, not a certificate.
 
     ``eps`` is in the loader's input coordinates, like ``eval_adversarial``.
-    Loader min/max describe raw pixel endpoints 0/1 after normalization. Attacks
-    run in pixel space and the model receives loader-normalized inputs. Unequal
+    Loader min/max describe raw pixel endpoints 0/1 after normalisation. Attacks
+    run in pixel space and the model receives loader-normalised inputs. Unequal
     pixel-space radii are rejected: official AutoAttack requires a scalar radius.
     Accuracy is an attack upper bound, not a certificate. Samples are processed
-    in loader batches without materializing the full dataset on the GPU.
+    in loader batches without materialising the full dataset on the GPU.
+
+    Args:
+        model (torch.nn.Module): Classifier receiving inputs in loader coordinates.
+        data_loader (DataLoader): Image loader with min and max metadata mapping raw pixels
+            to model coordinates.
+        eps (float or torch.Tensor): Perturbation radius in model input coordinates.
+        return_adv_indices (bool): Whether to return a Boolean failure mask and per-input
+            result records.
+        device (str or torch.device): Attack device.
+        test_samples (int or float): Positive sample budget; infinity evaluates all inputs.
+        version (str): Official AutoAttack version: 'standard', 'plus' or 'rand'.
+        seed (int): Attack random seed.
+        verbose (bool): Whether to print AutoAttack progress.
+
+    Returns:
+        (float or tuple): Empirical adversarial accuracy, or (accuracy, failure_mask, results).
+            The Boolean mask marks inputs with a found misclassification.
     """
     if version not in ('standard', 'plus', 'rand'):
         raise ValueError('AutoAttack version must be standard, plus, or rand')

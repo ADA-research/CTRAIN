@@ -7,7 +7,12 @@ from CTRAIN.util import construct_c
 
 def bound_forward(model, ptb, data, target, n_classes=10,
                   bound_upper=False, reuse_input=False):
-    """Evaluation-only same-slope margins; restore caller relaxation options."""
+    """Compute full-region classification-margin bounds using forward LiRPA.
+
+    Evaluation uses same-slope ReLU relaxations over the complete supplied box.
+    The function returns lower and optional upper margin bounds without retaining
+    an autograd graph and restores the caller's relaxation settings.
+    """
     relaxations = {node: node.relu_options for node in model.modules()
                    if isinstance(node, BoundRelu)}
     try:

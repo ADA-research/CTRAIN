@@ -3,10 +3,16 @@ import argparse
 
 
 def create_val_img_folder(data_dir):
-    '''
-    This method is responsible for separating validation images into separate sub folders
-    From https://github.com/DennisHanyuanXu/Tiny-ImageNet/blob/master/src/data_prep.py
-    '''
+    """Move official TinyImageNet validation images into class subdirectories.
+
+    The class mapping is read from val/val_annotations.txt and images are moved
+    under val/images/<class>. The ordinary TinyImageNet loader also accepts the
+    official layout without this reorganisation.
+
+    Args:
+        data_dir (str): Root of the extracted tiny-imagenet-200 directory.
+    Adapted from https://github.com/DennisHanyuanXu/Tiny-ImageNet/blob/master/src/data_prep.py.
+    """
     val_dir = os.path.join(data_dir, 'val')
     img_dir = os.path.join(val_dir, 'images')
 

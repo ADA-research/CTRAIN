@@ -14,7 +14,7 @@ from CTRAIN.properties.training import TRAINING_METHODS, resolve_training_option
 
 
 def get_property_training_loss(wrapper, spec_index, boxes):
-    """Compatibility adapter for callers passing a PropertyModelWrapper."""
+    """Compute the configured property loss from a PropertyModelWrapper's bound graphs and options."""
     return compute_property_training_loss(
         wrapper.bounds, spec_index, boxes, verification_model=wrapper.verification_model,
         training_method=wrapper.training_method, training_options=wrapper.training_options,
@@ -23,7 +23,12 @@ def get_property_training_loss(wrapper, spec_index, boxes):
 
 def compute_property_training_loss(bounds, spec_index, boxes, *, verification_model,
                                    training_method, training_options, margin, reference):
-    """Return a scalar training surrogate; certification always recomputes full boxes."""
+    """Compute the selected training objective for a batch of property regions.
+
+    Each strategy reuses the shared satisfaction margins with its bound-based,
+    adversarial, hybrid or regularised loss. The result is a scalar penalty for
+    training; whole-region certification separately computes fresh sound bounds.
+    """
     method, options = training_method, training_options
     def penalty(margins):
         return property_loss(margins, margin, loss=options['loss'])

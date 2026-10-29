@@ -1,3 +1,9 @@
+"""Construct method-specific hyperparameter spaces for automated configuration.
+
+Shared schedule, optimiser and regularisation choices are combined with
+method-specific parameters. Wrappers use these spaces for scalar or
+multi-objective searches over performance and verifiability.
+"""
 from ConfigSpace import Categorical, ConfigurationSpace, EqualsCondition, Float, Integer, Constant
 from ConfigSpace.types import NotSet
 import math
@@ -6,6 +12,14 @@ import torch
 
 
 def get_config_space(model_wrapper, epochs, eps, defaults=dict()):
+    """Construct the configuration space for the wrapper's selected training method.
+
+    Args:
+        model_wrapper (CTRAINWrapper): Wrapper whose training method selects the configuration space.
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+    """
     if model_wrapper.cert_train_method == 'gls':
         space = get_base_config(epochs, eps, defaults)
         space.add(Float('sigma', (1e-5, 1e-2), log=True, default=defaults.get('sigma', 1e-3)))
@@ -45,6 +59,18 @@ def get_base_config(epochs, eps, defaults=dict(), train_eps_factor_bounds=(1, 2)
     # TODO: maybe make it possible to pass lr decay epochs as tuple as done in wrapper
     # TODO: maybe convert default torch.optim instance to string
 
+    """Construct shared schedule, optimiser and regularisation hyperparameters.
+
+    Warm-up and ramp-up ranges adapt to the available epoch budget. The eps
+    argument is retained for compatibility with method-specific builders.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+        train_eps_factor_bounds (tuple): Allowed range for scaling the training perturbation radius.
+        optimizer_choices (Sequence[str]): Optimiser names offered in the shared search space.
+    """
     if type(epochs) is not int or epochs <= 0:
         raise ValueError('epochs must be a positive integer')
     warm_max = min(5, epochs - 1)
@@ -75,6 +101,15 @@ def get_base_config(epochs, eps, defaults=dict(), train_eps_factor_bounds=(1, 2)
     )
 
 def build_shi_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+    """Construct the Shi-IBP hyperparameter space with optional default-value overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+    """
     if include_base_config:
         config_space = get_base_config(epochs, eps, defaults=defaults)
     else:
@@ -93,6 +128,15 @@ def build_shi_config_space(epochs, eps, include_base_config=True, defaults=dict(
 
 
 def build_crown_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+    """Construct the CROWN-IBP hyperparameter space with optional default-value overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+    """
     if include_base_config:
         config_space = get_base_config(epochs, eps, defaults=defaults)
     else:
@@ -113,6 +157,15 @@ def build_crown_ibp_config_space(epochs, eps, include_base_config=True, defaults
 
 
 def build_sabr_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+    """Construct the SABR hyperparameter space with optional default-value overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+    """
     if include_base_config:
         config_space = get_base_config(epochs, eps, defaults=defaults)
     else:
@@ -137,6 +190,15 @@ def build_sabr_config_space(epochs, eps, include_base_config=True, defaults=dict
     return config_space 
 
 def build_taps_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+    """Construct the TAPS hyperparameter space with optional default-value overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+    """
     if include_base_config:
         config_space = get_base_config(epochs, eps, defaults=defaults)
     else:
@@ -159,6 +221,15 @@ def build_taps_config_space(epochs, eps, include_base_config=True, defaults=dict
     return config_space 
 
 def build_staps_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+    """Construct the STAPS hyperparameter space with optional default-value overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+    """
     config_space = build_taps_config_space(epochs, eps, defaults=defaults, include_base_config=include_base_config)
 
     sabr_config_space = ConfigurationSpace(
@@ -179,6 +250,16 @@ def build_staps_config_space(epochs, eps, include_base_config=True, defaults=dic
 
 
 def build_expressive_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict(), *, method):
+    """Construct shared attack controls and the method-specific expressive-loss mixture weight.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+        method (str): Training-method name used to namespace the expressive-loss parameters.
+    """
     if include_base_config:
         config_space = get_base_config(epochs, eps, defaults=defaults)
     else:
@@ -202,18 +283,55 @@ def build_expressive_ibp_config_space(epochs, eps, include_base_config=True, def
     return config_space 
 
 def build_mtl_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict(), method='mtl_ibp'):
+    """Construct the MTL-IBP hyperparameter space with optional default-value overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+        method (str): Training-method name used to namespace the expressive-loss parameters.
+    """
     return build_expressive_ibp_config_space(epochs, eps, include_base_config, defaults, method=method)
 
 
 def build_cc_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+    """Construct the CC-IBP hyperparameter space with optional default-value overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+    """
     return build_expressive_ibp_config_space(epochs, eps, include_base_config, defaults, method='cc_ibp')
 
 
 def build_exp_ibp_config_space(epochs, eps, include_base_config=True, defaults=dict()):
+    """Construct the Exp-IBP hyperparameter space with optional default-value overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+    """
     return build_expressive_ibp_config_space(epochs, eps, include_base_config, defaults, method='exp_ibp')
 
 
 def build_ibp_r_config_space(epochs, eps, include_base_config=True, defaults=None):
+    """Construct the IBP-R hyperparameter space with optional default-value overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        include_base_config (bool): Whether to include shared schedule and optimiser
+            hyperparameters.
+        defaults (dict, optional): Overrides for the default values of the search-space hyperparameters.
+    """
     defaults = {'train_eps_factor': 2.1, 'optimizer_func': 'sgd', 'lr': .01, **(defaults or {})}
     config_space = get_base_config(epochs, eps, defaults, train_eps_factor_bounds=(1, 3),
                                  optimizer_choices=('sgd', 'adam', 'adamw', 'radam')) if include_base_config else ConfigurationSpace()
@@ -230,6 +348,18 @@ def build_ibp_r_config_space(epochs, eps, include_base_config=True, defaults=Non
 
 
 def get_combined_config_space(epoch, eps, defaults=dict(), included_methods=['shi', 'crown_ibp', 'sabr', 'mtl_ibp', 'taps', 'staps']):
+    """Construct a conditional search space that also selects the training method.
+
+    The included_methods selector activates the corresponding method-specific
+    parameters alongside shared schedule, optimiser and regularisation choices.
+
+    Args:
+        epoch (int): Current epoch index or completed epoch count used by the calling training
+            loop.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        defaults (dict): Overrides for the default values of the search-space hyperparameters.
+        included_methods (list): Training-method names available to the conditional search.
+    """
     base_config_space = get_base_config(epoch, eps, defaults=defaults,
                                        train_eps_factor_bounds=(1, 3) if 'ibp_r' in included_methods else (1, 2))
     base_config_space.add_hyperparameter(
@@ -287,6 +417,14 @@ def get_combined_config_space(epoch, eps, defaults=dict(), included_methods=['sh
 
 
 def build_set_based_config_space(epochs, eps, defaults=None):
+    """Construct the set-based training hyperparameter space with optional default-value
+    overrides.
+
+    Args:
+        epochs (int): Total epoch budget used to construct the configuration space.
+        eps (float or torch.Tensor): Target perturbation radius in raw input units, before loader normalisation.
+        defaults (dict, optional): Overrides for the default values of the search-space hyperparameters.
+    """
     defaults = {} if defaults is None else defaults
     return ConfigurationSpace(space={
         'tau': Float('tau', (0., 1.), default=defaults.get('tau', .1)),

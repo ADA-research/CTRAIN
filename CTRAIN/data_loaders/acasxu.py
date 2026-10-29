@@ -20,16 +20,16 @@ FILES = (*CASES.values(), 'prop_7.vnnlib', 'prop_8.vnnlib')
 
 
 def acasxu_property(case, domain):
-    """Create ACAS Xu safe property 7 or 8 over an explicit input box.
+    """Construct the safe ACAS Xu property 7 or 8 over the supplied input box.
 
     Args:
         case (str): Either ``'7'`` or ``'8'``. Lower output scores select actions.
-        domain (Box): Released input coordinates, without extra normalization.
+        domain (Box): Released input coordinates, without extra normalisation.
 
     Returns:
-        PropertySpec: Property 7 excludes globally minimal strong-left/right
-        scores. Property 8 requires one allowed advisory (clear of conflict or
-        weak-left) to beat all forbidden ones. Both exclude unsafe ties.
+        (PropertySpec): Property 7 excludes globally minimal strong-left/right
+            scores. Property 8 requires one allowed advisory (clear of conflict or
+            weak-left) to beat all forbidden ones. Both exclude unsafe ties.
     """
     if not isinstance(domain, Box) or domain.lower.shape != (5,):
         raise ValueError('ACAS Xu properties require a five-coordinate input box')
@@ -75,6 +75,7 @@ def _read_source_spec(path):
 
 
 def _source_unsafe(predicates, output):
+    """Evaluate the released unsafe predicate on a batch of advisory score vectors."""
     def value(term):
         if isinstance(term, str) and term.startswith('Y_'):
             index = int(term[2:])
@@ -96,6 +97,9 @@ def _source_unsafe(predicates, output):
 
 
 def _crosscheck(number, predicates):
+    """Check the safe preset against the released unsafe predicate on deterministic score
+    probes and ties.
+    """
     generator = torch.Generator().manual_seed(17)
     output = torch.cat((torch.randn(1024, 5, generator=generator), torch.zeros(1, 5),
                         torch.eye(5), -torch.eye(5)))
@@ -113,8 +117,8 @@ def download_acasxu(directory, revision):
         revision (str): Full lowercase 40-character VNN-COMP 2021 commit SHA.
 
     Returns:
-        dict: Manifest recording source, revision and all four file SHA256 hashes.
-        The same manifest is saved as `manifest.json` in the artifact directory.
+        (dict): Manifest recording source, revision and all four file SHA256 hashes.
+            The same manifest is saved as `manifest.json` in the artifact directory.
 
     No download occurs during import or `load_acasxu`. A failed download may
     leave partial files, but no completed manifest is written until all succeed.
@@ -136,13 +140,8 @@ def download_acasxu(directory, revision):
 
 
 def load_acasxu(directory, case='7'):
-    """Load a trainable model, checked safe property and artifact manifest.
-
-    The loader verifies the pinned source and all required file hashes, extracts
-    the input box from the original VNNLIB, and cross-checks the preset's safe
-    formula against the original unsafe predicate on random scores and ties.
-    It then uses `load_onnx_model` to check converted predictions against ONNX
-    Runtime on domain endpoints, midpoint and 128 deterministic random probes.
+    """Load the source-checked ACAS Xu model and safe output specification for a repair
+    example.
 
     Args:
         directory (str | pathlib.Path): Local artifacts with `manifest.json`,
@@ -150,10 +149,10 @@ def load_acasxu(directory, case='7'):
         case (str): Property `'7'` (network 1_9) or `'8'` (network 2_9).
 
     Returns:
-        tuple: `(model, property_spec, manifest)`. The model is trainable on CPU
-        in eval mode. The property uses released coordinates without additional
-        normalization and excludes unsafe score ties. The manifest is suitable
-        for recording experiment provenance.
+        (tuple): `(model, property_spec, manifest)`. The model is trainable on CPU
+            in eval mode. The property uses released coordinates without additional
+            normalisation and excludes unsafe score ties. The manifest is suitable
+            for recording experiment provenance.
 
     Raises:
         ValueError: The case, manifest, hashes or source specification mismatch.

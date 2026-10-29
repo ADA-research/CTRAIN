@@ -16,7 +16,20 @@ _ATTACK = dict(pgd_steps=8, pgd_step_size=.5, pgd_restarts=1, pgd_early_stopping
 
 
 def resolve_training_options(method, options=None):
-    """Copy and validate only the parameters used by the selected strategy."""
+    """Resolve and validate the options for a general-property training strategy.
+
+    The chosen strategy reuses satisfaction margins with its own bound-based,
+    adversarial, hybrid or smoothed objective. Unknown options and unsupported
+    property-method adaptations are rejected before bound-graph conversion.
+
+    Args:
+        method (str): Training-method name, normalised to uppercase with hyphens.
+        options (dict, optional): Method-specific overrides; copied before defaults are
+            added.
+
+    Returns:
+        (tuple): Canonical method name and a validated independent options dictionary.
+    """
     if not isinstance(method, str):
         raise ValueError('training_method must be a method name')
     method = method.upper().replace('_', '-')

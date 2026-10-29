@@ -4,26 +4,30 @@ from torch.nn import functional as F
 
 
 def advisory_cross_entropy(scores, target):
-    """Preserve source advisories for models whose lowest score selects an action.
+    """Preserve source ACAS Xu advisories through cross-entropy on negated scores.
 
-    Negate scores to obtain classification logits: a lower cost then has higher
-    probability. Targets are fixed source-model ``argmin`` labels sampled before
-    repair, not source score vectors or labels regenerated during training.
-    This empirical fidelity loss does not certify advisory preservation.
+    The lowest output score selects an advisory, so negating scores produces
+    classification logits. Targets are integer source-model argmin advisories
+    sampled before repair, with ties resolved by the first argmin. This empirical
+    fidelity loss does not certify advisory preservation.
 
     Args:
-        scores (torch.Tensor): Repaired model costs of shape ``(batch, actions)``.
-        target (torch.Tensor): Source advisory indices of shape ``(batch,)``,
-            with dtype ``torch.long``. Source ties use PyTorch's first argmin.
+        scores (torch.Tensor): Repaired model costs of shape (batch, actions).
+        target (torch.Tensor): Source advisory indices of shape (batch,), with dtype
+            torch.long.
 
     Returns:
-        torch.Tensor: Mean cross-entropy over the batch.
+        (torch.Tensor): Mean cross-entropy over the batch.
     """
     return F.cross_entropy(-scores, target)
 
 
 def mnist_addition_cross_entropy(logits, target):
-    """Mean CE for independent digit/digit/sum heads and integer [a,b,a+b] labels."""
+    """Average cross-entropy for independently predicted digits and their sum.
+
+    Predictions concatenate heads of widths 10, 10 and 19; integer targets contain
+    [a, b, a+b]. This task loss does not itself enforce arithmetic consistency.
+    """
     if (logits.ndim != 2 or logits.shape[1] != 39
             or target.shape != (len(logits), 3) or target.dtype != torch.long):
         raise ValueError('Expected [batch,39] logits and [batch,3] long targets')
@@ -33,10 +37,11 @@ def mnist_addition_cross_entropy(logits, target):
 
 
 def property_loss(lower_bounds, margin=1e-3, *, loss='hinge', reduction='mean'):
-    """Property margin loss, averaged over regions unless reduction is none.
+    """Penalise deficits in property satisfaction margins.
 
-    Hinge sums deficits over obligations; cross-entropy uses the existing
-    padded-margin loss and ignores the hinge slack parameter.
+    The hinge loss sums max(0, margin - lower_margin) over requirements and
+    vanishes once each target margin is reached. Cross-entropy instead uses a
+    zero-padded margin vector. Reduction averages over boxes unless set to none.
     """
     if not torch.isfinite(lower_bounds).all():
         raise FloatingPointError('Non-finite property bounds during training')
