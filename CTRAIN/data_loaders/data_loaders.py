@@ -1,17 +1,135 @@
+from CTRAIN.data_loaders.preprocess_tinyimagenet import create_val_img_folder
 import copy
-
-import torch
-from torchvision import datasets, transforms as transforms
-from torch.utils.data import DataLoader, random_split, Subset
-from sklearn.model_selection import train_test_split
-import numpy as np
 import os
-import requests
+from pathlib import Path
 import zipfile
+
+import numpy as np
+import requests
+import torch
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, Dataset, random_split, Subset
+from torchvision import datasets, transforms
+from torchvision.datasets.folder import default_loader
 
 MNIST_MEAN, MNIST_STD = .1307, .3081
 
-def load_mnist(batch_size=64, normalise=True, train_transforms=[], val_split=True, data_root='./data'): # TODO replace to multi epoch pre-loader
+
+class _TinyImageNetValidation(Dataset):
+    """Read official validation annotations without reorganising images."""
+
+    def __init__(self, root, class_to_idx, transform):
+        self.transform = transform
+        self.samples = [(root / 'images' / row.split()[0], class_to_idx[row.split()[1]])
+                        for row in (root / 'val_annotations.txt').read_text().splitlines()]
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        path, label = self.samples[index]
+        return self.transform(default_loader(path)), label
+
+
+def _load_image_data(dataset, batch_size, normalise, train_transforms, val_split,
+                     data_root, workers, download, selection_split,
+                     validation_fraction, seed, smoke, input_size, normalisation_stats):
+    """Construct shared image transforms, selection splits and metadata-bearing loaders."""
+    if selection_split not in (None, 'none', 'test', 'validation'):
+        raise ValueError('Invalid selection split')
+    if not 0 < validation_fraction < 1:
+        raise ValueError('Invalid holdout fraction')
+    if input_size is not None and (isinstance(input_size, bool)
+                                   or not isinstance(input_size, int) or input_size <= 0):
+        raise ValueError('input_size must be a positive integer')
+    size, channels, classes = ((28, 1, 10) if dataset == 'mnist' else
+                               (64, 3, 200) if dataset == 'tinyimagenet' else (32, 3, 10))
+    size = input_size or size
+    mean, std = (([MNIST_MEAN], [MNIST_STD]) if dataset == 'mnist' else
+                 ([.4802, .4481, .3975], [.2302, .2265, .2262]) if dataset == 'tinyimagenet' else
+                 ([.4914, .4822, .4465], [.2023, .1994, .2010]))
+    if normalisation_stats is not None:
+        mean, std = normalisation_stats['mean'], normalisation_stats['std']
+        if (not normalise or len(mean) != channels or len(std) != channels
+                or not torch.isfinite(torch.tensor(mean)).all()
+                or not torch.isfinite(torch.tensor(std)).all() or min(std) <= 0):
+            raise ValueError('normalisation_stats must contain finite channel means and positive deviations with normalise=True')
+    mean, std = ((torch.tensor(mean), torch.tensor(std)) if normalise else
+                 (torch.zeros(channels), torch.ones(channels)))
+    tensor = [transforms.ToTensor()]
+    if normalise:
+        tensor.append(transforms.Normalize(mean, std))
+    crop = [] if input_size is None else [transforms.CenterCrop(size)]
+    test_transform = transforms.Compose([*crop, *tensor])
+    train_transform = transforms.Compose([*train_transforms, *crop, *tensor])
+    root = Path(data_root)
+    if smoke:
+        train = datasets.FakeData(2, (channels, size, size), classes, train_transform)
+        test = datasets.FakeData(2, (channels, size, size), classes, test_transform)
+    elif dataset == 'tinyimagenet':
+        if (root / 'tiny-imagenet-200').exists():
+            root = root / 'tiny-imagenet-200'
+        if download and not (root / 'train').exists():
+            download_tinyimagenet(str(root.parent if root.name == 'tiny-imagenet-200' else root))
+            if (root / 'tiny-imagenet-200').exists():
+                root = root / 'tiny-imagenet-200'
+        train = datasets.ImageFolder(root=root / 'train', transform=train_transform)
+        val = root / 'val'
+        if (val / 'val_annotations.txt').exists() and any((val / 'images').glob('*.JPEG')):
+            test = _TinyImageNetValidation(val, train.class_to_idx, test_transform)
+        else:
+            test = datasets.ImageFolder(root=val / 'images' if (val / 'images').exists() else val,
+                                        transform=test_transform)
+            if train.class_to_idx != test.class_to_idx:
+                raise ValueError('TinyImageNet class mappings differ')
+    elif dataset == 'svhn':
+        train = datasets.SVHN(root=root, split='train', download=download, transform=train_transform)
+        test = datasets.SVHN(root=root, split='test', download=download, transform=test_transform)
+    else:
+        constructor = datasets.MNIST if dataset == 'mnist' else datasets.CIFAR10
+        train = constructor(root=root, train=True, download=download, transform=train_transform)
+        test = constructor(root=root, train=False, download=download, transform=test_transform)
+    selection = None
+    if selection_split == 'validation' or (selection_split is None and val_split):
+        evaluation = copy.copy(train)
+        evaluation.transform = test_transform
+        generator = None if seed is None else torch.Generator().manual_seed(seed)
+        if selection_split is None:
+            train, selection = random_split(train, [1 - validation_fraction, validation_fraction],
+                                            generator=generator)
+            selection = Subset(evaluation, selection.indices)
+        else:
+            indices = torch.randperm(len(train), generator=generator)
+            count = max(1, int(len(train) * validation_fraction))
+            if count >= len(train):
+                raise ValueError('Holdout leaves no training samples')
+            selection = Subset(evaluation, indices[:count].tolist())
+            train = Subset(train, indices[count:].tolist())
+    elif selection_split == 'test':
+        selection = test
+
+    def loader(data, shuffle=False, validation=False):
+        num_workers = workers if workers is not None else (
+            4 if dataset == 'tinyimagenet' and not validation else 2)
+        result = DataLoader(data, batch_size=2 if smoke else batch_size,
+                            shuffle=shuffle, num_workers=num_workers)
+        result.mean, result.std, result.normalised = mean, std, normalise
+        result.min = (-mean / std).view(1, channels, 1, 1)
+        result.max = ((1 - mean) / std).view(1, channels, 1, 1)
+        return result
+
+    train_loader, test_loader = loader(train, True), loader(test)
+    if selection_split is None and not val_split:
+        return train_loader, test_loader
+    selection_loader = None if selection is None else (
+        test_loader if selection is test else loader(selection, validation=True))
+    return train_loader, selection_loader, test_loader
+
+
+def load_mnist(batch_size=64, normalise=True, train_transforms=(),
+                  val_split=True, data_root='./data', *, workers=None, download=True,
+                  selection_split=None, validation_fraction=.2, seed=None, smoke=False,
+                  input_size=None, normalisation_stats=None):
     """
     Loads the MNIST dataset with specified transformations and returns data loaders.
     
@@ -36,58 +154,15 @@ def load_mnist(batch_size=64, normalise=True, train_transforms=[], val_split=Tru
     Example:
         train_loader, val_loader, test_loader = load_mnist(batch_size=32, normalise=True, train_transforms=[transforms.RandomRotation(10)], val_split=True, data_root='./data')
     """
-    if normalise:
-        mean = torch.tensor([MNIST_MEAN])
-        std = torch.tensor([MNIST_STD])
-    else:
-        mean = torch.tensor([0])
-        std = torch.tensor([1])
-    if normalise:
-        train_transform = transforms.Compose([
-            *train_transforms,
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
-        ])
-        test_transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
-        ])
-    else:
-        train_transform = transforms.Compose([
-            *train_transforms,
-            transforms.ToTensor()    
-        ])
-        test_transform = transforms.Compose([transforms.ToTensor()])
-        
-    train_dataset = datasets.MNIST(root=data_root, train=True, download=True, transform=train_transform)
-    test_dataset = datasets.MNIST(root=data_root, train=False, transform=test_transform)
-    if val_split:
-        evaluation_dataset = copy.copy(train_dataset)
-        evaluation_dataset.transform = test_transform
-        train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
-        val_dataset = Subset(evaluation_dataset, val_dataset.indices)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
-    
+    return _load_image_data('mnist', batch_size, normalise, train_transforms,
+                            val_split, data_root, workers, download, selection_split,
+                            validation_fraction, seed, smoke, input_size, normalisation_stats)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
-    
-    # Initialize variables to track the min and max values
-    min_val = ((torch.zeros(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
-    max_val = ((torch.ones(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
 
-    print(f'MNIST dataset - Min value: {min_val}, Max value: {max_val}')
-    
-    train_loader.mean, train_loader.std, train_loader.min, train_loader.max, train_loader.normalised = mean, std, min_val, max_val, normalise
-    test_loader.mean, test_loader.std, test_loader.min, test_loader.max, test_loader.normalised = mean, std, min_val, max_val, normalise
-    
-    if val_split:
-        val_loader.mean, val_loader.std, val_loader.min, val_loader.max, val_loader.normalised = mean, std, min_val, max_val, normalise
-        return train_loader, val_loader, test_loader
-    else:
-        return train_loader, test_loader
-
-def load_cifar10(batch_size=64, normalise=True, train_transforms=[transforms.RandomHorizontalFlip(), transforms.RandomCrop(32, 2, padding_mode='edge')], val_split=True, data_root='./data'):
+def load_cifar10(batch_size=64, normalise=True, train_transforms=(transforms.RandomHorizontalFlip(), transforms.RandomCrop(32, 2, padding_mode='edge')),
+                  val_split=True, data_root='./data', *, workers=None, download=True,
+                  selection_split=None, validation_fraction=.2, seed=None, smoke=False,
+                  input_size=None, normalisation_stats=None):
     """
     Load the CIFAR-10 dataset with optional normalization and data augmentation.
     
@@ -108,63 +183,51 @@ def load_cifar10(batch_size=64, normalise=True, train_transforms=[transforms.Ran
         - max (torch.Tensor): The maximum value in the dataset.
         - normalised (bool): Whether the dataset was normalized.
     """
-    if normalise:
-        mean = torch.tensor([0.4914, 0.4822, 0.4465])
-        # TODO: Check std deviaton - values the comment is a value found here: https://github.com/kuangliu/pytorch-cifar/issues/19
-        # std = torch.tensor([0.247, 0.243, 0.261])
-        # The value below is taken from MTL-IBP/SABR Code
-        std = torch.tensor([0.2023, 0.1994, 0.2010])
-    else:
-        mean = torch.tensor([0, 0, 0])
-        std = torch.tensor([1, 1, 1])
-    if normalise:
-        train_transform = transforms.Compose([
-            *train_transforms,
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std),
-        ])
-        test_transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std),
-        ])
-    else:
-        train_transform = transforms.Compose([
-            *train_transforms,
-            transforms.ToTensor(),
-        ])
-        test_transform = transforms.Compose([
-            transforms.ToTensor(),
-        ])
+    return _load_image_data('cifar10', batch_size, normalise, train_transforms,
+                            val_split, data_root, workers, download, selection_split,
+                            validation_fraction, seed, smoke, input_size, normalisation_stats)
 
-    train_dataset = datasets.CIFAR10(root=data_root, train=True, download=True, transform=train_transform)
-    test_dataset = datasets.CIFAR10(root=data_root, train=False, transform=test_transform, download=True)
-    if val_split:
-        evaluation_dataset = copy.copy(train_dataset)
-        evaluation_dataset.transform = test_transform
-        train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
-        val_dataset = Subset(evaluation_dataset, val_dataset.indices)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
-        val_loader.mean, val_loader.std = mean, std
-    
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
-    
-    # Initialize variables to track the min and max values
-    min_val = ((torch.zeros(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
-    max_val = ((torch.ones(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
+def load_svhn(batch_size=64, normalise=True, train_transforms=(),
+                  val_split=True, data_root='./data', *, workers=None, download=True,
+                  selection_split=None, validation_fraction=.2, seed=None, smoke=False,
+                  input_size=None, normalisation_stats=None):
+    """Load SVHN and attach the metadata required for bound propagation.
 
-    print(f'CIFAR10 dataset - Min value: {min_val}, Max value: {max_val}')
-    
-    train_loader.mean, train_loader.std, train_loader.min, train_loader.max, train_loader.normalised = mean, std, min_val, max_val, normalise
-    test_loader.mean, test_loader.std, test_loader.min, test_loader.max, test_loader.normalised = mean, std, min_val, max_val, normalise
-    
-    if val_split:
-        val_loader.mean, val_loader.std, val_loader.min, val_loader.max, val_loader.normalised = mean, std, min_val, max_val, normalise
-        return train_loader, val_loader, test_loader
-    else:
-        return train_loader, test_loader
-    
+    Training transformations apply only to training images. A training holdout
+    uses evaluation transformations, so validation does not augment its inputs.
+
+    Args:
+        batch_size (int): Number of images per loader batch.
+        normalise (bool): Whether to apply channelwise dataset normalisation.
+        train_transforms (Sequence): Image transformations preceding tensor conversion on
+            training data.
+        val_split (bool): Whether to create a training holdout when selection_split is None.
+        data_root (str): Dataset storage directory.
+        workers (int, optional): Number of loader workers; None uses the dataset default.
+        download (bool): Whether to download missing data.
+        selection_split (str, optional): 'validation' uses a training holdout, 'test' reuses
+            the test loader, and 'none' disables selection.
+            None follows val_split.
+        validation_fraction (float): Training fraction reserved for a holdout, in (0, 1).
+        seed (int, optional): Seed for selecting holdout indices.
+        smoke (bool): Whether to return two synthetic images per split for execution checks.
+        input_size (int, optional): Positive centre-crop size; None retains the dataset
+            resolution.
+        normalisation_stats (dict, optional): Custom channel mean and std with
+            normalise=True.
+
+    Returns:
+        (tuple): (train_loader, test_loader) when selection_split is None and
+            val_split=False; otherwise (train_loader, selection_loader, test_loader).
+            The selection loader is None when selection is disabled. All loaders
+            expose mean, std, min, max and normalised attributes.
+    """
+    return _load_image_data('svhn', batch_size, normalise, train_transforms,
+                            val_split, data_root, workers, download, selection_split,
+                            validation_fraction, seed, smoke, input_size, normalisation_stats)
+
+
 def load_gtsrb(batch_size=64, normalise=True, train_transforms=[transforms.RandomRotation(10), transforms.RandomResizedCrop(size=(30, 30), scale=(0.85, 1.0)), transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), shear=15),], val_split=True, data_root='./data'):
     """
     Load the German Traffic Sign Recognition Benchmark (GTSRB) dataset with optional normalization and data augmentation.
@@ -295,31 +358,12 @@ def download_tinyimagenet(data_root='./data'):
         print('TinyImageNet dataset already exists and is complete.')
 
 
-def create_val_img_folder(data_dir):
-    '''
-    This method is responsible for separating validation images into separate sub folders
-    From https://github.com/DennisHanyuanXu/Tiny-ImageNet/blob/master/src/data_prep.py
-    '''
-    val_dir = os.path.join(data_dir, 'val')
-    img_dir = os.path.join(val_dir, 'images')
 
-    fp = open(os.path.join(val_dir, 'val_annotations.txt'), 'r')
-    data = fp.readlines()
-    val_img_dict = {}
-    for line in data:
-        words = line.split('\t')
-        val_img_dict[words[0]] = words[1]
-    fp.close()
 
-    # Create folder if not present and move images into proper folders
-    for img, folder in val_img_dict.items():
-        newpath = (os.path.join(img_dir, folder))
-        if not os.path.exists(newpath):
-            os.makedirs(newpath)
-        if os.path.exists(os.path.join(img_dir, img)):
-            os.rename(os.path.join(img_dir, img), os.path.join(newpath, img))
-
-def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transforms.RandomHorizontalFlip(), transforms.RandomCrop(64, 4, padding_mode='edge'),], val_split=True, data_root='./data'):
+def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=(transforms.RandomHorizontalFlip(), transforms.RandomCrop(64, 4, padding_mode='edge')),
+                  val_split=True, data_root='./data', *, workers=None, download=True,
+                  selection_split=None, validation_fraction=.2, seed=None, smoke=False,
+                  input_size=None, normalisation_stats=None):
     """
     Loads the TinyImageNet dataset with specified transformations and normalization.
     
@@ -340,59 +384,6 @@ def load_tinyimagenet(batch_size=64, normalise=True, train_transforms=[transform
         - max: The maximum value in the dataset.
         - normalised: Whether the dataset was normalized.
     """
-    download_tinyimagenet(data_root)
-    
-    if normalise:
-        mean = torch.tensor([0.4802, 0.4481, 0.3975])
-        std = torch.tensor([0.2302, 0.2265, 0.2262])
-    else:
-        mean = torch.tensor([0, 0, 0])
-        std = torch.tensor([1, 1, 1])
-
-    if normalise:
-        train_transform = transforms.Compose([
-            *train_transforms,
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std),
-        ])
-        test_transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std),
-        ])
-    else:
-        train_transform = transforms.Compose([
-            *train_transforms,
-            transforms.ToTensor(),
-        ])
-        test_transform = transforms.Compose([
-            transforms.ToTensor(),
-        ])
-
-    train_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/train', transform=train_transform)
-    test_dataset = datasets.ImageFolder(root=data_root + '/tiny-imagenet-200/val/images', transform=test_transform)
-    if val_split:
-        evaluation_dataset = copy.copy(train_dataset)
-        evaluation_dataset.transform = test_transform
-        train_dataset, val_dataset = random_split(train_dataset, [0.8, 0.2])
-        val_dataset = Subset(evaluation_dataset, val_dataset.indices)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
-        val_loader.mean, val_loader.std = mean, std
-    
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
-    
-    # Initialize variables to track the min and max values
-    min_val = ((torch.zeros(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
-    max_val = ((torch.ones(mean.shape) - mean) / std).view(1, *mean.shape, 1, 1)
-
-    print(f'TinyImageNet dataset - Min value: {str(min_val)}, Max value: {str(max_val)}')
-    
-    train_loader.mean, train_loader.std, train_loader.min, train_loader.max, train_loader.normalised = mean, std, min_val, max_val, normalise
-    test_loader.mean, test_loader.std, test_loader.min, test_loader.max, test_loader.normalised = mean, std, min_val, max_val, normalise
-    
-    if val_split:
-        val_loader.mean, val_loader.std, val_loader.min, val_loader.max, val_loader.normalised = mean, std, min_val, max_val, normalise
-        return train_loader, val_loader, test_loader
-    else:
-        return train_loader, test_loader
+    return _load_image_data('tinyimagenet', batch_size, normalise, train_transforms,
+                            val_split, data_root, workers, download, selection_split,
+                            validation_fraction, seed, smoke, input_size, normalisation_stats)

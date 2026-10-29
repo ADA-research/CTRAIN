@@ -159,6 +159,7 @@ def validation_transforms():
     class Dataset:
         def __init__(self, transform, **kwargs):
             self.transform = transform
+            self.class_to_idx = {'class': 0}
             self._samples = [(f'00000/{i // 2:05d}_{i:05d}.ppm', 0) for i in range(20)]
 
         def __len__(self):
