@@ -89,7 +89,7 @@ def shi_train_model(
         num_epochs=num_epochs,
         eps=eps,
         mean=train_loader.mean,
-        std=train_loader.std,
+        std=train_loader.std if train_loader.normalised else torch.ones_like(train_loader.std),
         eps_schedule_unit=eps_schedule_unit,
         eps_schedule=eps_schedule,
         batches_per_epoch=len(train_loader),

@@ -20,7 +20,10 @@ class _BoxPerturbation(PerturbationLpNorm):
 def loader_radius(eps, loader, data):
     radius = torch.as_tensor(eps, device=data.device, dtype=data.dtype)
     if getattr(loader, 'normalised', False):
-        radius = radius / torch.as_tensor(loader.std, device=data.device, dtype=data.dtype)
+        std = torch.as_tensor(loader.std, device=data.device, dtype=data.dtype)
+        if not torch.isfinite(std).all() or (std <= 0).any():
+            raise ValueError('Loader standard deviation must be finite and positive')
+        radius = radius / std
     if radius.ndim == 1 and data.ndim > 2:
         radius = radius.reshape(-1, *([1] * (data.ndim - 2)))
     return radius
