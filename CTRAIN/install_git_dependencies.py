@@ -13,7 +13,7 @@ GIT_DEPENDENCIES = (
     "git+https://github.com/KaidiXu/onnx2pytorch@"
     "8447c42c3192dad383e5598edc74dddac5706ee2",
     "git+https://github.com/Verified-Intelligence/auto_LiRPA.git@"
-    "cf0169ce6bfb4fddd82cfff5c259c162a23ad03c",
+    "ca767f1d8c0a6b125a292ba165adb2319bbaf615",
     "git+https://github.com/fra31/auto-attack.git@"
     "a39220048b3c9f2cca9a4d3a54604793c68eca7e",
 )
