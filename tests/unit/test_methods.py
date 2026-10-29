@@ -162,6 +162,36 @@ def test_nominal_training_boxes_use_loader_coordinate_system(case, normalised):
 
 
 
+def test_clean_warmup_loss_matches_independent_cross_entropy(method, tmp_path):
+    options = dict(eps=0., num_epochs=2)
+    if method[0] != "PGD":
+        options.update(warm_up_epochs=1, ramp_up_epochs=0)
+    wrapper = make(method, tmp_path, **options)
+    data_loader = loader(batch_size=4)
+    images, labels = data_loader.dataset.tensors
+    reference = copy.deepcopy(wrapper.original_model).train()
+    expected = nn.functional.cross_entropy(reference(images), labels)
+    expected_gradients = torch.autograd.grad(expected, reference.parameters())
+    updates = []
+
+    def check_gradients(optimizer, args, kwargs):
+        for parameter, gradient in zip(wrapper.original_model.parameters(), expected_gradients):
+            # PGPE's score-function estimator is zero with zero noise; RGS
+            # reduces to the ordinary gradient when its sampled noise is zero.
+            if method[0] == "GLS-pgpe":
+                gradient = torch.zeros_like(gradient)
+            torch.testing.assert_close(parameter.grad, gradient)
+        updates.append(1)
+
+    # Zero noise isolates GLS's base objective from its sampling distribution.
+    with patch("torch.randn_like", side_effect=torch.zeros_like), \
+         wrapper.optimizer.register_step_post_hook(check_gradients):
+        wrapper.train_model(data_loader, end_epoch=1)
+    assert len(updates) == 1
+    torch.testing.assert_close(torch.as_tensor(checkpoints(tmp_path)[0]["loss"]), expected.detach())
+
+
+
 @pytest.mark.parametrize("case", [case for case in METHODS if case[0] in HYBRIDS], ids=lambda case: case[0])
 @pytest.mark.parametrize("normalised", [False, True], ids=["raw", "normalised"])
 def test_hybrid_options_reach_real_bounds_and_attacks(case, normalised):

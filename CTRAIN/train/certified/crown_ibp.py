@@ -6,6 +6,7 @@ from auto_LiRPA import PerturbationLpNorm
 from CTRAIN.train.certified.eps_scheduler import SmoothedScheduler
 from CTRAIN.train.certified.losses import get_crown_ibp_loss
 from CTRAIN.util import save_checkpoint
+from CTRAIN.train.certified.losses.crown_ibp import get_exp_module
 from CTRAIN.train.certified.util import synchronise_bn
 from CTRAIN.train.certified.regularisers import get_l1_reg, get_shi_regulariser
 from CTRAIN.train.certified.initialisation import ibp_init_shi
@@ -141,7 +142,9 @@ def crown_ibp_train_model(
             
             if loss_fusion:
                 clean_output = loss_fusion_model(data, target)
-                clean_loss = torch.mean(torch.log(clean_output))
+                clean_loss = torch.mean(
+                    torch.log(clean_output) + get_exp_module(loss_fusion_model).max_input
+                )
                 with torch.no_grad():
                     regular_err = torch.sum(
                         torch.argmax(hardened_model(data), dim=1) != target
