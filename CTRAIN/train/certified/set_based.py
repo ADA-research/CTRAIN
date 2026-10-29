@@ -6,11 +6,11 @@ from pathlib import Path
 import torch
 from torch import nn
 from CTRAIN.bound.set_based_zono import sequential_layers
-from CTRAIN.eval.zonotope import eval_zonotope, loader_limits, loader_radius
+from CTRAIN.eval import eval_certified
 from CTRAIN.train.certified.losses.set_based import get_set_based_loss, validate_set_options
 from CTRAIN.train.certified.progress import progress_bar, update_progress
 from CTRAIN.train.certified.util import synchronise_bn
-from CTRAIN.util.util import preserve_model_state
+from CTRAIN.util.util import preserve_model_state, loader_limits, loader_radius
 
 
 def clean_bn_statistics(model, data, layers):
@@ -119,10 +119,11 @@ def set_based_train_model(model, train_loader, optimizer, num_epochs, eps,
             if lr_scheduler is not None:
                 lr_scheduler.step()
             if val_loader is not None and epoch + 1 >= warm_up_epochs + ramp_up_epochs:
-                progress.write("Evaluating full-box zonotope accuracy...")
-                _, accuracy = eval_zonotope(model, val_loader, eps if eval_eps is None else eval_eps,
-                                             propagation_batch_size=propagation_batch_size,
-                                             error_propagation=error_propagation, device=device)
+                progress.write("Evaluating full-box forward accuracy...")
+                radius = loader_radius(eps if eval_eps is None else eval_eps, val_loader, data)
+                accuracy, _ = eval_certified(model, val_loader, radius, n_classes=None,
+                                             method='FORWARD', device=device,
+                                             propagation_batch_size=propagation_batch_size)
                 if accuracy > best_accuracy:
                     best_accuracy, best_weights = accuracy, copy.deepcopy(model.state_dict())
                     selection.update(accuracy=accuracy, weights=best_weights, epoch=epoch + 1)

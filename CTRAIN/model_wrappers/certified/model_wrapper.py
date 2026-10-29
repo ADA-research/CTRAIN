@@ -12,6 +12,7 @@ from smac.utils.configspace import get_config_hash
 from CTRAIN.complete_verification.neuralsat import validate_neuralsat_command, validate_neuralsat_options
 from CTRAIN.eval.eval import eval_acc, eval_model, eval_complete
 from CTRAIN.model_wrappers.configs import get_config_space
+from CTRAIN.util.util import loader_radius
 
 
 def _constant_value(hyperparameter):
@@ -75,7 +76,7 @@ class CTRAINWrapper(nn.Module):
         if len(input_shape) < 4:
             input_shape = [1, *input_shape]
         model.eval()
-        example_input = torch.ones(input_shape, device=device)
+        example_input = torch.ones(input_shape, device=device, dtype=next(model.parameters()).dtype)
         self.n_classes = len(model(example_input)[0])
         self.bound_opts = copy.deepcopy(bound_opts)
         self.bounded_model = BoundedModule(model=self.original_model, global_input=example_input, bound_opts=self.bound_opts, device=device)
@@ -133,14 +134,16 @@ class CTRAINWrapper(nn.Module):
         return self.bounded_model(x)
 
     def evaluate(self, test_loader, test_samples=np.inf, eval_method='ADAPTIVE',
-                 adversarial_method='PGD', alpha_iterations=20, autoattack_kwargs=None):
+                 adversarial_method='PGD', alpha_iterations=20, autoattack_kwargs=None,
+                 propagation_batch_size=1):
         """
         Evaluate the model using the provided test data loader.
 
         Args:
             test_loader (DataLoader): DataLoader containing the test dataset.
             test_samples (int, optional): Number of test samples to evaluate. Defaults to np.inf.
-            eval_method (str or list, optional): The certification method to use. Options are 'ZONOTOPE', 'IBP', 'CROWN', 'ALPHA-CROWN', 'CROWN-IBP', 'ADAPTIVE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'ADAPTIVE'.
+            eval_method (str or list, optional): The certification method to use. Options are 'FORWARD', 'IBP', 'CROWN', 'ALPHA-CROWN', 'CROWN-IBP', 'ADAPTIVE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). 'ZONOTOPE' aliases 'FORWARD'. Default is 'ADAPTIVE'.
+            propagation_batch_size (int): Maximum forward-bound chunk size; default 1.
 
         Returns:
             (Tuple): Evaluation results in terms of std_acc, cert_acc and adv_acc.
@@ -148,24 +151,13 @@ class CTRAINWrapper(nn.Module):
         adversarial_method selects PGD (default) or AUTOATTACK; autoattack_kwargs
         configures its version/seed/verbosity. alpha_iterations controls ALPHA-CROWN.
         """
-        if eval_method == 'ZONOTOPE':
-            from CTRAIN.eval.zonotope import evaluate_zonotope_model
-            native_model = copy.deepcopy(self.original_model)
-            native_state = native_model.state_dict()
-            # LiRPA named members translate graph names back to PyTorch names;
-            # its state_dict retains graph names and omits BN batch counters.
-            native_state.update(dict(self.bounded_model.named_parameters()))
-            native_state.update({name: value for name, value in self.bounded_model.named_buffers()
-                                 if name in native_state})
-            native_model.load_state_dict(native_state)
-            return evaluate_zonotope_model(native_model, test_loader, self.eps,
-                                            test_samples, device=self.device, adversarial_method=adversarial_method,
-                                            autoattack_kwargs=autoattack_kwargs)
-        eps_std = self.eps / test_loader.std if test_loader.normalised else torch.tensor(self.eps)
-        eps_std = torch.reshape(eps_std, (*eps_std.shape, 1, 1))
+        parameter = next(self.bounded_model.parameters())
+        example = torch.empty(self.input_shape, device=self.device, dtype=parameter.dtype)
+        eps_std = loader_radius(self.eps, test_loader, example)
         return eval_model(self.bounded_model, test_loader, n_classes=self.n_classes, eps=eps_std, test_samples=test_samples, method=eval_method, device=self.device,
                           adversarial_method=adversarial_method, alpha_iterations=alpha_iterations,
-                          autoattack_kwargs=autoattack_kwargs)
+                          autoattack_kwargs=autoattack_kwargs,
+                          propagation_batch_size=propagation_batch_size)
 
     def evaluate_complete(
         self,

@@ -9,7 +9,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from CTRAIN.bound.set_based_zono import Zonotope, box_zonotope, bound_zonotope, zonotope_margins, sequential_layers
 from CTRAIN.train.certified.losses.set_based import attack_zonotope, get_set_based_loss
 from CTRAIN.train.certified.set_based import clean_bn_statistics, scheduled_epsilon
-from CTRAIN.eval.zonotope import eval_zonotope
+from CTRAIN.eval import eval_acc, eval_certified
+from CTRAIN.util.util import preserve_model_state
 from CTRAIN import SetBasedModelWrapper
 
 
@@ -142,7 +143,10 @@ def training():
             assert all(torch.isfinite(p).all() for p in clone.parameters())
             assert clone.training
             results.append(wrapper.state_dict())
-            clean, cert = eval_zonotope(clone, data_loader, .1, propagation_batch_size=chunk)
+            with preserve_model_state(clone):
+                clean = eval_acc(clone, data_loader, device='cpu')
+            cert, _ = eval_certified(clone, data_loader, .1, n_classes=2, method='FORWARD',
+                                     propagation_batch_size=chunk, device='cpu')
             assert 0 <= cert <= clean <= 1
             assert clone[1].num_batches_tracked.item() == updates
         # Nominal statistics are chunk-local, so BN training is chunk-dependent.
@@ -172,7 +176,7 @@ def training():
         full.train_model(data_loader, data_loader)
         assert full.selection_state['epoch'] >= 2
         # Evaluation caller modes survive certification and BN buffers do not change.
-        full.eval(); eval_zonotope(full.original_model, data_loader, .1)
+        full.eval(); eval_certified(full.original_model, data_loader, .1, n_classes=2, method='FORWARD', device='cpu')
         assert not full.original_model.training
     assert scheduled_epsilon(.1, 0, 0, 1, 1, 2) == 0
     assert scheduled_epsilon(.1, 1, 0, 1, 1, 2) == .05
@@ -227,7 +231,7 @@ def convolutional_bn_and_presets():
             pass
     wrapper = SetBasedModelWrapper(nn.Sequential(nn.Linear(2, 2)).double(), (2,), .1, 3,
                                    warm_up_epochs=0, ramp_up_epochs=0, device='cpu', population_bn=True)
-    with patch('CTRAIN.train.certified.set_based.eval_zonotope', return_value=(.5, .5)):
+    with patch('CTRAIN.train.certified.set_based.eval_certified', return_value=(.5, {})):
         wrapper.train_model(loader(), loader())
     assert wrapper.selection_state['epoch'] == 1
     for key, value in wrapper.state_dict().items():
@@ -263,9 +267,9 @@ def actual_evaluation():
     assert all(torch.equal(p.grad, torch.ones_like(p)) for p in model.parameters())
     result = wrapper.evaluate(data_loader, test_samples=1, eval_method='IBP')
     assert len(result) == 3
-    # Existing wrappers expose the same native zonotope evaluation choice.
+    # Existing wrappers expose the same forward evaluation choice.
     existing = CTRAINWrapper(copy.deepcopy(model), .1, (1, 1, 2, 2), device='cpu')
-    result = existing.evaluate(data_loader, test_samples=1, eval_method='ZONOTOPE')
+    result = existing.evaluate(data_loader, test_samples=1, eval_method='FORWARD')
     assert len(result) == 3
 
 

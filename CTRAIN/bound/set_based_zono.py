@@ -9,7 +9,7 @@ the training set, and the installed PerturbationLinear rejects forward mode.
 Keep LiRPA's LinearBound representation and layer computations, with local
 adapters for centered generator coordinates, supplied clean BatchNorm statistics,
 and the numerical/autograd gaps explained below. Ordinary full-box certification
-already uses compute_bounds(method='Forward') in CTRAIN.eval.zonotope.
+uses compute_bounds(method='Forward') through CTRAIN.eval.eval_forward.
 """
 from dataclasses import dataclass
 import torch

@@ -11,11 +11,50 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from auto_LiRPA import BoundedModule, PerturbationLpNorm
 from CTRAIN.bound import bound_alpha_crown
-from CTRAIN.eval import eval_alpha_crown, eval_certified, eval_autoattack, eval_adversarial
+from CTRAIN.eval import eval_alpha_crown, eval_certified, eval_autoattack, eval_adversarial, eval_ibp, eval_crown_ibp
 from CTRAIN.model_wrappers.model_wrapper import CTRAINWrapper
 
 
+def batched_certification():
+    data = torch.tensor([[0.], [.45], [.55], [1.], [.7]])
+    labels = torch.tensor([1, 1, 0, 0, 0])
+    loader = DataLoader(TensorDataset(data, labels), batch_size=3)
+    loader.min, loader.max = 0., 1.
+    native = nn.Sequential(nn.Linear(1, 2)).eval()
+    with torch.no_grad():
+        native[0].weight.copy_(torch.tensor([[1.], [-1.]]))
+        native[0].bias.copy_(torch.tensor([-.5, .5]))
+    model = BoundedModule(native, data[:1], device='cpu')
+    model.train()
+    for index, parameter in enumerate(model.parameters()):
+        parameter.requires_grad_(index % 2 == 0)
+        parameter.grad = torch.ones_like(parameter)
+    modes = [module.training for module in model.modules()]
+    flags = [p.requires_grad for p in model.parameters()]
+    for evaluate, method in [(eval_ibp, 'IBP'), (eval_crown_ibp, 'CROWN-IBP')]:
+        for limit, expected in [(4, 2), (5, 3)]:
+            certified, total, records = evaluate(model, .1, loader, 2, limit, 'cpu')
+            assert certified == expected and total == limit
+            assert list(records) == list(range(limit))
+            assert [r['result'] for r in records.values()] == ['unsat', None, None, 'unsat', 'unsat'][:limit]
+            assert all(r['method'] == method and r['running_time'] >= 0 for r in records.values())
+            assert modes == [module.training for module in model.modules()]
+            assert flags == [p.requires_grad for p in model.parameters()]
+        with patch.object(model, 'compute_bounds', side_effect=RuntimeError('injected')):
+            try:
+                evaluate(model, .1, loader, 2, 4, 'cpu')
+            except RuntimeError as error:
+                assert str(error) == 'injected'
+            else:
+                raise AssertionError('Expected bound failure')
+        assert modes == [module.training for module in model.modules()]
+        assert flags == [p.requires_grad for p in model.parameters()]
+        assert all(torch.equal(p.grad, torch.ones_like(p)) for p in model.parameters())
+
+
 def check():
+    torch.set_num_threads(1)
+    batched_certification()
     torch.manual_seed(3)
     native = nn.Sequential(nn.Linear(1, 4), nn.ReLU(), nn.Linear(4, 2))
     data = torch.tensor([[.4]])

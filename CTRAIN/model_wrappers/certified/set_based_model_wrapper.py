@@ -90,16 +90,13 @@ class SetBasedModelWrapper(CTRAINWrapper):
         return CTRAINWrapper(copy.deepcopy(self.original_model), self.eps, self.input_shape,
                              bound_opts=self.bound_opts, device=self.device)
 
-    def evaluate(self, test_loader, test_samples=float('inf'), eval_method='ZONOTOPE',
-                 adversarial_method='PGD', alpha_iterations=20, autoattack_kwargs=None):
-        if eval_method != 'ZONOTOPE':
-            return self._verification_wrapper().evaluate(
-                test_loader, test_samples, eval_method, adversarial_method,
-                alpha_iterations, autoattack_kwargs)
-        from CTRAIN.eval.zonotope import evaluate_zonotope_model
-        return evaluate_zonotope_model(self.original_model, test_loader, self.eps, test_samples,
-                                        self.propagation_batch_size, self.error_propagation, self.device,
-                                        adversarial_method, autoattack_kwargs)
+    def evaluate(self, test_loader, test_samples=float('inf'), eval_method='FORWARD',
+                 adversarial_method='PGD', alpha_iterations=20, autoattack_kwargs=None,
+                 propagation_batch_size=None):
+        return self._verification_wrapper().evaluate(
+            test_loader, test_samples, eval_method, adversarial_method,
+            alpha_iterations, autoattack_kwargs,
+            self.propagation_batch_size if propagation_batch_size is None else propagation_batch_size)
 
     def evaluate_complete(self, *args, **kwargs):
         return self._verification_wrapper().evaluate_complete(*args, **kwargs)

@@ -376,8 +376,10 @@ def test_validation_policy_and_checkpoint_trajectory(method, tmp_path):
             torch.testing.assert_close(args[2], torch.tensor([[[.1]]]))
             return value, {}
         if name.startswith("SetBased"):
-            assert args[2] == .1
-            return 1., value
+            torch.testing.assert_close(args[2], torch.tensor(.1))
+            assert kwargs['method'] == 'FORWARD'
+            assert 'error_propagation' not in kwargs
+            return value, {}
         # IBP-R selects by adversarial accuracy, not certified accuracy. Control
         # the validation labels only; the real model still evaluates the points.
         model, data, target, lower, upper = args[:5]
@@ -391,7 +393,7 @@ def test_validation_policy_and_checkpoint_trajectory(method, tmp_path):
     selection_path = (
         f"CTRAIN.train.certified.{name.lower()}.evaluate_taps_proxy" if name in ("TAPS", "STAPS") else
         "CTRAIN.eval.eval_certified" if name.startswith("GLS") else
-        "CTRAIN.train.certified.set_based.eval_zonotope" if name.startswith("SetBased") else
+        "CTRAIN.train.certified.set_based.eval_certified" if name.startswith("SetBased") else
         "CTRAIN.train.certified.ibp_r.pgd_attack" if name == "IBP-R" else None)
     if selection_path is None:
         wrapper.train_model(training, validation)

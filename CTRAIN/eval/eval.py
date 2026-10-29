@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import json
 import tempfile
@@ -11,11 +12,11 @@ import numpy as np
 
 import shutil
 
-from auto_LiRPA import PerturbationLpNorm
+from auto_LiRPA import BoundedModule, PerturbationLpNorm
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 
-from CTRAIN.bound import bound_ibp, bound_crown, bound_crown_ibp, bound_alpha_crown
+from CTRAIN.bound import bound_ibp, bound_crown, bound_crown_ibp, bound_alpha_crown, bound_forward
 from CTRAIN.eval.autoattack import eval_autoattack
 from CTRAIN.attacks import pgd_attack
 from CTRAIN.complete_verification.abCROWN.util import (
@@ -33,6 +34,15 @@ from CTRAIN.util.util import preserve_model_state
 from contextlib import redirect_stdout, contextmanager
 
 import gc
+
+
+class _BoxPerturbation(PerturbationLpNorm):
+    def init_sparse_linf(self, x, x_L, x_U):
+        # Installed LiRPA creates sparse coefficients in the default dtype.
+        linear, center, aux = super().init_sparse_linf(x, x_L, x_U)
+        linear.lw, linear.uw = linear.lw.to(x), linear.uw.to(x)
+        return linear, center, aux
+
 
 @contextmanager
 def suppress_stdout():
@@ -54,8 +64,9 @@ def write_json_atomic(filename, payload):
 
 def _canonical_methods(methods):
     if isinstance(methods, str):
-        return methods.replace("_", "-")
-    return [method.replace("_", "-") if isinstance(method, str) else method for method in methods]
+        method = methods.replace("_", "-")
+        return 'FORWARD' if method == 'ZONOTOPE' else method
+    return [_canonical_methods(method) if isinstance(method, str) else method for method in methods]
 
 def _to_device_tensor(value, device):
     return value.to(device) if torch.is_tensor(value) else torch.as_tensor(value, device=device)
@@ -109,56 +120,9 @@ def eval_ibp(model, eps, data_loader, n_classes=10, test_samples=np.inf, device=
     Returns:
         (tuple): A tuple containing the number of certified samples, the total number of images evaluated and per-instance result and running time.
     """
-    certified = 0
-    total_images = 0
-    results = {}
-    for batch_idx, (data, targets) in tqdm(enumerate(data_loader)):
-        if total_images >= test_samples:
-            break
-
-        batch_indices = int(min(len(targets), test_samples - total_images))
-        data = data[:batch_indices]
-        targets = targets[:batch_indices]
-        batch_results = {
-            batch_idx * data_loader.batch_size + i: {"result": None, "method": "IBP", "running_time": None}
-            for i in range(batch_indices)
-        }
-        data, targets = data.to(device), targets.to(device)
-        eps_device = _to_device_tensor(eps, device)
-        data_min, data_max = data_loader.min.to(device), data_loader.max.to(device)
-
-        ptb = PerturbationLpNorm(
-            eps=eps_device,
-            norm=np.inf,
-            x_L=torch.clamp(data - eps_device, data_min, data_max),
-            x_U=torch.clamp(data + eps_device, data_min, data_max),
-        )
-
-        start_time_ibp = time.time()
-        lb, ub = bound_ibp(
-            model=model,
-            ptb=ptb,
-            data=data,
-            target=targets,
-            n_classes=n_classes,
-            reuse_input=False,
-        )
-        end_time_ibp = time.time()
-        no_certified = torch.sum((lb > 0).all(dim=1)).item()
-        # no_falsified = torch.sum((ub < 0).any(dim=1)).item()
-        certified += no_certified
-
-        total_images += len(targets)
-
-        instance_running_time = (end_time_ibp - start_time_ibp) / len(targets)
-        for i in range(len(targets)):
-            instance = batch_idx * data_loader.batch_size + i
-            batch_results[instance]["result"] = 'unsat' if (lb[i] > 0).all().item() else None
-            batch_results[instance]["running_time"] = instance_running_time
-
-        results.update(batch_results)
-
-    return certified, total_images, results
+    certified, total, _, results = eval_adaptive(
+        model, eps, data_loader, n_classes, test_samples, device, methods=['IBP'])
+    return int(certified), total, results
 
 def eval_crown_ibp(
     model, eps, data_loader, n_classes=10, test_samples=np.inf, device="cuda"
@@ -177,57 +141,9 @@ def eval_crown_ibp(
     Returns:
         (tuple): A tuple containing the number of certified samples, the total number of images evaluated and per-instance result and running time.
     """
-    certified = 0
-    total_images = 0
-    results = {}
-    for batch_idx, (data, targets) in tqdm(enumerate(data_loader)):
-        if total_images >= test_samples:
-            break
-        batch_indices = int(min(len(targets), test_samples - total_images))
-        data = data[:batch_indices]
-        targets = targets[:batch_indices]
-        batch_results = {
-            batch_idx * data_loader.batch_size + i: {"result": None, "method": "CROWN-IBP", "running_time": None}
-            for i in range(batch_indices)
-        }
-        data, targets = data.to(device), targets.to(device)
-        eps_device = _to_device_tensor(eps, device)
-        data_min, data_max = data_loader.min.to(device), data_loader.max.to(device)
-
-        ptb = PerturbationLpNorm(
-            eps=eps_device,
-            norm=np.inf,
-            x_L=torch.clamp(data - eps_device, data_min, data_max),
-            x_U=torch.clamp(data + eps_device, data_min, data_max),
-        )
-
-        start_time_crown_ibp = time.time()
-        lb, ub = bound_crown_ibp(
-            model=model,
-            ptb=ptb,
-            data=data,
-            target=targets,
-            n_classes=n_classes,
-            reuse_input=False,
-        )
-        end_time_crown_ibp = time.time()
-
-        no_certified = torch.sum((lb > 0).all(dim=1)).item()
-        # no_falsified = torch.sum((ub < 0).any(dim=1)).item()
-        certified += no_certified
-
-        total_images += len(targets)
-
-        for i in range(len(targets)):
-            instance = batch_idx * data_loader.batch_size + i
-            batch_results[instance]["result"] = 'unsat' if (lb[i] > 0).all().item() else None
-            batch_results[instance]["running_time"] = (
-                end_time_crown_ibp - start_time_crown_ibp
-            ) / len(targets)
-
-        results.update(batch_results)
-
-    return certified, total_images, results
+    certified, total, _, results = eval_adaptive(
+        model, eps, data_loader, n_classes, test_samples, device, methods=['CROWN-IBP'])
+    return int(certified), total, results
 
 def eval_crown(
     model, eps, data_loader, n_classes=10, test_samples=np.inf, device="cuda"
@@ -270,6 +186,22 @@ def eval_alpha_crown(
         model, eps, data_loader, n_classes, test_samples, device,
         methods=['ALPHA-CROWN'], alpha_iterations=alpha_iterations)
     return int(certified), total, results
+
+
+def eval_forward(model, eps, data_loader, n_classes=10, test_samples=np.inf,
+                 device='cuda', propagation_batch_size=1):
+    """Return certified count, evaluated count and records using forward LiRPA.
+
+    eps is in model input coordinates, as for the other certification methods.
+    Native models are converted from a private copy of current weights and BN
+    buffers; BoundedModule inputs use their existing graph. Set n_classes=None
+    to infer it from the model. Chunking limits forward coefficient memory.
+    """
+    certified, total, _, results = eval_adaptive(
+        model, eps, data_loader, n_classes, test_samples, device,
+        methods=['FORWARD'], propagation_batch_size=propagation_batch_size)
+    return int(certified), total, results
+
 
 def eval_complete(
     model,
@@ -673,6 +605,7 @@ def eval_adaptive(
     device="cuda",
     methods=["IBP", "CROWN-IBP", "CROWN"],
     alpha_iterations=20,
+    propagation_batch_size=1,
 ):
     """
     Evaluate the model in terms of certified accuracy in an adaptive method. This means, that all methods
@@ -691,24 +624,29 @@ def eval_adaptive(
         (tuple): Certified count, evaluated count, per-instance certification mask, and result records.
     """
     eps = _to_device_tensor(eps, device)
+    if not torch.isfinite(eps).all() or (eps < 0).any():
+        raise ValueError('eps must be nonnegative and finite')
     methods = _canonical_methods(methods)
     if isinstance(methods, str):
         methods = [methods]
-    if not methods or any(method not in ('IBP', 'CROWN-IBP', 'CROWN', 'ALPHA-CROWN') for method in methods):
-        raise ValueError('Adaptive methods must contain IBP, CROWN-IBP, CROWN, or ALPHA-CROWN')
+    if not methods or any(method not in ('IBP', 'CROWN-IBP', 'CROWN', 'ALPHA-CROWN', 'FORWARD') for method in methods):
+        raise ValueError('Adaptive methods must contain IBP, CROWN-IBP, CROWN, ALPHA-CROWN, or FORWARD')
+    if type(propagation_batch_size) is not int or propagation_batch_size <= 0:
+        raise ValueError('propagation_batch_size must be a positive integer')
     if 'ALPHA-CROWN' in methods and (type(alpha_iterations) is not int or alpha_iterations <= 0):
         raise ValueError('alpha_iterations must be a positive integer')
     if test_samples <= 0 or (test_samples != np.inf and
                             (not np.isfinite(test_samples) or int(test_samples) != test_samples)):
         raise ValueError('test_samples must be a positive integer or infinity')
     limit = min(len(data_loader.dataset), int(test_samples)) if test_samples < np.inf else len(data_loader.dataset)
-    if not limit:
+    if not limit or not len(data_loader):
         raise ValueError('Evaluation loader must contain samples')
     certified = torch.zeros(limit, dtype=torch.bool, device=device)
     results = {i: {"result": None, "method": None, "running_time": 0.} for i in range(limit)}
     seen = 0
     data_min = _to_device_tensor(data_loader.min, device)
     data_max = _to_device_tensor(data_loader.max, device)
+    forward_model = model if isinstance(model, BoundedModule) else None
     with preserve_model_state(model):
         model.eval()
         for data, targets in data_loader:
@@ -716,20 +654,31 @@ def eval_adaptive(
                 break
             count = min(len(targets), limit - seen)
             data, targets = data[:count].to(device), targets[:count].to(device)
-            for method, bound in [('IBP', bound_ibp), ('CROWN-IBP', bound_crown_ibp), ('CROWN', bound_crown), ('ALPHA-CROWN', bound_alpha_crown)]:
+            if n_classes is None:
+                with torch.no_grad():
+                    n_classes = model(data[:1]).shape[1]
+            for method, bound in [('IBP', bound_ibp), ('CROWN-IBP', bound_crown_ibp), ('CROWN', bound_crown), ('ALPHA-CROWN', bound_alpha_crown), ('FORWARD', bound_forward)]:
                 if method not in methods:
                     continue
                 pending = torch.where(~certified[seen:seen + count])[0]
-                groups = pending.split(1) if method in ('CROWN', 'ALPHA-CROWN') else [pending]
+                groups = (pending.split(propagation_batch_size) if method == 'FORWARD'
+                          else pending.split(1) if method in ('CROWN', 'ALPHA-CROWN') else [pending])
                 for indices in groups:
                     if not len(indices):
                         continue
                     inputs, labels = data[indices], targets[indices]
-                    ptb = PerturbationLpNorm(eps=eps, norm=np.inf,
+                    if method == 'FORWARD' and forward_model is None:
+                        # Conversion must not touch the native model's BN buffers.
+                        with torch.no_grad():
+                            forward_model = BoundedModule(copy.deepcopy(model), inputs, device=device)
+                            forward_model.eval()
+                    perturbation = _BoxPerturbation if method == 'FORWARD' else PerturbationLpNorm
+                    ptb = perturbation(eps=eps, norm=np.inf,
                         x_L=torch.clamp(inputs - eps, data_min, data_max),
                         x_U=torch.clamp(inputs + eps, data_min, data_max))
                     start = time.monotonic()
-                    lb, _ = bound(model=model, ptb=ptb, data=inputs, target=labels,
+                    lb, _ = bound(model=forward_model if method == 'FORWARD' else model,
+                                  ptb=ptb, data=inputs, target=labels,
                                   n_classes=n_classes, reuse_input=False,
                                   **({'alpha_iterations': alpha_iterations} if method == 'ALPHA-CROWN' else {}))
                     elapsed = (time.monotonic() - start) / len(indices)
@@ -745,7 +694,7 @@ def eval_adaptive(
 # TODO: can we maybe spare no_classes?
 def eval_certified(
     model, data_loader, eps, n_classes=10, test_samples=np.inf, method="IBP", device=None,
-    alpha_iterations=20
+    alpha_iterations=20, propagation_batch_size=1
 ):
     """
     Evaluate the certified robustness of a model using a given verification method.
@@ -754,9 +703,10 @@ def eval_certified(
         model (auto_LiRPA.BoundedModule): The neural network model to be evaluated.
         data_loader (torch.utils.data.DataLoader): DataLoader for the dataset to be evaluated.
         n_classes (int, optional): Number of classes in the dataset. Default is 10.
-        eps (float): Perturbation radius for certification.
+        eps (float or Tensor): Perturbation radius in model input coordinates.
+        propagation_batch_size (int): Maximum forward-bound chunk size; default 1.
         test_samples (int or float, optional): Number of test samples to evaluate. Default is np.inf (all samples).
-        method (str or list, optional): The certification method to use. Options are 'IBP', 'CROWN', 'ALPHA-CROWN', 'CROWN-IBP', 'ADAPTIVE', 'COMPLETE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'IBP'.
+        method (str or list, optional): The certification method to use. Options are 'FORWARD', 'IBP', 'CROWN', 'ALPHA-CROWN', 'CROWN-IBP', 'ADAPTIVE', 'COMPLETE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'IBP'.
 
     Returns:
         (float): The certified accuracy of the model on the test examples for the given epsilon.
@@ -776,7 +726,10 @@ def eval_certified(
 
         method = _canonical_methods(method)
 
-        if method == "CROWN":
+        if method == "FORWARD":
+            certified, total_images, results = eval_forward(
+                model, eps, data_loader, n_classes, test_samples, device, propagation_batch_size)
+        elif method == "CROWN":
             certified, total_images, results = eval_crown(
                 model, eps, data_loader, n_classes, test_samples, device
             )
@@ -798,7 +751,8 @@ def eval_certified(
             )
         elif isinstance(method, list):
             certified, total_images, certified_tensor, results = eval_adaptive(
-                model, eps, data_loader, n_classes, test_samples, device, methods=method, alpha_iterations=alpha_iterations
+                model, eps, data_loader, n_classes, test_samples, device, methods=method,
+                alpha_iterations=alpha_iterations, propagation_batch_size=propagation_batch_size
             )
         elif method == "COMPLETE":
             # TODO: Infer input shape or pass it, pass timeout and no_cores!
@@ -816,7 +770,8 @@ def eval_certified(
             return cert_acc, {"result": None, "method": "COMPLETE", "running_time": None}
         elif isinstance(method, (list, tuple, np.ndarray)):
             certified, total_images, certified_tensor, results = eval_adaptive(
-                model, eps, data_loader, n_classes, test_samples, device, methods=method, alpha_iterations=alpha_iterations
+                model, eps, data_loader, n_classes, test_samples, device, methods=method,
+                alpha_iterations=alpha_iterations, propagation_batch_size=propagation_batch_size
             )
         else:
             assert False, "UNKNOWN BOUNDING METHOD!"
@@ -943,6 +898,7 @@ def eval_model(
     adversarial_method="PGD",
     alpha_iterations=20,
     autoattack_kwargs=None,
+    propagation_batch_size=1,
 ):
     """
     Evaluate the model on standard, certified, and adversarial accuracy.
@@ -953,11 +909,12 @@ def eval_model(
         eps (float): Perturbation size for adversarial and certified evaluation.
         n_classes (int, optional): Number of classes in the dataset. Default is 10.
         test_samples (int or float, optional): Number of samples to test. Default is np.inf (all samples).
-        method (str or list, optional): The certification method to use. Options are 'IBP', 'CROWN', 'CROWN-IBP', 'ADAPTIVE', 'COMPLETE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'ADAPTIVE'.
+        method (str or list, optional): The certification method to use. Options are 'FORWARD', 'IBP', 'CROWN', 'ALPHA-CROWN', 'CROWN-IBP', 'ADAPTIVE', 'COMPLETE', or a list of methods (which results in an ADAPTIVE evaluation using these methods). Default is 'ADAPTIVE'.
         device (str, optional): Device to perform adversarial evaluation on. Default is 'cuda'.
         adversarial_method (str): PGD (default) or AUTOATTACK.
         alpha_iterations (int): Alpha-CROWN optimization iterations; default 20.
         autoattack_kwargs (dict, optional): AutoAttack version, seed and verbose settings.
+        propagation_batch_size (int): Maximum forward-bound chunk size; default 1.
 
     Returns:
         tuple: (std_acc (float): Standard accuracy of the model, cert_acc (float): Certified accuracy of the model, adv_acc (float): Adversarial accuracy of the model)
@@ -972,6 +929,7 @@ def eval_model(
             test_samples=test_samples,
             method=method,
             alpha_iterations=alpha_iterations,
+            propagation_batch_size=propagation_batch_size,
             device=device,
         )
         adv_acc = eval_adversarial(

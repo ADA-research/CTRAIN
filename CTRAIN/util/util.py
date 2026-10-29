@@ -22,6 +22,25 @@ def preserve_model_state(*models):
         for param, requires_grad in gradients.items():
             param.requires_grad_(requires_grad)
 
+
+def loader_radius(eps, loader, data):
+    """Convert a raw-pixel radius to the loader's model input coordinates."""
+    radius = torch.as_tensor(eps, device=data.device, dtype=data.dtype)
+    if getattr(loader, 'normalised', False):
+        std = torch.as_tensor(loader.std, device=data.device, dtype=data.dtype)
+        if not torch.isfinite(std).all() or (std <= 0).any():
+            raise ValueError('Loader standard deviation must be finite and positive')
+        radius = radius / std
+    if radius.ndim == 1 and data.ndim > 2:
+        radius = radius.reshape(-1, *([1] * (data.ndim - 2)))
+    return radius
+
+
+def loader_limits(loader, data):
+    return tuple(torch.as_tensor(getattr(loader, name), device=data.device, dtype=data.dtype)
+                 for name in ('min', 'max'))
+
+
 def export_onnx(model, file_name, batch_size, input_shape):
     """
     Exports a PyTorch model to the ONNX format.
