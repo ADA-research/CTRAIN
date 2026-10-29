@@ -7,8 +7,6 @@ from CTRAIN.train.certified.losses.cc_dist import get_cc_dist_loss, validate_cc_
 
 def cc_dist_train_model(*args, teacher_features=None, distillation_weight=None, **kwargs):
     """Train CC-Dist; arguments otherwise match expressive_ibp_train_model."""
-    if kwargs.get('val_loader') is not None or (len(args) > 3 and args[3] is not None):
-        raise ValueError('CC-Dist returns final weights; validation selection is unsupported')
     model = kwargs['hardened_model'] if 'hardened_model' in kwargs else args[1]
     validate_cc_dist_bn_options(model, model.bound_opts)
     if 'loss_func' not in kwargs:

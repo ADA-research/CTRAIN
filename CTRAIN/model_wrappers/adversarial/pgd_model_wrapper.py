@@ -36,6 +36,7 @@ class PGDModelWrapper(nn.Module):
         self.optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=.9)
         self.lr_scheduler = None
         self.epoch = 0
+        self.selection_state = {}
         self.options = dict(pgd_steps=pgd_steps, pgd_alpha=pgd_alpha,
             pgd_restarts=pgd_restarts, gradient_clip=gradient_clip,
             l1_reg_weight=l1_reg_weight, shi_init=shi_init, population_bn=population_bn,
@@ -51,27 +52,27 @@ class PGDModelWrapper(nn.Module):
         return self.original_model.load_state_dict(state_dict, strict=strict)
 
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
-        if val_loader is not None:
-            raise ValueError('PGD teacher training returns final weights; validation selection is unsupported')
         if self.lr_scheduler is None:
             if start_epoch:
                 raise ValueError('Resume from a trajectory checkpoint including its LR scheduler')
             self.lr_scheduler = make_pgd_lr_scheduler(self.optimizer, self.num_epochs, len(train_loader))
         result = pgd_train_model(self.original_model, train_loader, self.optimizer,
             self.num_epochs, self.eps, self.lr_scheduler, start_epoch, end_epoch,
-            device=self.device, **self.options)
+            device=self.device, val_loader=val_loader, eval_eps=self.eps,
+            selection_state=self.selection_state, **self.options)
         self.epoch = self.num_epochs if end_epoch is None else end_epoch
         return result
 
-    def resume_from_checkpoint(self, path, train_loader, end_epoch=None):
+    def resume_from_checkpoint(self, path, train_loader, end_epoch=None, val_loader=None):
         checkpoint = torch.load(path, map_location=self.device)
         if 'lr_scheduler_state_dict' not in checkpoint:
             raise ValueError('PGD checkpoint has no LR scheduler state')
+        self.selection_state = checkpoint.get('selection_state', {})
         self.original_model.load_state_dict(checkpoint['model_state_dict'])
         self.lr_scheduler = make_pgd_lr_scheduler(self.optimizer, self.num_epochs, len(train_loader))
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
-        return self.train_model(train_loader, start_epoch=checkpoint['epoch'], end_epoch=end_epoch)
+        return self.train_model(train_loader, val_loader=val_loader, start_epoch=checkpoint['epoch'], end_epoch=end_epoch)
 
     def _evaluation_wrapper(self):
         wrapper = CTRAINWrapper(copy.deepcopy(self.original_model), self.eps,

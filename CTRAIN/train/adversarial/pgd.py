@@ -1,4 +1,8 @@
 """Native PyTorch PGD training, including the CC-Dist teacher schedule."""
+from CTRAIN.train.certified.util import (
+    prepare_model_selection, update_model_selection, restore_model_selection,
+    evaluate_validation_loss, validation_ptb, synchronise_bn,
+)
 import math
 from pathlib import Path
 
@@ -9,7 +13,6 @@ from CTRAIN.train.adversarial.losses import get_pgd_loss
 from CTRAIN.train.certified.initialisation import ibp_init_shi
 from CTRAIN.train.certified.regularisers import get_l1_reg
 from CTRAIN.train.certified.progress import progress_bar, update_progress, log_epoch_summary
-from CTRAIN.train.certified.util import synchronise_bn
 from CTRAIN.util import save_checkpoint
 
 
@@ -40,7 +43,8 @@ def pgd_train_model(model, train_loader, optimizer, num_epochs, eps,
                     pgd_steps=10, pgd_alpha=.25, pgd_restarts=1,
                     gradient_clip=10, l1_reg_weight=0., shi_init=True,
                     population_bn=False, results_path=None,
-                    checkpoint_save_interval=10, device='cuda', n_classes=10):
+                    checkpoint_save_interval=10, device='cuda', n_classes=10,
+                    val_loader=None, eval_eps=None, selection_state=None):
     """Train a native classifier without constructing a bound graph.
 
     Fixed input radius, evaluation-mode PGD, then training-mode adversarial CE.
@@ -49,6 +53,7 @@ def pgd_train_model(model, train_loader, optimizer, num_epochs, eps,
     are returned. Checkpoints contain the native model, optimizer and scheduler;
     RNG/loader state is not saved. Partial calls retain the full planned budget.
     """
+    selection = prepare_model_selection(selection_state, val_loader, eval_eps)
     end_epoch = num_epochs if end_epoch is None else end_epoch
     if (type(num_epochs) is not int or num_epochs < 1
             or type(start_epoch) is not int or type(end_epoch) is not int
@@ -103,7 +108,18 @@ def pgd_train_model(model, train_loader, optimizer, num_epochs, eps,
         synchronise_bn(model, model, train_loader, device, population_bn)
         log_epoch_summary(epoch, num_epochs, loss_sum / samples, None,
                           adv_acc=1 - error_sum / samples)
+        if val_loader is not None:
+            def validation_loss(data, target):
+                region = validation_ptb(data, val_loader, eps if eval_eps is None else eval_eps)
+                return get_pgd_loss(model, region, data, target, n_classes, criterion,
+                                    n_steps=pgd_steps, step_size=pgd_alpha,
+                                    restarts=pgd_restarts, early_stopping=False)
+            validation = evaluate_validation_loss((model,), val_loader, validation_loss, device)
+            print(f"Validation robust_loss={validation:.6f}")
+            update_model_selection(selection, model, -validation, epoch + 1)
         if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
             save_checkpoint(model, optimizer, loss_sum / samples, epoch + 1,
-                            results_path, lr_scheduler=lr_scheduler)
+                            results_path, lr_scheduler=lr_scheduler, selection_state=selection)
+    if val_loader is not None:
+        restore_model_selection(selection, model)
     return model

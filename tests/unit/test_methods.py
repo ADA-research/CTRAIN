@@ -354,16 +354,26 @@ def test_hybrid_options_reach_real_bounds_and_attacks(case, normalised):
                for node in wrapper.bounded_model.modules() if type(node).__name__ == "BoundRelu")
 
 
+def validation_score_path(name):
+    if name in ("TAPS", "STAPS"):
+        return f"CTRAIN.train.certified.{name.lower()}.evaluate_taps_proxy"
+    if name.startswith("GLS"):
+        return "CTRAIN.eval.eval_certified"
+    if name.startswith("SetBased"):
+        return "CTRAIN.train.certified.set_based.eval_certified"
+    if name == "IBP-R":
+        return "CTRAIN.train.certified.ibp_r.pgd_attack"
+    module = {"PGD": "adversarial.pgd", "Shi-IBP": "certified.shi_ibp",
+              "CROWN-IBP": "certified.crown_ibp", "CROWN-IBP-fused": "certified.crown_ibp",
+              "SABR": "certified.sabr"}.get(name, "certified.expressive_ibp")
+    return f"CTRAIN.train.{module}.evaluate_validation_loss"
+
+
 def test_validation_policy_and_checkpoint_trajectory(method, tmp_path):
     name = method[0]
     wrapper = make(method, tmp_path, **({} if name == "PGD" else {
         "warm_up_epochs": 0, "ramp_up_epochs": 0}))
     training, validation = loader(), loader()
-    if name in ("PGD", "CC-Dist"):
-        with patch.object(wrapper.optimizer, "step", side_effect=AssertionError("unexpected update")):
-            with pytest.raises(ValueError, match="validation"):
-                wrapper.train_model(training, validation)
-        return
     selected = []
 
     def score(*args, **kwargs):
@@ -380,8 +390,8 @@ def test_validation_policy_and_checkpoint_trajectory(method, tmp_path):
             assert kwargs['method'] == 'FORWARD'
             assert 'error_propagation' not in kwargs
             return value, {}
-        # IBP-R selects by adversarial accuracy, not certified accuracy. Control
-        # the validation labels only; the real model still evaluates the points.
+        if name != "IBP-R":
+            return 1. - value  # Smaller robust validation loss is better.
         model, data, target, lower, upper = args[:5]
         torch.testing.assert_close(lower, (data - .1).clamp(validation.min, validation.max))
         torch.testing.assert_close(upper, (data + .1).clamp(validation.min, validation.max))
@@ -390,32 +400,58 @@ def test_validation_policy_and_checkpoint_trajectory(method, tmp_path):
         target.copy_(predicted if len(selected) <= len(validation) else (predicted + 1) % 3)
         return data
 
-    selection_path = (
-        f"CTRAIN.train.certified.{name.lower()}.evaluate_taps_proxy" if name in ("TAPS", "STAPS") else
-        "CTRAIN.eval.eval_certified" if name.startswith("GLS") else
-        "CTRAIN.train.certified.set_based.eval_certified" if name.startswith("SetBased") else
-        "CTRAIN.train.certified.ibp_r.pgd_attack" if name == "IBP-R" else None)
-    if selection_path is None:
+    with patch(validation_score_path(name), side_effect=score):
         wrapper.train_model(training, validation)
-        # These trainers accept validation loaders but return final weights.
-        assert_tree_equal(wrapper.state_dict(), checkpoints(tmp_path)[-1]["model_state_dict"])
+    assert len(selected) == 3 * (len(validation) if name == "IBP-R" else 1)
+    assert_tree_equal(wrapper.state_dict(), selected[0])
+    assert wrapper.selection_state['epoch'] == 1
+    saved = checkpoints(tmp_path)[-1]
+    assert_tree_equal(saved['selection_state'], wrapper.selection_state)
+    assert any(not torch.equal(value, saved["model_state_dict"][key])
+               for key, value in wrapper.state_dict().items())
+    # Inference selection never rewinds the optimizer or scheduler trajectory.
+    assert_tree_equal(wrapper.optimizer.state_dict(), saved["optimizer_state_dict"])
+    assert_tree_equal(wrapper.lr_scheduler.state_dict(), saved["lr_scheduler_state_dict"])
+
+
+def test_validation_selection_survives_resume(method, tmp_path):
+    name = method[0]
+    options = {} if name == "PGD" else {"warm_up_epochs": 0, "ramp_up_epochs": 0}
+    wrapper = make(method, tmp_path, **options)
+    training, validation = loader(), loader()
+    if name == "IBP-R":
+        # Use the real attack evaluator; the persistent best score is checked
+        # below after resuming at zero LR, so ties must keep the earlier winner.
+        wrapper.train_model(training, validation, end_epoch=2)
     else:
-        with patch(selection_path, side_effect=score):
-            wrapper.train_model(training, validation)
-        assert len(selected) == 3 * (len(validation) if name == "IBP-R" else 1)
-        best = selected[len(validation) - 1] if name == "IBP-R" else selected[0]
-        assert_tree_equal(wrapper.state_dict(), best)
-        saved = checkpoints(tmp_path)[-1]
-        assert any(not torch.equal(value, saved["model_state_dict"][key])
-                   for key, value in wrapper.state_dict().items())
-        # Restoring best inference weights must not rewind optimizer/LR state.
-        assert_tree_equal(wrapper.optimizer.state_dict(), saved["optimizer_state_dict"])
-        assert_tree_equal(wrapper.lr_scheduler.state_dict(), saved["lr_scheduler_state_dict"])
+        accuracy = name in ("TAPS", "STAPS") or name.startswith(("GLS", "SetBased"))
+        value = (1., {}) if name.startswith(("GLS", "SetBased")) else 1. if accuracy else 0.
+        with patch(validation_score_path(name), return_value=value):
+            wrapper.train_model(training, validation, end_epoch=2)
+    before = copy.deepcopy(wrapper.selection_state)
+    assert before and 'weights' in before
+    resumed = make(method, **options)
+    checkpoint = next(path for path in tmp_path.glob('*.pt') if torch.load(
+        path, weights_only=False)['epoch'] == 2)
+    if name == "IBP-R":
+        # Force every validation prediction wrong without changing the train data.
+        def wrong(model, data, target, lower, upper, **kwargs):
+            with torch.no_grad():
+                target.copy_((model(data).argmax(1) + 1) % 3)
+            return data
+        patched = patch(validation_score_path(name), side_effect=wrong)
+    else:
+        worse = (0., {}) if name.startswith(("GLS", "SetBased")) else 0. if accuracy else 1.
+        patched = patch(validation_score_path(name), return_value=worse)
+    with patched:
+        resumed.resume_from_checkpoint(checkpoint, training, val_loader=validation)
+    assert_tree_equal(resumed.selection_state, before)
+    assert_tree_equal(resumed.state_dict(), before['weights'])
 
 
 @pytest.mark.parametrize("case", [case for case in METHODS if case[0] != "PGD"], ids=lambda case: case[0])
 def test_hpo_recreation_keeps_shared_and_method_options(case, tmp_path):
-    options = dict(population_bn=True)
+    options = dict(population_bn=True, gradient_clip=None)
     if case[0] in HYBRIDS:
         options["relu_upper_retention"] = .8
     wrapper = make(case, **options)
@@ -435,6 +471,7 @@ def test_hpo_recreation_keeps_shared_and_method_options(case, tmp_path):
     assert len(recreated) == 1
     candidate = recreated[0]
     assert candidate.population_bn is True
+    assert getattr(candidate, "gradient_clip", candidate.gls_options["gradient_clip"] if hasattr(candidate, "gls_options") else 10) is None
     assert candidate.eps == wrapper.eps and candidate.num_epochs == 3
     assert candidate.train_eps == wrapper.eps * config["train_eps_factor"]
     if case[0] in HYBRIDS:
@@ -556,3 +593,45 @@ def test_clean_warmup_loss_matches_independent_cross_entropy(method, tmp_path):
         wrapper.train_model(data_loader, end_epoch=1)
     assert len(updates) == 1
     torch.testing.assert_close(torch.as_tensor(checkpoints(tmp_path)[0]["loss"]), expected.detach())
+
+
+@pytest.mark.parametrize("case", [case for case in METHODS if case[0] in {
+    "PGD", "Shi-IBP", "CROWN-IBP", "CROWN-IBP-fused", "SABR", "MTL-IBP",
+    "CC-IBP", "Exp-IBP", "CC-Dist"}], ids=lambda case: case[0])
+def test_real_robust_validation_preserves_training_state(case):
+    from CTRAIN.train.certified.util import evaluate_validation_loss, validation_ptb
+    wrapper = make(case, **({} if case[0] == "PGD" else {
+        "warm_up_epochs": 0, "ramp_up_epochs": 0}))
+    calls = []
+
+    def evaluate(models, validation, loss_func, device):
+        modes = {m: m.training for model in models for m in model.modules()}
+        flags = {p: p.requires_grad for model in models for p in model.parameters()}
+        gradients = {p: None if p.grad is None else p.grad.clone() for p in flags}
+        buffers = {name: value.clone() for name, value in wrapper.original_model.named_buffers()}
+        value = evaluate_validation_loss(models, validation, loss_func, device)
+        assert torch.isfinite(torch.tensor(value)) and value >= 0
+        assert all(m.training == mode for m, mode in modes.items())
+        assert all(p.requires_grad == flag for p, flag in flags.items())
+        for p, before in gradients.items():
+            assert_tree_equal(p.grad, before)
+        for name, before in buffers.items():
+            torch.testing.assert_close(dict(wrapper.original_model.named_buffers())[name], before, rtol=0, atol=0)
+        calls.append(value)
+        return value
+
+    regions = []
+    def region(data, validation, eps):
+        assert eps == wrapper.eps  # Never use the enlarged training radius.
+        result = validation_ptb(data, validation, eps)
+        radius = wrapper.eps / validation.std[:, None, None]
+        torch.testing.assert_close(result.x_L, (data - radius).clamp(validation.min, validation.max))
+        torch.testing.assert_close(result.x_U, (data + radius).clamp(validation.min, validation.max))
+        regions.append(result)
+        return result
+
+    path = validation_score_path(case[0])
+    with patch(path, side_effect=evaluate), \
+         patch(path.rsplit('.', 1)[0] + '.validation_ptb', side_effect=region):
+        wrapper.train_model(loader(normalised=True), loader(normalised=True))
+    assert calls and regions and wrapper.selection_state['score'] == -min(calls)
