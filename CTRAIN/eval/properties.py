@@ -26,10 +26,7 @@ def certify_property_dataset(wrapper, method='CROWN', results_path=None):
                                        wrapper.property_batch_size)
     report.update(properties=[dict(name=wrapper.properties[0].name, certified=report['certified'])],
                   property_dataset=wrapper.configuration['property_dataset'],
-                  method=method, seconds=time.monotonic() - start,
-                  scope='all boxes in the declared property dataset',
-                  bound_strategy='fresh full-box bounds; no input refinement',
-                  numerical_semantics='floating-point LiRPA; no directed-rounding proof')
+                  method=method, seconds=time.monotonic() - start)
     if results_path is not None:
         import json
         directory = Path(results_path)
@@ -309,6 +306,4 @@ def certify_properties(wrapper, method='CROWN', refine=True, complete=False,
     summaries = [dict(name=spec.name, certified=all(r['outcome'] == 'certified'
                     for r in rows if r['property'] == spec.name)) for spec in specs]
     return dict(certified=all(p['certified'] for p in summaries), properties=summaries,
-                cells=rows, method=method, seconds=time.monotonic() - start,
-                scope='complete declared domain cover',
-                numerical_semantics='floating-point LiRPA/ONNX; no directed-rounding proof')
+                cells=rows, method=method, seconds=time.monotonic() - start)
