@@ -105,9 +105,9 @@ class ShiIBPModelWrapper(CTRAINWrapper):
             results_path=self.checkpoint_path,
             checkpoint_save_interval=self.checkpoint_save_interval,
             population_bn=self.population_bn,
-            device=self.device
-        )
+            device=self.device, selection_state=self.selection_state, history=self.history, validation_eps=self.eps)
 
+        self.epoch = self.num_epochs if end_epoch is None else end_epoch
         return trained_model
 
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir, cert_eval_samples=1000, nat_loss_weight=1, adv_loss_weight=1, cert_loss_weight=1, complete_verify=False):
@@ -149,7 +149,7 @@ class ShiIBPModelWrapper(CTRAINWrapper):
             lr_scheduler_func=torch.optim.lr_scheduler.MultiStepLR,
             warm_up_epochs=config['warm_up_epochs'],
             ramp_up_epochs=config['ramp_up_epochs'],
-            gradient_clip=10,
+            gradient_clip=self.gradient_clip,
             lr_decay_kwargs=self._lr_decay_kwargs_from_config(config, epochs),
             l1_reg_weight=config['l1_reg_weight'],
             shi_reg_weight=config['shi_reg_weight'],

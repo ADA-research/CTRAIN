@@ -11,6 +11,6 @@ from CTRAIN.train.certified.set_based import set_based_train_model
 from CTRAIN.train.certified.ibp_r import ibp_r_train_model
 
 from CTRAIN.train.certified.gls import gls_train_model
-from CTRAIN.train.certified.properties import property_train_model
+from CTRAIN.train.certified.properties import property_train_model, PropertyTrainingState
 
 from CTRAIN.train.certified.expressive_ibp import expressive_ibp_train_model

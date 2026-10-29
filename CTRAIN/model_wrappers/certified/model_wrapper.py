@@ -90,6 +90,8 @@ class CTRAINWrapper(nn.Module):
         self.lr_scheduler = self.lr_scheduler_func(self.optimizer, **self.lr_decay_kwargs)
 
         self.epoch = 0
+        self.selection_state = {}
+        self.history = []
 
         if original_train:
             self.original_model.train()
@@ -290,6 +292,8 @@ class CTRAINWrapper(nn.Module):
         synchronise_bn(self.original_model, self.bounded_model, train_loader, self.device,
                        loss_fusion_model=getattr(self, 'loss_fusion_model', None))
         self.epoch = checkpoint['epoch']
+        self.selection_state = checkpoint.get('selection_state', {})
+        self.history = checkpoint.get('history', [])
         optimizer_state_dict = checkpoint['optimizer_state_dict']
         self.optimizer.load_state_dict(optimizer_state_dict)
         self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])

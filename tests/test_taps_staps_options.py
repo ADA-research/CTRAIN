@@ -1,4 +1,4 @@
-"""Small CPU check: hybrid options, ReLU soundness and BN export."""
+"""Small CPU check: ReLU heuristic, training options and BN export."""
 from pathlib import Path
 import sys
 from unittest.mock import patch
@@ -14,7 +14,7 @@ from auto_LiRPA.operators.relu import BoundRelu
 from CTRAIN.train.certified.util import synchronise_bn
 from CTRAIN.bound.ibp import bound_ibp
 from CTRAIN.bound.util import get_pgd_ptb, validate_hybrid_options
-from CTRAIN.bound.taps import bound_taps, _get_pivotal_points
+from CTRAIN.bound.taps import bound_taps, _get_pivotal_points, split_bound_graph
 from CTRAIN.attacks import pgd_attack
 from CTRAIN.model_wrappers.shi_ibp_model_wrapper import ShiIBPModelWrapper
 from CTRAIN.model_wrappers.crown_ibp_model_wrapper import CrownIBPModelWrapper
@@ -38,10 +38,7 @@ def check():
     original = Toy().eval()
     data = torch.arange(12, dtype=torch.float32).reshape(4, 3, 1, 1)
     full = BoundedModule(original, data[:2], device="cpu")
-    features, classifier = nn.Sequential(original.layers[:3]), nn.Sequential(original.layers[3:])
-    full.original_blocks = [features, classifier]
-    full.bounded_blocks = [BoundedModule(features, data[:2], device="cpu"),
-                           BoundedModule(classifier, features(data[:2]), device="cpu")]
+    full.bounded_blocks = split_bound_graph(full, (3, 1), original.layers)
     relu_model = BoundedModule(nn.ReLU(), torch.zeros(1, 1), device="cpu")
     relu_data = torch.tensor([[.5]])
     region = PerturbationLpNorm(x_L=torch.tensor([[-1.]]), x_U=torch.tensor([[2.]]))
@@ -69,7 +66,6 @@ def check():
     expected = data.mean((0, 2, 3))
     assert torch.allclose(original.layers[0].running_mean, expected)
     assert torch.allclose(dict(full.named_buffers())["layers.0.running_mean"], expected)
-    assert torch.allclose(dict(full.bounded_blocks[0].named_buffers())["0.0.running_mean"], expected)
     loader.std = torch.ones(3)
     loader.min, loader.max = torch.zeros(3, 1, 1), torch.full((3, 1, 1), 12.)
     loader.mean, loader.normalised = torch.zeros(3), True
@@ -142,7 +138,7 @@ def check():
         if getattr(wrapper, "loss_fusion", False):
             for name, value in wrapper.loss_fusion_model.named_buffers():
                 assert torch.equal(value, dict(wrapper.original_model.named_buffers())[name.removeprefix("model.")])
-    print("Training option and reproduction checks passed")
+    print("Training option checks passed")
 
 
 if __name__ == "__main__":

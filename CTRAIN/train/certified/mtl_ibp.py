@@ -39,8 +39,7 @@ def mtl_ibp_train_model(
     device="cuda",
     relu_upper_retention=1.0,
     population_bn=False,
-    loss_type='mtl_ibp',
-):
+    loss_type='mtl_ibp', validation_eps=None, selection_state=None, *, history=None):
     """Train MTL-IBP; existing arguments and legacy loss_type selection are preserved."""
     validate_expressive_options(alpha, loss_type)
     options = locals().copy()

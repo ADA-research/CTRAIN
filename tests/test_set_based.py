@@ -162,11 +162,12 @@ def training():
         initial.train_model(data_loader, end_epoch=2)
         checkpoint = torch.load(Path(directory) / 'checkpoint_2.pt', weights_only=False)
         assert set(checkpoint) == {'model_state_dict', 'optimizer_state_dict',
-                                   'lr_scheduler_state_dict', 'epoch', 'loss', 'selection_state'}
+                                   'lr_scheduler_state_dict', 'epoch', 'loss', 'selection_state', 'history'}
         assert all(path.suffix == '.pt' for path in Path(directory).iterdir())
         resumed = make()
         resumed.resume_from_checkpoint(Path(directory) / 'checkpoint_2.pt', data_loader)
-        full = make(); full.load_state_dict(state); full.train_model(data_loader)
+        full = make(); full.checkpoint_path = None
+        full.load_state_dict(state); full.train_model(data_loader)
         for key, value in full.state_dict().items():
             torch.testing.assert_close(value, resumed.state_dict()[key])
         config = dict(get_config_space(full, 3, .1).get_default_configuration())

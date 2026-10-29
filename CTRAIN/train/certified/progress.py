@@ -14,13 +14,13 @@ def format_eps(value):
     return f"{value:.4f}"
 
 
-def progress_bar(iterable, epoch, num_epochs, eps, method=None, disable=False):
+def progress_bar(iterable, epoch, num_epochs, eps, method=None, disable=False, *, total=None):
     prefix = f"Epoch {epoch + 1}/{num_epochs}"
     if method:
         prefix = f"{method} {prefix}"
     return tqdm(
         iterable,
-        total=len(iterable),
+        total=len(iterable) if total is None else total,
         desc=prefix if eps is None else f"{prefix} eps={format_eps(eps)}",
         leave=False,
         dynamic_ncols=True,

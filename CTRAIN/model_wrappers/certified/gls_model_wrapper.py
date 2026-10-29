@@ -24,7 +24,7 @@ class GLSModelWrapper(CTRAINWrapper):
                  population_bn=False, estimator='rgs', samples=2, sigma=1e-3,
                  sigma_lr=1e-3, sigma_decay_milestones=(), sigma_decay_factor=.4,
                  bound_method='CROWN', shi_init=True, shi_reg_weight=0.,
-                 shi_reg_decay=True, l1_reg_weight=0., gradient_clip=None):
+                 shi_reg_decay=True, l1_reg_weight=0., gradient_clip=None, *, lr_decay_schedule_unit="epoch"):
         if not math.isfinite(sigma) or sigma <= 0 or not math.isfinite(sigma_lr) or sigma_lr < 0:
             raise ValueError('invalid Gaussian scale or scale learning rate')
         if gradient_clip is not None and (not math.isfinite(gradient_clip) or gradient_clip <= 0):
@@ -49,8 +49,10 @@ class GLSModelWrapper(CTRAINWrapper):
             raise ValueError('sigma_decay_factor must be in (0, 1]')
         if estimator not in ('rgs', 'pgpe') or type(samples) is not int or samples < 1 or (estimator == 'pgpe' and samples % 2):
             raise ValueError('invalid GLS estimator/sample count')
+        if lr_decay_schedule_unit not in ('epoch', 'batch'):
+            raise ValueError("lr_decay_schedule_unit must be 'epoch' or 'batch'")
         self.num_epochs = num_epochs
-        self.options = dict(warm_up_epochs=warm_up_epochs, ramp_up_epochs=ramp_up_epochs,
+        self.options = dict(lr_decay_schedule_unit=lr_decay_schedule_unit, warm_up_epochs=warm_up_epochs, ramp_up_epochs=ramp_up_epochs,
             sigma_decay_milestones=tuple(sigma_decay_milestones), sigma_decay_factor=sigma_decay_factor,
             bound_method=bound_method, shi_init=shi_init, shi_reg_weight=shi_reg_weight,
             shi_reg_decay=shi_reg_decay, l1_reg_weight=l1_reg_weight)
@@ -71,7 +73,7 @@ class GLSModelWrapper(CTRAINWrapper):
             self.n_classes, start_epoch=start_epoch, end_epoch=end_epoch,
             val_loader=val_loader, population_bn=self.population_bn,
             results_path=self.checkpoint_path, checkpoint_save_interval=self.checkpoint_save_interval,
-            device=self.device, eval_eps=self.eps, **self.options)
+            device=self.device, validation_eps=self.eps, selection_state=self.selection_state, history=self.history, **self.options)
         self.epoch = self.num_epochs if end_epoch is None else end_epoch
         return result
 

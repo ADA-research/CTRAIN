@@ -1,3 +1,8 @@
+from CTRAIN.train.certified.util import (
+    prepare_model_selection, update_model_selection, restore_model_selection,
+    validate_training_run, checkpoint_due, EpochMetrics,
+    evaluate_validation_loss, validation_ptb, synchronise_bn,
+)
 from concurrent.futures import ProcessPoolExecutor
 import torch
 import torch.nn as nn
@@ -12,7 +17,6 @@ from CTRAIN.train.certified.losses import get_ibp_loss
 from CTRAIN.train.certified.initialisation import ibp_init_shi
 from CTRAIN.train.certified.regularisers import get_shi_regulariser
 from CTRAIN.util import save_checkpoint
-from CTRAIN.train.certified.util import synchronise_bn
 from CTRAIN.train.certified.regularisers import get_l1_reg
 from CTRAIN.train.certified.progress import progress_bar, update_progress, log_epoch_summary
 
@@ -41,8 +45,7 @@ def shi_train_model(
     results_path="./results",
     checkpoint_save_interval=10,
     device="cuda",
-    population_bn=False,
-):
+    population_bn=False, validation_eps=None, selection_state=None, *, history=None):
     """
     Train a model using the Shi-IBP method for certified robustness.
 
@@ -77,8 +80,11 @@ def shi_train_model(
         (auto_LiRPA.BoundedModule): The trained hardened model.
     """
 
-    if end_epoch is None:
-        end_epoch = num_epochs
+    selection = prepare_model_selection(selection_state, val_loader, validation_eps)
+    if num_epochs is None and eps_schedule_unit == "epoch":
+        num_epochs = sum(eps_schedule)
+    end_epoch = validate_training_run(train_loader, num_epochs, start_epoch, end_epoch,
+                                      checkpoint_save_interval, lr_decay_schedule_unit, history=history)
 
     criterion = nn.CrossEntropyLoss(reduction='none')
 
@@ -97,7 +103,7 @@ def shi_train_model(
         **eps_scheduler_args,
     )
 
-    if start_epoch == 0:
+    if start_epoch == 0 and end_epoch > start_epoch:
         # Important Change to Vanilla IBP: Initialise Weights to normal distribution with sigma_i = sqrt(2*pi)/n_i, for layer i and fan in n_i
         ibp_init_shi(original_model, hardened_model)
 
@@ -111,7 +117,7 @@ def shi_train_model(
 
         hardened_model.train()
         original_model.train()
-        running_loss = 0.0
+        metrics = EpochMetrics()
 
         progress = progress_bar(
             train_loader,
@@ -197,11 +203,12 @@ def shi_train_model(
                 )
             optimizer.step()
 
-            running_loss += loss.item()
+            metrics.update(len(data), loss=loss.detach())
+            last_eps = float(eps_scheduler.get_cur_eps(normalise=False))
             completed_batches = batch_idx + 1
             update_progress(
                 progress,
-                loss=running_loss / completed_batches,
+                loss=metrics.mean('loss'),
                 nat_acc=1 - epoch_nat_err / completed_batches,
                 cert_acc=1 - epoch_rob_err / completed_batches,
                 lr=optimizer.param_groups[-1]["lr"],
@@ -218,7 +225,7 @@ def shi_train_model(
         log_epoch_summary(
             epoch=epoch,
             num_epochs=num_epochs,
-            loss=running_loss / len(train_loader),
+            loss=metrics.mean('loss'),
             nat_acc=train_acc_nat,
             cert_acc=train_acc_cert,
         )
@@ -228,10 +235,36 @@ def shi_train_model(
         if lr_scheduler is not None and lr_decay_schedule_unit == "epoch":
             lr_scheduler.step()
 
-        if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
+        if val_loader is not None and cur_eps.equal(eps_scheduler.get_max_eps().reshape(-1, 1, 1)):
+            def validation_loss(data, target):
+                region = validation_ptb(data, val_loader, eps if validation_eps is None else validation_eps)
+                clean_loss = criterion(hardened_model(data), target).mean()
+                robust_loss = get_ibp_loss(
+                    hardened_model=hardened_model,
+                    ptb=region,
+                    data=data,
+                    target=target,
+                    n_classes=n_classes,
+                    criterion=criterion,
+                    return_bounds=False,
+                    return_stats=False
+                )[0]
+                return kappa * clean_loss + (1 - kappa) * robust_loss
+            validation = evaluate_validation_loss((original_model, hardened_model), val_loader, validation_loss, device)
+            print(f"Validation robust_loss={validation:.6f}")
+            update_model_selection(selection, hardened_model, -validation, epoch + 1)
+
+        if history is not None:
+            history.append(dict(epoch=epoch + 1, loss=metrics.mean('loss'),
+                                eps=last_eps,
+                                lr=optimizer.param_groups[-1]['lr']))
+        if results_path is not None and checkpoint_due(epoch + 1, end_epoch, checkpoint_save_interval):
             save_checkpoint(
-                hardened_model, optimizer, running_loss, epoch + 1, results_path,
-                lr_scheduler=lr_scheduler,
+                hardened_model, optimizer, metrics.mean('loss'), epoch + 1, results_path,
+                lr_scheduler=lr_scheduler, selection_state=selection,
+                extra_state=None if history is None else {'history': history},
             )
 
+    if val_loader is not None and restore_model_selection(selection, hardened_model):
+        synchronise_bn(original_model, hardened_model, train_loader, device)
     return hardened_model

@@ -7,6 +7,7 @@ import inspect
 import copy
 import warnings
 from contextlib import contextmanager
+from pathlib import Path
 
 
 @contextmanager
@@ -135,7 +136,8 @@ def remove_training_mode_attr(onnx_path, output_path):
     onnx.save(model, output_path)
     print(f"Cleaned model saved to: {output_path}")
 
-def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False, lr_scheduler=None):
+def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False, lr_scheduler=None, selection_state=None,
+                    *, extra_state=None, filename=None):
     """
     Saves the model checkpoint to the specified path.
 
@@ -146,12 +148,18 @@ def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False
         epoch (int): The current epoch number.
         results_path (str): The directory path where the checkpoint will be saved.
         lr_scheduler (optional): Save scheduler state for exact LR resumption.
+        selection_state (dict, optional): Persistent best score, weights and epoch.
+        extra_state (dict, optional): Method-specific trajectory data. Common keys
+            cannot be replaced.
+        filename (str, optional): Explicit filename for compatibility with existing
+            checkpoint APIs. Defaults to ``{epoch}_checkpoint.pt``.
 
     Raises:
-        AssertionError: If a checkpoint for the given epoch already exists at the specified path.
+        FileExistsError: If a checkpoint for the given epoch already exists at the specified path.
     """
-    if os.path.exists(f"{results_path}/{epoch}_checkpoint.pt") and not overwrite:
-        assert False, "Checkpoint already exists!"
+    path = Path(results_path) / (f'{epoch}_checkpoint.pt' if filename is None else filename)
+    if path.exists() and not overwrite:
+        raise FileExistsError("Checkpoint already exists!")
     checkpoint = {
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -160,7 +168,15 @@ def save_checkpoint(model, optimizer, loss, epoch, results_path, overwrite=False
             }
     if lr_scheduler is not None:
         checkpoint['lr_scheduler_state_dict'] = lr_scheduler.state_dict()
-    torch.save(checkpoint, f"{results_path}/{epoch}_checkpoint.pt")
+    if selection_state is not None:
+        checkpoint['selection_state'] = selection_state
+    if extra_state is not None:
+        if checkpoint.keys() & extra_state.keys():
+            raise ValueError('Method-specific checkpoint state cannot replace common fields')
+        checkpoint.update(extra_state)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('wb' if overwrite else 'xb') as output:
+        torch.save(checkpoint, output)
 
 def construct_c(data, target, n_classes):
     """

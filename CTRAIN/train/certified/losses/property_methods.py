@@ -14,28 +14,37 @@ from CTRAIN.properties.training import TRAINING_METHODS, resolve_training_option
 
 
 def get_property_training_loss(wrapper, spec_index, boxes):
+    """Compatibility adapter for callers passing a PropertyModelWrapper."""
+    return compute_property_training_loss(
+        wrapper.bounds, spec_index, boxes, verification_model=wrapper.verification_model,
+        training_method=wrapper.training_method, training_options=wrapper.training_options,
+        margin=wrapper.margin, reference=wrapper.reference)
+
+
+def compute_property_training_loss(bounds, spec_index, boxes, *, verification_model,
+                                   training_method, training_options, margin, reference):
     """Return a scalar training surrogate; certification always recomputes full boxes."""
-    method, options = wrapper.training_method, wrapper.training_options
+    method, options = training_method, training_options
     def penalty(margins):
-        return property_loss(margins, wrapper.margin, loss=options['loss'])
+        return property_loss(margins, margin, loss=options['loss'])
     if method == 'CROWN-IBP':
         beta = options['beta']
-        lower = wrapper.bounds(spec_index, boxes, 'CROWN-IBP') if beta else None
+        lower = bounds(spec_index, boxes, 'CROWN-IBP') if beta else None
         if beta < 1:
-            ibp = wrapper.bounds(spec_index, boxes, 'IBP')
+            ibp = bounds(spec_index, boxes, 'IBP')
             lower = ibp if beta == 0 else beta * lower + (1 - beta) * ibp
         return penalty(lower)
     if method in METHODS or method == 'GLS':
         bound_method = options['bound_method'] if method == 'GLS' else method
-        return penalty(wrapper.bounds(spec_index, boxes, bound_method,
+        return penalty(bounds(spec_index, boxes, bound_method,
                                       relu_upper_retention=options.get('relu_upper_retention', 1.)))
     alpha = options.get('alpha')
     if alpha == 1:
-        return penalty(wrapper.bounds(spec_index, boxes, 'IBP',
+        return penalty(bounds(spec_index, boxes, 'IBP',
                                       relu_upper_retention=options['relu_upper_retention']))
     def point_margins(output, *, boolean=False):
-        return wrapper.bounds.point_margins(spec_index, output, boolean=boolean)
-    lower, upper = box_endpoints(boxes, wrapper.reference)
+        return bounds.point_margins(spec_index, output, boolean=boolean)
+    lower, upper = box_endpoints(boxes, reference)
     nominal, half_width = (lower + upper) / 2, (upper - lower) / 2
     search = get_pgd_ptb(PerturbationLpNorm(norm=float('inf'), x_L=lower, x_U=upper),
                          nominal, options['pgd_region_factor'], eps=half_width)
@@ -50,18 +59,18 @@ def get_property_training_loss(wrapper, spec_index, boxes):
                   is_success=lambda output, _: ~point_margins(output, boolean=True).all(1))
     if method == 'SABR':
         center, radius, _ = get_propagation_region(
-            wrapper.verification_model, nominal, None, options['subselection_ratio'],
+            verification_model, nominal, None, options['subselection_ratio'],
             options['pgd_step_size'], options['pgd_steps'], options['pgd_restarts'],
             x_L=lower, x_U=upper, pgd_x_L=search_lower, pgd_x_U=search_upper,
             early_stopping=options['pgd_early_stopping'], decay_factor=options['pgd_decay_factor'],
             decay_checkpoints=options['pgd_decay_checkpoints'], loss_fn=attack['loss_fn'], is_success=attack['is_success'])
         sub_lower, sub_upper = torch.maximum(lower, center - radius), torch.minimum(upper, center + radius)
         subregions = [Box(lo, hi) for lo, hi in zip(sub_lower.detach(), sub_upper.detach())]
-        return penalty(wrapper.bounds(spec_index, subregions, 'IBP',
+        return penalty(bounds(spec_index, subregions, 'IBP',
                                       relu_upper_retention=options['relu_upper_retention']))
-    adversarial = pgd_attack(wrapper.verification_model, nominal, None, search_lower, search_upper,
+    adversarial = pgd_attack(verification_model, nominal, None, search_lower, search_upper,
                              n_steps=options['pgd_steps'], **attack)
-    output = wrapper.verification_model(adversarial)
+    output = verification_model(adversarial)
     adversarial_margins = point_margins(output)
     adversarial_loss = penalty(adversarial_margins)
     if method == 'PGD' or alpha == 0:
@@ -69,7 +78,7 @@ def get_property_training_loss(wrapper, spec_index, boxes):
     if method == 'IBP-R':
         area = nominal.new_zeros(len(nominal))
         if options['rho']:
-            raw = wrapper.bounds.raw
+            raw = bounds.raw
             raw(nominal)
             ptb = PerturbationLpNorm(norm=float('inf'), x_L=lower, x_U=upper)
             compute_ibp_bounds(raw, options['relu_upper_retention'],
@@ -78,7 +87,7 @@ def get_property_training_loss(wrapper, spec_index, boxes):
             if options['regularisation_mask']:
                 area = area * point_margins(output.detach(), boolean=True).all(1)
         return adversarial_loss + options['rho'] * area.mean()
-    lower_margins = wrapper.bounds(spec_index, boxes, 'IBP',
+    lower_margins = bounds(spec_index, boxes, 'IBP',
                                   relu_upper_retention=options['relu_upper_retention'])
     robust_loss = penalty(lower_margins)
     if method == 'MTL-IBP':

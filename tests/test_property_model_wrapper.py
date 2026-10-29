@@ -13,7 +13,7 @@ from CTRAIN.model_wrappers import PropertyModelWrapper as ExportedWrapper
 from CTRAIN.properties import And, Or, Outputs, Box, PropertySpec
 from CTRAIN.eval.properties import partition_state, validate_partition
 from CTRAIN.train.certified import property_train_model
-from CTRAIN.train.certified.losses.property_methods import get_property_training_loss
+from CTRAIN.train.certified.losses.property_methods import compute_property_training_loss
 
 
 def loader():
@@ -42,8 +42,8 @@ def main():
     for match, expected in ((False, [4, 4]), (True, [3, 1])):
         independent = wrapper(match_property_batch_size=match)
         training = DataLoader(loader().dataset, batch_size=3)
-        with patch('CTRAIN.train.certified.properties.get_property_training_loss',
-                   wraps=get_property_training_loss) as penalty:
+        with patch('CTRAIN.train.certified.properties.compute_property_training_loss',
+                   wraps=compute_property_training_loss) as penalty:
             independent.train_model(training, end_epoch=1)
         assert [len(call.args[2]) for call in penalty.call_args_list] == expected
     model = nn.Linear(1, 1).double()

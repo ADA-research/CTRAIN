@@ -98,11 +98,11 @@ class IBPRModelWrapper(CTRAINWrapper):
             population_bn=self.population_bn, results_path=self.checkpoint_path,
             checkpoint_save_interval=self.checkpoint_save_interval, device=self.device,
             shi_regularisation_weight=self.shi_reg_weight, shi_reg_decay=self.shi_reg_decay,
-            shi_init=self.shi_init, val_loader=val_loader, eval_eps=self.eps,
+            shi_init=self.shi_init, val_loader=val_loader, validation_eps=self.eps,
             n_classes=self.n_classes, lr_decay_after_ramp_up=self.lr_decay_after_ramp_up,
             pgd_early_stopping=self.pgd_early_stopping,
             pgd_decay_factor=self.pgd_alpha_decay_factor,
-            pgd_decay_checkpoints=self.pgd_decay_milestones)
+            pgd_decay_checkpoints=self.pgd_decay_milestones, selection_state=self.selection_state, history=self.history)
         self.epoch = self.num_epochs if end_epoch is None else end_epoch
         return trained
 

@@ -14,8 +14,9 @@ import torch
 from torch import nn
 from CTRAIN.properties import PropertySpec, Box
 from CTRAIN.bound.properties import PropertyBounds, METHODS
-from CTRAIN.eval.properties import initial_partition, partition_state, restore_partition, validate_partition
+from CTRAIN.eval.properties import initial_partition, restore_partition, validate_partition
 from CTRAIN.properties.training import TRAINING_METHODS, resolve_training_options
+from CTRAIN.train.certified.properties import PropertyTrainingState, save_property_checkpoint
 
 
 class PropertyModelWrapper(nn.Module):
@@ -219,11 +220,8 @@ class PropertyModelWrapper(nn.Module):
         self.population_bn = population_bn
         self.checkpoint_path = None if checkpoint_save_path is None else Path(checkpoint_save_path)
         self.checkpoint_save_interval = checkpoint_save_interval
-        self.partition = initial_partition(properties) if property_dataset is None else []
-        self.epoch, self.history = 0, []
-        self.best_score, self.best_weights = None, None
-        self.inference_selected = False
-        self.loader_rng = None
+        self.training_state = PropertyTrainingState(
+            initial_partition(properties) if property_dataset is None else [])
         self.configuration = dict(properties=[p.to_dict() for p in properties],
             input_shape=list(self.input_shape), verification_input_shape=list(self.verification_input_shape),
             num_epochs=num_epochs, selection_bound_method=self._selection_bound_method, margin=margin,
@@ -238,6 +236,63 @@ class PropertyModelWrapper(nn.Module):
         self.configuration.update(training_method=training_method, training_options=copy.deepcopy(training_options))
         if property_dataset is not None:
             self.configuration['property_dataset'] = json.loads(json.dumps(property_dataset.to_dict(), allow_nan=False))
+
+    @property
+    def partition(self):
+        """Compatibility view of the explicit property trajectory state."""
+        return self.training_state.partition
+
+    @partition.setter
+    def partition(self, value):
+        self.training_state.partition = value
+
+    @property
+    def epoch(self):
+        return self.training_state.epoch
+
+    @epoch.setter
+    def epoch(self, value):
+        self.training_state.epoch = value
+
+    @property
+    def history(self):
+        return self.training_state.history
+
+    @history.setter
+    def history(self, value):
+        self.training_state.history = value
+
+    @property
+    def inference_selected(self):
+        return self.training_state.inference_selected
+
+    @inference_selected.setter
+    def inference_selected(self, value):
+        self.training_state.inference_selected = value
+
+    @property
+    def loader_rng(self):
+        return self.training_state.loader_rng
+
+    @loader_rng.setter
+    def loader_rng(self, value):
+        self.training_state.loader_rng = value
+
+    @property
+    def best_score(self):
+        return self.training_state.selection_state.get('score')
+
+    @best_score.setter
+    def best_score(self, value):
+        self.training_state.selection_state['score'] = value
+
+    @property
+    def best_weights(self):
+        return self.training_state.selection_state.get('weights')
+
+    @best_weights.setter
+    def best_weights(self, value):
+        self.training_state.selection_state['weights'] = value
 
     def forward(self, inputs):
         """Return task-model predictions, without appending property margins."""
@@ -269,8 +324,20 @@ class PropertyModelWrapper(nn.Module):
             caller mode is restored. Optimizer state is not rewound on selection.
         """
         from CTRAIN.train.certified.properties import property_train_model
-        return property_train_model(self, train_loader, val_loader, start_epoch, end_epoch,
-                                    epoch_metrics=epoch_metrics)
+        return property_train_model(
+            self.original_model, train_loader, val_loader, start_epoch, end_epoch,
+            bounds=self.bounds, verification_model=self.verification_model,
+            properties=self.properties, task_loss=self.task_loss, optimizer=self.optimizer,
+            lr_scheduler=self.lr_scheduler, num_epochs=self.num_epochs, state=self.training_state,
+            training_method=self.training_method, training_options=self.training_options,
+            property_weight=self.property_weight, margin=self.margin,
+            warm_up_epochs=self.warm_up_epochs, weight_ramp_epochs=self.weight_ramp_epochs,
+            property_batch_size=self.property_batch_size,
+            match_property_batch_size=self.match_property_batch_size, refinement=self.refinement,
+            split_count=self.split_count, max_cells=self.max_cells, max_depth=self.max_depth,
+            population_bn=self.population_bn, property_dataset=self.property_dataset,
+            results_path=self.checkpoint_path, checkpoint_save_interval=self.checkpoint_save_interval,
+            configuration=self.configuration, epoch_metrics=epoch_metrics)
 
     def certify_properties(self, **kwargs):
         """Compute fresh bounds on every obligation in the declared domain cover.
@@ -296,7 +363,7 @@ class PropertyModelWrapper(nn.Module):
 
         Returns:
             dict: Whole-cover `certified` flag, per-property summaries, per-cell
-            bounds/outcomes, method, elapsed time and numerical scope. All cells
+            bounds/outcomes, method and elapsed time. All cells
             must have strictly positive lower margins or an exported-graph
             proof. Unknown bounds do not establish a violation. These are
             floating-point certificates, without a directed-rounding proof.
@@ -324,22 +391,8 @@ class PropertyModelWrapper(nn.Module):
                 weights. Load an epoch checkpoint before saving a trajectory.
             FileExistsError: The destination already exists.
         """
-        if self.inference_selected:
-            raise ValueError('Selected inference weights are not a resumable trajectory; load an epoch checkpoint first')
-        path = Path(path)
-        if path.exists():
-            raise FileExistsError(f'Checkpoint already exists: {path}')
-        path.parent.mkdir(parents=True, exist_ok=True)
-        state = dict(configuration=self.configuration, epoch=self.epoch,
-            model=self.original_model.state_dict(), optimizer=self.optimizer.state_dict(),
-            scheduler=None if self.lr_scheduler is None else self.lr_scheduler.state_dict(),
-            partition=partition_state(self.partition), history=self.history,
-            best_score=self.best_score, best_weights=self.best_weights,
-            rng=torch.get_rng_state(), numpy_rng=np.random.get_state(), python_rng=random.getstate(),
-            cuda_rng=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
-            loader_rng=(train_loader.generator.get_state() if train_loader is not None
-                        and train_loader.generator is not None else None))
-        torch.save(state, path)
+        save_property_checkpoint(path, self.original_model, self.optimizer, self.lr_scheduler,
+                                 self.training_state, self.configuration, train_loader)
 
     def load_checkpoint(self, path):
         """Restore a trusted epoch checkpoint and return this wrapper.
@@ -373,6 +426,11 @@ class PropertyModelWrapper(nn.Module):
             configuration.setdefault('training_method', bound_method)
         configuration['training_method'], configuration['training_options'] = resolve_training_options(
             configuration['training_method'], configuration.get('training_options'))
+        dataset = configuration.get('property_dataset', {})
+        if dataset.get('kind') in ('mnist_pair_points', 'mnist_pair_pixel_boxes'):
+            for key in ('center_reconstruction', 'sampling'):
+                if key not in self.configuration.get('property_dataset', {}):
+                    dataset.pop(key, None)
         if configuration != self.configuration:
             raise ValueError('Checkpoint property/training configuration differs')
         partition = restore_partition(state['partition'])
@@ -380,13 +438,15 @@ class PropertyModelWrapper(nn.Module):
             validate_partition(partition, self.properties)
         elif partition:
             raise ValueError('Lazy property datasets must not contain a stored explicit partition')
-        self.original_model.load_state_dict(state['model'])
-        self.optimizer.load_state_dict(state['optimizer'])
+        self.original_model.load_state_dict(state['model_state_dict'] if 'model_state_dict' in state else state['model'])
+        self.optimizer.load_state_dict(state['optimizer_state_dict'] if 'optimizer_state_dict' in state else state['optimizer'])
         if self.lr_scheduler is not None:
-            self.lr_scheduler.load_state_dict(state['scheduler'])
+            self.lr_scheduler.load_state_dict(state['lr_scheduler_state_dict'] if 'lr_scheduler_state_dict' in state else state['scheduler'])
         self.partition = partition
         self.epoch, self.history = state['epoch'], state['history']
-        self.best_score, self.best_weights = state['best_score'], state['best_weights']
+        self.training_state.selection_state = state.get('selection_state', {})
+        if 'selection_state' not in state:
+            self.best_score, self.best_weights = state['best_score'], state['best_weights']
         self.inference_selected = False
         self.loader_rng = state['loader_rng']
         torch.set_rng_state(state['rng'])

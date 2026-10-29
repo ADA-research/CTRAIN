@@ -1,5 +1,8 @@
 """LiRPA-based set training; one update per logical loader batch."""
-import copy
+from CTRAIN.train.certified.util import (
+    prepare_model_selection, update_model_selection, restore_model_selection,
+    synchronise_bn, validate_training_run, checkpoint_due, resolve_validation_eps, EpochMetrics,
+)
 import math
 import time
 from pathlib import Path
@@ -9,8 +12,9 @@ from CTRAIN.bound.set_based_zono import sequential_layers
 from CTRAIN.eval import eval_certified
 from CTRAIN.train.certified.losses.set_based import get_set_based_loss, validate_set_options
 from CTRAIN.train.certified.progress import progress_bar, update_progress
-from CTRAIN.train.certified.util import synchronise_bn
 from CTRAIN.util.util import preserve_model_state, loader_limits, loader_radius
+from CTRAIN.util import save_checkpoint
+from CTRAIN.train.certified.eps_scheduler import linear_schedule_fraction
 
 
 def clean_bn_statistics(model, data, layers):
@@ -42,11 +46,8 @@ def clean_bn_statistics(model, data, layers):
 
 
 def scheduled_epsilon(eps, epoch, batch, batches, warm_up_epochs, ramp_up_epochs):
-    if epoch < warm_up_epochs:
-        return 0.
-    if ramp_up_epochs == 0:
-        return eps
-    return eps * min(1., (epoch - warm_up_epochs + (batch + 1) / batches) / ramp_up_epochs)
+    return eps * linear_schedule_fraction(epoch, batch, batches, warm_up_epochs,
+                                          ramp_up_epochs, at_batch_end=True)
 
 
 def set_based_train_model(model, train_loader, optimizer, num_epochs, eps,
@@ -56,35 +57,28 @@ def set_based_train_model(model, train_loader, optimizer, num_epochs, eps,
                           propagation_batch_size=1, pgd_eps_factor=1., population_bn=False,
                           gradient_clip=10., start_epoch=0, end_epoch=None,
                           results_path=None, checkpoint_save_interval=10, device='cpu',
-                          selection_state=None):
+                          selection_state=None, *, validation_eps=None,
+                          lr_decay_schedule_unit="epoch", history=None):
+    validation_eps = resolve_validation_eps(validation_eps, eval_eps)
     validate_set_options(tau, input_set, num_generators, error_propagation, propagation_batch_size, pgd_eps_factor)
-    if not math.isfinite(eps) or eps < 0 or (eval_eps is not None and (not math.isfinite(eval_eps) or eval_eps < 0)):
+    if not math.isfinite(eps) or eps < 0 or (validation_eps is not None and (not math.isfinite(validation_eps) or validation_eps < 0)):
         raise ValueError('Training and evaluation radii must be finite and nonnegative')
-    if type(num_epochs) is not int or num_epochs <= 0:
-        raise ValueError('num_epochs must be a positive integer')
-    for name, value in [('warm_up_epochs', warm_up_epochs), ('ramp_up_epochs', ramp_up_epochs), ('start_epoch', start_epoch)]:
+    end_epoch = validate_training_run(train_loader, num_epochs, start_epoch, end_epoch,
+                                      checkpoint_save_interval, lr_decay_schedule_unit, history=history)
+    for name, value in [('warm_up_epochs', warm_up_epochs), ('ramp_up_epochs', ramp_up_epochs)]:
         if type(value) is not int or value < 0:
             raise ValueError(f'{name} must be a nonnegative integer')
-    end_epoch = num_epochs if end_epoch is None else end_epoch
-    if type(end_epoch) is not int or not start_epoch < end_epoch <= num_epochs:
-        raise ValueError('Require start_epoch < end_epoch <= num_epochs')
-    if type(checkpoint_save_interval) is not int or checkpoint_save_interval <= 0:
-        raise ValueError('checkpoint_save_interval must be a positive integer')
     if gradient_clip is not None and (not math.isfinite(gradient_clip) or gradient_clip <= 0):
         raise ValueError('gradient_clip must be positive and finite or None')
     layers = sequential_layers(model)
-    if not len(train_loader):
-        raise ValueError('Training loader must contain batches')
-    selection = selection_state if selection_state is not None else {}
-    best_accuracy = selection.get('accuracy', -1.)
-    best_weights = selection.get('weights')
+    selection = prepare_model_selection(selection_state, val_loader, validation_eps)
     output_path = None if results_path is None else Path(results_path)
     if output_path is not None:
         output_path.mkdir(parents=True, exist_ok=True)
     with preserve_model_state(model):
         model.train()
         for epoch in range(start_epoch, end_epoch):
-            total_loss = samples = 0
+            metrics = EpochMetrics()
             epoch_start = last_update = time.monotonic()
             with progress_bar(train_loader, epoch, num_epochs, scheduled_epsilon(eps, epoch, 0, len(train_loader), warm_up_epochs, ramp_up_epochs), method="SetBased") as progress:
                 for batch, (data, target) in enumerate(progress):
@@ -95,6 +89,7 @@ def set_based_train_model(model, train_loader, optimizer, num_epochs, eps,
                     optimizer.zero_grad(set_to_none=True)
                     # Warm-up uses the logical batch; robust BN statistics are chunk-local.
                     chunk_size = len(data) if current_eps == 0 else propagation_batch_size
+                    batch_loss = 0.
                     for start in range(0, len(data), chunk_size):
                         chunk = data[start:start + chunk_size]
                         statistics = clean_bn_statistics(model, chunk, layers)
@@ -104,35 +99,37 @@ def set_based_train_model(model, train_loader, optimizer, num_epochs, eps,
                                                   pgd_eps_factor=pgd_eps_factor, bn_statistics=statistics,
                                                   layers=layers)
                         (loss * (len(chunk) / len(data))).backward()
-                        total_loss += loss.item() * len(chunk)
+                        batch_loss += loss.item() * len(chunk) / len(data)
                         if time.monotonic() - last_update >= 2:
                             progress.set_postfix(eps=f"{current_eps:.5g}", chunk=f"{start + len(chunk)}/{len(data)}", loss=f"{loss.item():.4f}")
                             last_update = time.monotonic()
                     if gradient_clip is not None:
                         nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
                     optimizer.step()
-                    samples += len(data)
-                    update_progress(progress, total_loss / samples, lr=optimizer.param_groups[0]["lr"])
-            progress.write(f"SetBased Epoch {epoch + 1}/{num_epochs}: loss={total_loss / samples:.4f}, eps={current_eps:.5g}, seconds={time.monotonic() - epoch_start:.1f}")
+                    metrics.update(len(data), loss=batch_loss)
+                    update_progress(progress, metrics.mean('loss'), lr=optimizer.param_groups[0]["lr"])
+                    if lr_scheduler is not None and lr_decay_schedule_unit == 'batch':
+                        lr_scheduler.step()
+            progress.write(f"SetBased Epoch {epoch + 1}/{num_epochs}: loss={metrics.mean('loss'):.4f}, eps={current_eps:.5g}, seconds={time.monotonic() - epoch_start:.1f}")
             if population_bn:
                 synchronise_bn(model, model, train_loader, device, population=True)
-            if lr_scheduler is not None:
+            if lr_scheduler is not None and lr_decay_schedule_unit == 'epoch':
                 lr_scheduler.step()
             if val_loader is not None and epoch + 1 >= warm_up_epochs + ramp_up_epochs:
                 progress.write("Evaluating full-box forward accuracy...")
-                radius = loader_radius(eps if eval_eps is None else eval_eps, val_loader, data)
+                radius = loader_radius(eps if validation_eps is None else validation_eps, val_loader, data)
                 accuracy, _ = eval_certified(model, val_loader, radius, n_classes=None,
                                              method='FORWARD', device=device,
                                              propagation_batch_size=propagation_batch_size)
-                if accuracy > best_accuracy:
-                    best_accuracy, best_weights = accuracy, copy.deepcopy(model.state_dict())
-                    selection.update(accuracy=accuracy, weights=best_weights, epoch=epoch + 1)
-            if output_path is not None and ((epoch + 1) % checkpoint_save_interval == 0 or epoch + 1 == end_epoch):
-                # Save the trajectory BEFORE inference-only best-weight restoration.
-                torch.save(dict(model_state_dict=model.state_dict(), optimizer_state_dict=optimizer.state_dict(),
-                                lr_scheduler_state_dict=None if lr_scheduler is None else lr_scheduler.state_dict(),
-                                epoch=epoch + 1, loss=total_loss / samples, selection_state=selection),
-                           output_path / f'checkpoint_{epoch + 1}.pt')
-        if val_loader is not None and best_weights is not None:
-            model.load_state_dict(best_weights)
+                update_model_selection(selection, model, accuracy, epoch + 1)
+            if history is not None:
+                history.append(dict(epoch=epoch + 1, loss=metrics.mean('loss'), eps=current_eps,
+                                    lr=optimizer.param_groups[0]['lr']))
+            if output_path is not None and checkpoint_due(epoch + 1, end_epoch, checkpoint_save_interval):
+                save_checkpoint(model, optimizer, metrics.mean('loss'), epoch + 1, output_path,
+                                lr_scheduler=lr_scheduler, selection_state=selection,
+                                extra_state=None if history is None else {'history': history},
+                                filename=f'checkpoint_{epoch + 1}.pt')
+        if val_loader is not None:
+            restore_model_selection(selection, model)
     return model

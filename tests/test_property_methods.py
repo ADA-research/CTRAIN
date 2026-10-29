@@ -107,11 +107,11 @@ def training_and_selection_api():
             return dict(boxes=[box.to_dict() for box in self])
     pool = Boxes([Box([0.], [1.]), Box([.2], [.8])])
     lazy = make('PGD', {'pgd_steps': 1}, property_dataset=pool)
-    from CTRAIN.eval.properties import certify_property_dataset
-    with patch('CTRAIN.train.certified.properties.certify_property_dataset',
-               wraps=certify_property_dataset) as evaluate:
+    from CTRAIN.eval.properties import evaluate_property_dataset
+    with patch('CTRAIN.train.certified.properties.evaluate_property_dataset',
+               wraps=evaluate_property_dataset) as evaluate:
         lazy.train_model(data(), end_epoch=1)
-    assert evaluate.call_args.kwargs['method'] == 'IBP'
+    assert evaluate.call_args.args[2] == 'IBP'
 
     # Migrate compatible checkpoints and reject changed selection policies before loading weights.
     with tempfile.TemporaryDirectory() as folder:

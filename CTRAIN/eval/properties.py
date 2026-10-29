@@ -21,24 +21,10 @@ def certify_property_dataset(wrapper, method='CROWN', results_path=None):
     the random sampling stream. Detailed per-cell/refinement reports use the
     ordinary explicit-property API.
     """
-    from CTRAIN.bound.properties import CERTIFICATION_METHODS
-    if method not in CERTIFICATION_METHODS:
-        raise ValueError('Invalid certification method')
     start = time.monotonic()
-    dataset = wrapper.property_dataset
-    count, certified_count, minimum = len(dataset), 0, float('inf')
-    with preserve_model_state(wrapper.verification_model, *wrapper.bounds.modules), torch.no_grad():
-        wrapper.verification_model.eval()
-        for offset in range(0, count, wrapper.property_batch_size):
-            boxes = [dataset[i] for i in range(offset, min(offset + wrapper.property_batch_size, count))]
-            lower = wrapper.bounds(0, boxes, method).detach()
-            finite = torch.isfinite(lower).all(dim=1)
-            certified_count += int((finite & (lower > 0).all(dim=1)).sum())
-            minimum = min(minimum, float(lower.min()) if finite.all() else -float('inf'))
-    report = dict(certified=certified_count == count, certified_count=certified_count,
-                  total_boxes=count, certified_fraction=certified_count / count,
-                  minimum_lower_bound=minimum if math.isfinite(minimum) else None,
-                  properties=[dict(name=wrapper.properties[0].name, certified=certified_count == count)],
+    report = evaluate_property_dataset(wrapper.bounds, wrapper.property_dataset, method,
+                                       wrapper.property_batch_size)
+    report.update(properties=[dict(name=wrapper.properties[0].name, certified=report['certified'])],
                   property_dataset=wrapper.configuration['property_dataset'],
                   method=method, seconds=time.monotonic() - start,
                   scope='all boxes in the declared property dataset',
@@ -46,11 +32,31 @@ def certify_property_dataset(wrapper, method='CROWN', results_path=None):
                   numerical_semantics='floating-point LiRPA; no directed-rounding proof')
     if results_path is not None:
         import json
-        from pathlib import Path
         directory = Path(results_path)
         directory.mkdir(parents=True, exist_ok=True)
         (directory / 'results.json').write_text(json.dumps(report, indent=2, allow_nan=False))
     return report
+
+
+def evaluate_property_dataset(bounds, dataset, method='CROWN', batch_size=32):
+    """Aggregate fresh bounds over a lazy box pool without consuming RNG state."""
+    from CTRAIN.bound.properties import CERTIFICATION_METHODS
+    if method not in CERTIFICATION_METHODS:
+        raise ValueError('Invalid certification method')
+    if type(batch_size) is not int or batch_size < 1 or not len(dataset):
+        raise ValueError('A nonempty dataset and positive batch_size are required')
+    count, certified_count, minimum = len(dataset), 0, float('inf')
+    with preserve_model_state(bounds.model, *bounds.modules), torch.no_grad():
+        bounds.model.eval()
+        for offset in range(0, count, batch_size):
+            boxes = [dataset[i] for i in range(offset, min(offset + batch_size, count))]
+            lower = bounds(0, boxes, method).detach()
+            finite = torch.isfinite(lower).all(dim=1)
+            certified_count += int((finite & (lower > 0).all(dim=1)).sum())
+            minimum = min(minimum, float(lower.min()) if finite.all() else -float('inf'))
+    return dict(certified=certified_count == count, certified_count=certified_count,
+                  total_boxes=count, certified_fraction=certified_count / count,
+                  minimum_lower_bound=minimum if math.isfinite(minimum) else None)
 
 
 def partition_state(cells):

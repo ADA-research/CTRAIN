@@ -18,7 +18,8 @@ class SetBasedModelWrapper(CTRAINWrapper):
                  lr_decay_kwargs=None, gradient_clip=10., checkpoint_save_path=None,
                  checkpoint_save_interval=10, bound_opts=None, device='cuda',
                  population_bn=False, tau=.1, input_set='box', num_generators=8,
-                 error_propagation='interval', propagation_batch_size=1, pgd_eps_factor=1.):
+                 error_propagation='interval', propagation_batch_size=1, pgd_eps_factor=1., *,
+                 lr_decay_schedule_unit="epoch"):
         validate_set_options(tau, input_set, num_generators, error_propagation, propagation_batch_size, pgd_eps_factor)
         if not math.isfinite(eps) or eps < 0 or not math.isfinite(train_eps_factor) or train_eps_factor <= 0 or not math.isfinite(eps * train_eps_factor):
             raise ValueError('eps must be nonnegative; train_eps_factor must be positive and finite')
@@ -28,6 +29,9 @@ class SetBasedModelWrapper(CTRAINWrapper):
                 raise ValueError(f'Invalid {name}')
         if not math.isfinite(lr) or lr <= 0 or (gradient_clip is not None and (not math.isfinite(gradient_clip) or gradient_clip <= 0)):
             raise ValueError('lr and gradient_clip must be positive and finite')
+        if lr_decay_schedule_unit not in ('epoch', 'batch'):
+            raise ValueError("lr_decay_schedule_unit must be 'epoch' or 'batch'")
+        self.lr_decay_schedule_unit = lr_decay_schedule_unit
         sequential_layers(model)
         # LiRPA operators receive live parameters; this model owns all BN buffers.
         nn.Module.__init__(self)
@@ -53,7 +57,7 @@ class SetBasedModelWrapper(CTRAINWrapper):
                                 pgd_eps_factor=pgd_eps_factor)
         for name, value in self.set_options.items():
             setattr(self, name, value)
-        self.epoch, self.selection_state = 0, {}
+        self.epoch, self.selection_state, self.history = 0, {}, []
 
     def train(self, mode=True):
         nn.Module.train(self, mode)
@@ -76,12 +80,12 @@ class SetBasedModelWrapper(CTRAINWrapper):
 
     def train_model(self, train_loader, val_loader=None, start_epoch=0, end_epoch=None):
         result = set_based_train_model(self.original_model, train_loader, self.optimizer,
-                                      self.num_epochs, self.train_eps, val_loader=val_loader, eval_eps=self.eps,
+                                      self.num_epochs, self.train_eps, val_loader=val_loader, validation_eps=self.eps,
                                       warm_up_epochs=self.warm_up_epochs, ramp_up_epochs=self.ramp_up_epochs,
-                                      lr_scheduler=self.lr_scheduler, gradient_clip=self.gradient_clip,
+                                      lr_scheduler=self.lr_scheduler, lr_decay_schedule_unit=self.lr_decay_schedule_unit, gradient_clip=self.gradient_clip,
                                       population_bn=self.population_bn, start_epoch=start_epoch, end_epoch=end_epoch,
                                       results_path=self.checkpoint_path, checkpoint_save_interval=self.checkpoint_save_interval,
-                                      device=self.device, selection_state=self.selection_state, **self.set_options)
+                                      device=self.device, selection_state=self.selection_state, history=self.history, **self.set_options)
         self.epoch = self.num_epochs if end_epoch is None else end_epoch
         return result
 
@@ -113,6 +117,7 @@ class SetBasedModelWrapper(CTRAINWrapper):
         if checkpoint['lr_scheduler_state_dict'] is not None:
             self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
         self.selection_state = checkpoint.get('selection_state', {})
+        self.history = checkpoint.get('history', [])
         self.epoch = checkpoint['epoch']
         return self.train_model(train_loader, val_loader, self.epoch, end_epoch)
 
@@ -123,7 +128,7 @@ class SetBasedModelWrapper(CTRAINWrapper):
                           warm_up_epochs=config['warm_up_epochs'], ramp_up_epochs=config['ramp_up_epochs'],
                           lr_decay_kwargs=dict(milestones=config['lr_milestones'], gamma=config['lr_decay_factor']),
                           gradient_clip=self.gradient_clip, population_bn=self.population_bn,
-                          bound_opts=self.bound_opts, device=self.device,
+                          lr_decay_schedule_unit=self.lr_decay_schedule_unit, bound_opts=self.bound_opts, device=self.device,
                           **dict(self.set_options, tau=config.get('tau', self.tau)))
 
     def _hpo_runner(self, config, seed, epochs, train_loader, val_loader, output_dir,

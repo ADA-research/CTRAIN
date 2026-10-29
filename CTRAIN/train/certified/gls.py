@@ -4,7 +4,10 @@ The released PGPE implementation uses preconditioned score gradients: d*(L+-L-)
 for the mean and (d²-s²)/s*(mean(L+,L-)-baseline) for the deviation.
 RGS averages ordinary gradients at independent Gaussian parameter samples.
 """
-import copy
+from CTRAIN.train.certified.util import (
+    prepare_model_selection, update_model_selection, restore_model_selection,
+    synchronise_bn, validate_training_run, checkpoint_due, resolve_validation_eps, EpochMetrics,
+)
 import math
 import torch
 from auto_LiRPA import PerturbationLpNorm
@@ -12,9 +15,10 @@ from CTRAIN.bound import bound_ibp, bound_crown, bound_crown_ibp
 from CTRAIN.train.certified.losses.util import get_loss_from_bounds
 from CTRAIN.train.certified.initialisation import ibp_init_shi
 from CTRAIN.train.certified.regularisers import get_shi_regulariser, get_l1_reg
-from CTRAIN.train.certified.eps_scheduler import BaseScheduler
-from CTRAIN.train.certified.util import synchronise_bn
+from CTRAIN.train.certified.eps_scheduler import BaseScheduler, linear_schedule_fraction
 from CTRAIN.util import save_checkpoint
+from CTRAIN.util.util import preserve_model_state
+from CTRAIN.train.certified.progress import progress_bar, update_progress, log_epoch_summary
 
 
 class GLSOptimizer(torch.optim.Optimizer):
@@ -148,19 +152,21 @@ def gls_train_model(original_model, hardened_model, train_loader, optimizer,
                     shi_reg_decay=True, l1_reg_weight=0., population_bn=False,
                     sigma_decay_milestones=(), sigma_decay_factor=.4,
                     results_path=None, checkpoint_save_interval=10, device='cuda',
-                    val_loader=None, eval_eps=None):
+                    val_loader=None, eval_eps=None, selection_state=None, *,
+                    validation_eps=None, lr_decay_schedule_unit="epoch", history=None):
     """Train the Gaussian-smoothed certified loss with a linear epsilon ramp.
 
     No clean/robust loss mixing is used after warm-up. Without validation, the
     final model is returned. Validation selects by sound centre-model bounds
     after ramp-up; optimizer checkpoints retain the training trajectory.
     """
+    validation_eps = resolve_validation_eps(validation_eps, eval_eps)
+    selection = prepare_model_selection(selection_state, val_loader, validation_eps)
     bounds = {'IBP': bound_ibp, 'CROWN': bound_crown, 'CROWN-IBP': bound_crown_ibp}
     if bound_method not in bounds:
         raise ValueError('bound_method must be IBP, CROWN, or CROWN-IBP')
-    final_epoch = num_epochs if end_epoch is None else end_epoch
-    if not (0 <= start_epoch <= final_epoch <= num_epochs):
-        raise ValueError('invalid epoch range')
+    end_epoch = validate_training_run(train_loader, num_epochs, start_epoch, end_epoch,
+                                      checkpoint_save_interval, lr_decay_schedule_unit, history=history)
     if warm_up_epochs < 0 or ramp_up_epochs < 0 or warm_up_epochs + ramp_up_epochs > num_epochs:
         raise ValueError('invalid warm-up/ramp-up schedule')
     criterion = torch.nn.CrossEntropyLoss()
@@ -168,63 +174,73 @@ def gls_train_model(original_model, hardened_model, train_loader, optimizer,
                               train_loader.std if train_loader.normalised else torch.ones_like(train_loader.std),
                               eps_schedule=(warm_up_epochs, ramp_up_epochs),
                               eps_schedule_unit='epoch', batches_per_epoch=len(train_loader))
-    if start_epoch == 0 and shi_init:
-        ibp_init_shi(original_model, hardened_model)
-    best_score, best_weights = -1., None
-    for epoch in range(start_epoch, final_epoch):
-        hardened_model.train()
-        original_model.train()
-        total = 0.
-        for index, (data, target) in enumerate(train_loader):
-            data, target = data.to(device), target.to(device)
-            progress = epoch + index / len(train_loader) - warm_up_epochs
-            fraction = min(1., max(0., progress / ramp_up_epochs)) if ramp_up_epochs else float(progress >= 0)
-            scheduler.cur_eps = eps * fraction
-            radius = scheduler.get_cur_eps().to(data).reshape(-1, 1, 1)
-            ptb = PerturbationLpNorm(norm=float('inf'), eps=radius,
-                    x_L=torch.maximum(data - radius, train_loader.min.to(data)),
-                    x_U=torch.minimum(data + radius, train_loader.max.to(data)))
+    with preserve_model_state(original_model, hardened_model):
+        if start_epoch == 0 and end_epoch > start_epoch and shi_init:
+            ibp_init_shi(original_model, hardened_model)
+        for epoch in range(start_epoch, end_epoch):
+            hardened_model.train()
+            original_model.train()
+            metrics = EpochMetrics()
+            # tqdm.auto otherwise creates an extra loader iterator and consumes RNG.
+            with progress_bar(iter(train_loader), epoch, num_epochs, None,
+                              method=f'GLS-{optimizer.estimator.upper()}',
+                              total=len(train_loader)) as progress_bar_epoch:
+                for index, (data, target) in enumerate(progress_bar_epoch):
+                    data, target = data.to(device), target.to(device)
+                    fraction = linear_schedule_fraction(epoch, index, len(train_loader),
+                                                        warm_up_epochs, ramp_up_epochs)
+                    scheduler.cur_eps = eps * fraction
+                    radius = scheduler.get_cur_eps().to(data).reshape(-1, 1, 1)
+                    ptb = PerturbationLpNorm(norm=float('inf'), eps=radius,
+                            x_L=torch.maximum(data - radius, train_loader.min.to(data)),
+                            x_U=torch.minimum(data + radius, train_loader.max.to(data)))
 
-            def closure():
-                output = hardened_model(data)
-                if fraction:
-                    lb, _ = bounds[bound_method](hardened_model, ptb, data, target, n_classes)
-                    loss = get_loss_from_bounds(lb, criterion)
-                else:
-                    loss = criterion(output, target)
-                if shi_reg_weight and fraction < 1:
-                    bound_ibp(hardened_model, ptb, data, target, n_classes)
-                    loss = loss + shi_reg_weight * get_shi_regulariser(
-                        hardened_model, ptb, data, target, scheduler,
-                        n_classes=n_classes, device=device, regularisation_decay=shi_reg_decay)
-                if l1_reg_weight:
-                    loss = loss + l1_reg_weight * get_l1_reg(original_model, device=device)
-                return loss
+                    def closure():
+                        output = hardened_model(data)
+                        if fraction:
+                            lb, _ = bounds[bound_method](hardened_model, ptb, data, target, n_classes)
+                            loss = get_loss_from_bounds(lb, criterion)
+                        else:
+                            loss = criterion(output, target)
+                        if shi_reg_weight and fraction < 1:
+                            bound_ibp(hardened_model, ptb, data, target, n_classes)
+                            loss = loss + shi_reg_weight * get_shi_regulariser(
+                                hardened_model, ptb, data, target, scheduler,
+                                n_classes=n_classes, device=device, regularisation_decay=shi_reg_decay)
+                        if l1_reg_weight:
+                            loss = loss + l1_reg_weight * get_l1_reg(original_model, device=device)
+                        return loss
 
-            total += float(optimizer.step(closure))
-            # Update BN once at the centre, rather than once per noisy sample.
-            with torch.no_grad():
-                hardened_model(data)
-        synchronise_bn(original_model, hardened_model, train_loader, device, population_bn)
-        lr_scheduler.step()
-        if optimizer.estimator == 'rgs' and epoch + 1 in sigma_decay_milestones:
-            with torch.no_grad():
-                for scale in optimizer.scales:
-                    scale.mul_(sigma_decay_factor)
-        if val_loader is not None and fraction == 1.:
-            from CTRAIN.eval import eval_certified
-            eval_radius = torch.as_tensor(eps if eval_eps is None else eval_eps, device=device)
-            if val_loader.normalised:
-                eval_radius = eval_radius / val_loader.std.to(device)
-            score, _ = eval_certified(hardened_model, val_loader, eval_radius.reshape(-1, 1, 1),
-                                      n_classes=n_classes, method=bound_method, device=device)
-            if score > best_score:
-                best_score, best_weights = score, copy.deepcopy(hardened_model.state_dict())
-        print(f'GLS-{optimizer.estimator.upper()} epoch {epoch + 1}: loss={total / len(train_loader):.6f}')
-        if results_path is not None and (epoch + 1) % checkpoint_save_interval == 0:
-            save_checkpoint(hardened_model, optimizer, total, epoch + 1, results_path,
-                            lr_scheduler=lr_scheduler)
-    if best_weights is not None:
-        hardened_model.load_state_dict(best_weights)
-        synchronise_bn(original_model, hardened_model, train_loader, device, False)
+                    metrics.update(len(data), loss=optimizer.step(closure))
+                    # Update BN once at the centre, rather than once per noisy sample.
+                    with torch.no_grad():
+                        hardened_model(data)
+                    update_progress(progress_bar_epoch, metrics.mean('loss'), lr=optimizer.param_groups[0]['lr'])
+                    if lr_scheduler is not None and lr_decay_schedule_unit == 'batch':
+                        lr_scheduler.step()
+            synchronise_bn(original_model, hardened_model, train_loader, device, population_bn)
+            if lr_scheduler is not None and lr_decay_schedule_unit == 'epoch':
+                lr_scheduler.step()
+            if optimizer.estimator == 'rgs' and epoch + 1 in sigma_decay_milestones:
+                with torch.no_grad():
+                    for scale in optimizer.scales:
+                        scale.mul_(sigma_decay_factor)
+            if val_loader is not None and fraction == 1.:
+                from CTRAIN.eval import eval_certified
+                eval_radius = torch.as_tensor(eps if validation_eps is None else validation_eps, device=device)
+                if val_loader.normalised:
+                    eval_radius = eval_radius / val_loader.std.to(device)
+                score, _ = eval_certified(hardened_model, val_loader, eval_radius.reshape(-1, 1, 1),
+                                          n_classes=n_classes, method=bound_method, device=device)
+                update_model_selection(selection, hardened_model, score, epoch + 1)
+            log_epoch_summary(epoch, num_epochs, metrics.mean('loss'), nat_acc=None)
+            if history is not None:
+                history.append(dict(epoch=epoch + 1, loss=metrics.mean('loss'),
+                                    eps=float(scheduler.cur_eps), lr=optimizer.param_groups[0]['lr']))
+            if results_path is not None and checkpoint_due(epoch + 1, end_epoch, checkpoint_save_interval):
+                save_checkpoint(hardened_model, optimizer, metrics.mean('loss'), epoch + 1, results_path,
+                                lr_scheduler=lr_scheduler, selection_state=selection,
+                                extra_state=None if history is None else {'history': history})
+        if val_loader is not None and restore_model_selection(selection, hardened_model):
+            synchronise_bn(original_model, hardened_model, train_loader, device, False)
     return hardened_model

@@ -8,10 +8,10 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from auto_LiRPA import BoundedModule, PerturbationLpNorm
 
-from CTRAIN.bound.taps import bound_taps, _get_pivotal_points_one_batch, _get_bound_estimation_from_pts
+from CTRAIN.bound.taps import split_bound_graph, bound_taps, _get_pivotal_points_one_batch, _get_bound_estimation_from_pts
 from CTRAIN.bound.sabr import get_propagation_region
 from CTRAIN.train.certified.losses.taps import get_taps_loss
-from CTRAIN.train.certified.util import split_network, evaluate_taps_proxy
+from CTRAIN.train.certified.util import evaluate_taps_proxy
 from CTRAIN.train.certified.progress import update_progress
 
 
@@ -48,12 +48,11 @@ def check():
     object.__setattr__(model, 'layers', model[:])
     model.eval()
     full = BoundedModule(model, data, device='cpu')
-    features, classifier = split_network(model, (3, 2), data, 'cpu')
-    blocks = [BoundedModule(features, data, device='cpu'), BoundedModule(classifier, features(data), device='cpu')]
+    blocks = split_bound_graph(full, (3, 2), model.layers)
     full.bounded_blocks = blocks
     for sizes in ((2, 2), (5, 0), (5,), (3, 2.0)):
         try:
-            split_network(model, sizes, data, 'cpu')
+            split_bound_graph(full, sizes, model.layers)
         except ValueError:
             pass
         else:

@@ -3,6 +3,17 @@
 import matplotlib.pyplot as plt
 import torch
 
+
+def linear_schedule_fraction(epoch, batch, batches, warm_up_epochs, ramp_up_epochs,
+                             *, at_batch_end=False):
+    """Linear ramp at a batch boundary; keep each method's boundary convention."""
+    if epoch < warm_up_epochs:
+        return 0.
+    elapsed = (epoch - warm_up_epochs + (batch + 1) / batches if at_batch_end
+               else epoch + batch / batches - warm_up_epochs)
+    return min(1., max(0., elapsed / ramp_up_epochs)) if ramp_up_epochs else 1.
+
+
 class BaseScheduler():
     
     def __init__(self, num_epochs, eps, mean, std, start_eps=0, start_kappa=1, end_kappa=0, start_beta=0, end_beta=0, eps_schedule_unit='batch', eps_schedule=(0, 20), batches_per_epoch=None, start_epoch=-1):
