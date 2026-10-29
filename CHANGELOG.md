@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.0.0 (2026-10-29)
+
+### Bug Fixes
+
+- **release**: Start stable versioning at 1.0.0
+  ([`dd2169a`](https://github.com/ADA-research/CTRAIN/commit/dd2169a699aba410887beb5ed539a3a0a2960a87))
+
+
 ## v0.7.0 (2026-10-29)
 
 ### Bug Fixes
