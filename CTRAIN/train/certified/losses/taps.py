@@ -75,7 +75,7 @@ def get_taps_loss(original_model, hardened_model, bounded_blocks, criterion, dat
     if return_bounds:
         return_tuple = return_tuple + (taps_bound, None)
     if return_stats:
-        robust_err = torch.sum((taps_bound < 0).any(dim=1)).item() / data.size(0)
+        robust_err = torch.sum(~(taps_bound > 0).all(dim=1)).item() / data.size(0)
         return_tuple = return_tuple + (robust_err,)
 
     return return_tuple

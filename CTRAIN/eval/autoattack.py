@@ -5,7 +5,7 @@ import time
 import numpy as np
 import torch
 
-from CTRAIN.util.util import preserve_model_state
+from CTRAIN.util.util import preserve_model_state, validate_test_samples
 
 
 def eval_autoattack(model, data_loader, eps, return_adv_indices=False,
@@ -22,9 +22,7 @@ def eval_autoattack(model, data_loader, eps, return_adv_indices=False,
     """
     if version not in ('standard', 'plus', 'rand'):
         raise ValueError('AutoAttack version must be standard, plus, or rand')
-    if test_samples <= 0 or (test_samples != np.inf and
-                            (not math.isfinite(test_samples) or int(test_samples) != test_samples)):
-        raise ValueError('test_samples must be a positive integer or infinity')
+    test_samples = validate_test_samples(test_samples)
     lower = torch.as_tensor(data_loader.min, device=device)
     width = torch.as_tensor(data_loader.max, device=device) - lower
     radius = torch.as_tensor(eps, device=device) / width

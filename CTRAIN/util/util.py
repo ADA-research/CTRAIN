@@ -6,6 +6,8 @@ import onnx
 import inspect
 import copy
 import warnings
+import math
+from numbers import Real
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -22,6 +24,15 @@ def preserve_model_state(*models):
             module.training = training
         for param, requires_grad in gradients.items():
             param.requires_grad_(requires_grad)
+
+
+def validate_test_samples(test_samples):
+    """Normalise positive integer-valued sample budgets, including infinity."""
+    if (isinstance(test_samples, bool) or not isinstance(test_samples, Real)
+            or test_samples <= 0 or math.isnan(test_samples)
+            or math.isfinite(test_samples) and int(test_samples) != test_samples):
+        raise ValueError('test_samples must be a positive integer or infinity')
+    return int(test_samples) if math.isfinite(test_samples) else float('inf')
 
 
 def loader_radius(eps, loader, data):

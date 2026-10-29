@@ -29,7 +29,7 @@ from CTRAIN.complete_verification.abCROWN.verify import (
 )
 from CTRAIN.complete_verification.neuralsat import neuralsat_eval, validate_neuralsat_command, validate_neuralsat_options
 from CTRAIN.util import export_onnx
-from CTRAIN.util.util import preserve_model_state
+from CTRAIN.util.util import preserve_model_state, validate_test_samples
 
 from contextlib import redirect_stdout, contextmanager
 
@@ -72,38 +72,42 @@ def _to_device_tensor(value, device):
     return value.to(device) if torch.is_tensor(value) else torch.as_tensor(value, device=device)
 
 def eval_acc(model, test_loader, test_samples=np.inf, device=None):
-    device = torch.device(device) if device is not None else torch.device(
-        "cuda"
-        if torch.cuda.is_available()
-        else "mps"
-        if torch.backends.mps.is_available()
-        else "cpu"
-    )
+    test_samples = validate_test_samples(test_samples)
+    with preserve_model_state(model):
+        device = torch.device(device) if device is not None else torch.device(
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
+        )
 
-    model = model.to(device)  # Move model to device
-    model.eval()
+        model = model.to(device)  # Move model to device
+        model.eval()
 
-    correct = 0
-    total = 0
+        correct = 0
+        total = 0
 
-    with torch.no_grad():
-        for data, target in test_loader:
-            if total >= test_samples:
-                break
+        with torch.no_grad():
+            for data, target in test_loader:
+                if total >= test_samples:
+                    break
 
-            remaining_samples = test_samples - total
-            if remaining_samples < len(target):
-                data = data[:remaining_samples]
-                target = target[:remaining_samples]
+                remaining_samples = test_samples - total
+                if remaining_samples < len(target):
+                    data = data[:remaining_samples]
+                    target = target[:remaining_samples]
 
-            data, target = data.to(device), target.to(device)
-            output = model(data)
-            _, predicted = torch.max(output, 1)
+                data, target = data.to(device), target.to(device)
+                output = model(data)
+                _, predicted = torch.max(output, 1)
 
-            total += target.size(0)
-            correct += (predicted == target).sum().item()
+                total += target.size(0)
+                correct += (predicted == target).sum().item()
 
-    return correct / total
+        if not total:
+            raise ValueError('Evaluation loader must contain samples')
+        return correct / total
 
 def eval_ibp(model, eps, data_loader, n_classes=10, test_samples=np.inf, device="cuda"):
     """
@@ -268,9 +272,7 @@ def eval_complete(
     with tempfile.TemporaryDirectory(prefix=f'ctrain-{method_name}-') as tmp_root, preserve_model_state(model):
         if not isinstance(data_loader.sampler, SequentialSampler) or data_loader.drop_last or data_loader.batch_size is None:
             raise ValueError('Complete verification requires a sequential loader with a batch size and drop_last=False')
-        if test_samples <= 0 or (test_samples != np.inf and
-                (not np.isfinite(test_samples) or int(test_samples) != test_samples)):
-            raise ValueError('test_samples must be a positive integer or infinity')
+        test_samples = validate_test_samples(test_samples)
         eps_std = torch.as_tensor(eps_std, device=device)
         if not torch.isfinite(eps_std).all() or (eps_std < 0).any():
             raise ValueError('Verification radius must be finite and nonnegative')
@@ -635,9 +637,7 @@ def eval_adaptive(
         raise ValueError('propagation_batch_size must be a positive integer')
     if 'ALPHA-CROWN' in methods and (type(alpha_iterations) is not int or alpha_iterations <= 0):
         raise ValueError('alpha_iterations must be a positive integer')
-    if test_samples <= 0 or (test_samples != np.inf and
-                            (not np.isfinite(test_samples) or int(test_samples) != test_samples)):
-        raise ValueError('test_samples must be a positive integer or infinity')
+    test_samples = validate_test_samples(test_samples)
     limit = min(len(data_loader.dataset), int(test_samples)) if test_samples < np.inf else len(data_loader.dataset)
     if not limit or not len(data_loader):
         raise ValueError('Evaluation loader must contain samples')
@@ -819,73 +819,77 @@ def eval_adversarial(
         (float): Adversarial accuracy of the model.
         (np.ndarray): Indices of unsafe indices if return_adv_indices is True.
     """
-    if method.upper().replace('-', '').replace('_', '') == 'AUTOATTACK':
-        return eval_autoattack(model, data_loader, eps, return_adv_indices,
-                               device, test_samples, **(autoattack_kwargs or {}))
-    if method != 'PGD':
-        raise ValueError('Adversarial method must be PGD or AUTOATTACK')
-    model.eval()
-    adv_preds = np.array([])
-    labels = np.array([])
-    data_min = data_loader.min.to(device)
-    data_max = data_loader.max.to(device)
-    results = {}
+    test_samples = validate_test_samples(test_samples)
+    with preserve_model_state(model):
+        if method.upper().replace('-', '').replace('_', '') == 'AUTOATTACK':
+            return eval_autoattack(model, data_loader, eps, return_adv_indices,
+                                   device, test_samples, **(autoattack_kwargs or {}))
+        if method != 'PGD':
+            raise ValueError('Adversarial method must be PGD or AUTOATTACK')
+        model.eval()
+        adv_preds = np.array([])
+        labels = np.array([])
+        data_min = _to_device_tensor(data_loader.min, device)
+        data_max = _to_device_tensor(data_loader.max, device)
+        results = {}
 
-    for batch_idx, (data, targets) in enumerate(tqdm(data_loader)):
-        if len(labels) >= test_samples:
-            break
+        for batch_idx, (data, targets) in enumerate(tqdm(data_loader)):
+            if len(labels) >= test_samples:
+                break
 
-        batch_indices = int(min(len(targets), test_samples - len(labels)))
-        batch_results = {
-            batch_idx * data_loader.batch_size + i: {"result": None, "method": "PGD", "running_time": None}
-            for i in range(batch_indices)
-        }
-        data = data[:batch_indices]
-        targets = targets[:batch_indices]
+            batch_indices = int(min(len(targets), test_samples - len(labels)))
+            batch_results = {
+                batch_idx * data_loader.batch_size + i: {"result": None, "method": "PGD", "running_time": None}
+                for i in range(batch_indices)
+            }
+            data = data[:batch_indices]
+            targets = targets[:batch_indices]
 
-        data, targets = data.to(device), targets.to(device)
-        eps = _to_device_tensor(eps, device)
+            data, targets = data.to(device), targets.to(device)
+            eps = _to_device_tensor(eps, device)
 
-        pgd_start_time = time.time()
-        x_test_adv = pgd_attack(
-            model=model,
-            data=data,
-            target=targets,
-            x_L=torch.clamp(data - eps, data_min, data_max).to(device),
-            x_U=torch.clamp(data + eps, data_min, data_max).to(device),
-            restarts=restarts,
-            step_size=step_size,
-            n_steps=n_steps,
-            early_stopping=early_stopping,
-            device=device,
-        )
-        pgd_end_time = time.time()
+            pgd_start_time = time.time()
+            x_test_adv = pgd_attack(
+                model=model,
+                data=data,
+                target=targets,
+                x_L=torch.clamp(data - eps, data_min, data_max).to(device),
+                x_U=torch.clamp(data + eps, data_min, data_max).to(device),
+                restarts=restarts,
+                step_size=step_size,
+                n_steps=n_steps,
+                early_stopping=early_stopping,
+                device=device,
+            )
+            pgd_end_time = time.time()
 
-        adv_predictions_batch = model(x_test_adv)
-        adv_predictions_batch = torch.argmax(adv_predictions_batch, dim=1).cpu().numpy()
-        if len(labels) + len(targets) > test_samples:
-            too_many_samples_no = (len(labels) + len(targets)) - test_samples
-            adv_predictions_batch = adv_predictions_batch[:-too_many_samples_no]
-            targets = targets[:-too_many_samples_no]
+            adv_predictions_batch = model(x_test_adv)
+            adv_predictions_batch = torch.argmax(adv_predictions_batch, dim=1).cpu().numpy()
+            if len(labels) + len(targets) > test_samples:
+                too_many_samples_no = (len(labels) + len(targets)) - test_samples
+                adv_predictions_batch = adv_predictions_batch[:-too_many_samples_no]
+                targets = targets[:-too_many_samples_no]
 
-        adv_preds = np.append(adv_preds, adv_predictions_batch)
-        labels = np.append(labels, targets.cpu())
-        for i in range(len(targets)):
-            instance = batch_idx * data_loader.batch_size + i
-            batch_results[instance]["result"] = 'sat' if adv_predictions_batch[i] != targets[i].item() else None
-            batch_results[instance]["running_time"] = (pgd_end_time - pgd_start_time) / len(targets)
+            adv_preds = np.append(adv_preds, adv_predictions_batch)
+            labels = np.append(labels, targets.cpu())
+            for i in range(len(targets)):
+                instance = batch_idx * data_loader.batch_size + i
+                batch_results[instance]["result"] = 'sat' if adv_predictions_batch[i] != targets[i].item() else None
+                batch_results[instance]["running_time"] = (pgd_end_time - pgd_start_time) / len(targets)
 
-        results.update(batch_results)
+            results.update(batch_results)
 
-    test_samples = min(test_samples, len(labels))
+        test_samples = min(test_samples, len(labels))
 
-    adv_accuracy = accuracy_score(labels, adv_preds)
+        if not len(labels):
+            raise ValueError('Evaluation loader must contain samples')
+        adv_accuracy = accuracy_score(labels, adv_preds)
 
-    if return_adv_indices:
-        adv_sample_found = labels != adv_preds
-        return adv_accuracy, adv_sample_found, results
+        if return_adv_indices:
+            adv_sample_found = labels != adv_preds
+            return adv_accuracy, adv_sample_found, results
 
-    return adv_accuracy
+        return adv_accuracy
 
 def eval_model(
     model,
@@ -919,6 +923,7 @@ def eval_model(
     Returns:
         tuple: (std_acc (float): Standard accuracy of the model, cert_acc (float): Certified accuracy of the model, adv_acc (float): Adversarial accuracy of the model)
     """
+    test_samples = validate_test_samples(test_samples)
     with preserve_model_state(model):
         std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples, device=device)
         cert_acc, _ = eval_certified(
@@ -976,32 +981,33 @@ def eval_epoch(
     Returns:
         tuple: A tuple containing standard accuracy, certified accuracy, and adversarial accuracy.
     """
-    os.makedirs(results_path, exist_ok=True)
-    model.eval()
-    std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples, device=device)
-    if (eps == 0.0).all():
-        cert_acc = adv_acc = std_acc
-    else:
-        with torch.no_grad():
-            cert_acc, results = eval_certified(
-                model=model,
-                data_loader=data_loader,
-                n_classes=n_classes,
-                eps=eps,
-                test_samples=test_samples,
-                method=verification_method,
-            )
-            adv_acc = eval_adversarial(
-                model=model,
-                data_loader=data_loader,
-                n_classes=n_classes,
-                eps=eps,
-                device=device,
-                test_samples=test_samples,
-            )
+    test_samples = validate_test_samples(test_samples)
+    with preserve_model_state(model):
+        os.makedirs(results_path, exist_ok=True)
+        model.eval()
+        std_acc = eval_acc(model, test_loader=data_loader, test_samples=test_samples, device=device)
+        if (torch.as_tensor(eps) == 0.0).all():
+            cert_acc = adv_acc = std_acc
+        else:
+            with torch.no_grad():
+                cert_acc, results = eval_certified(
+                    model=model,
+                    data_loader=data_loader,
+                    n_classes=n_classes,
+                    eps=eps,
+                    test_samples=test_samples,
+                    method=verification_method,
+                    device=device,
+                )
+                adv_acc = eval_adversarial(
+                    model=model,
+                    data_loader=data_loader,
+                    n_classes=n_classes,
+                    eps=eps,
+                    device=device,
+                    test_samples=test_samples,
+                )
 
-    with open(f"{results_path}/stats.json", "w") as f:
-        json.dump({"acc": std_acc, "cert_acc": cert_acc, "adv_acc": adv_acc}, f)
-    model.train()
-
-    return std_acc, cert_acc, adv_acc
+        with open(f"{results_path}/stats.json", "w") as f:
+            json.dump({"acc": std_acc, "cert_acc": cert_acc, "adv_acc": adv_acc}, f)
+        return std_acc, cert_acc, adv_acc

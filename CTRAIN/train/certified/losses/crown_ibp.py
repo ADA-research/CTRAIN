@@ -65,7 +65,7 @@ def get_crown_ibp_loss(hardened_model, ptb, data, target, n_classes, criterion, 
     if return_bounds:
         return_tuple = return_tuple + (lb, ub)
     if return_stats:
-        robust_err = torch.sum((lb < 0).any(dim=1)).item() / data.size(0) if not loss_fusion else float('nan')
+        robust_err = torch.sum(~(lb > 0).all(dim=1)).item() / data.size(0) if not loss_fusion else float('nan')
         return_tuple = return_tuple + (robust_err,)
     
     return return_tuple

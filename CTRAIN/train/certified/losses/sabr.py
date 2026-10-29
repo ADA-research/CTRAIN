@@ -72,7 +72,7 @@ def get_sabr_loss(hardened_model, original_model, data, target, eps, subselectio
     if return_bounds:
         assert False, "Return bounds is not implemented for MTL-IBP"
     elif return_stats:
-        robust_err = torch.sum((lb < 0).any(dim=1)).item() / data.size(0)
+        robust_err = torch.sum(~(lb > 0).all(dim=1)).item() / data.size(0)
         adv_err = torch.sum(torch.argmax(adv_output, dim=1) != target).item() / data.size(0)
         return_tuple = return_tuple + (robust_err, adv_err)
     
