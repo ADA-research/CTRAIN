@@ -115,6 +115,18 @@ pip install -e ".[dev]"
 ctrain-install-git-deps
 ```
 
+## Tests
+
+Run the CPU suite from the repository root after installing the development
+and Git dependencies:
+
+```bash
+python -m pytest -q
+```
+
+See [tests/README.md](tests/README.md) for focused numerical checks, regression
+scripts, and optional CUDA and complete-verifier checks.
+
 ## 🧪 Quick Start
 
 Train and evaluate a CNN7 model on CIFAR-10 with the Shi-style IBP wrapper:

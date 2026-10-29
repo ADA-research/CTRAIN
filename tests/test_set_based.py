@@ -156,6 +156,10 @@ def training():
                                        lr_decay_kwargs=dict(milestones=[2], gamma=.1))
         initial = make(); state = copy.deepcopy(initial.state_dict())
         initial.train_model(data_loader, end_epoch=2)
+        checkpoint = torch.load(Path(directory) / 'checkpoint_2.pt', weights_only=False)
+        assert set(checkpoint) == {'model_state_dict', 'optimizer_state_dict',
+                                   'lr_scheduler_state_dict', 'epoch', 'loss', 'selection_state'}
+        assert all(path.suffix == '.pt' for path in Path(directory).iterdir())
         resumed = make()
         resumed.resume_from_checkpoint(Path(directory) / 'checkpoint_2.pt', data_loader)
         full = make(); full.load_state_dict(state); full.train_model(data_loader)
@@ -173,6 +177,26 @@ def training():
     assert scheduled_epsilon(.1, 0, 0, 1, 1, 2) == 0
     assert scheduled_epsilon(.1, 1, 0, 1, 1, 2) == .05
     assert scheduled_epsilon(.1, 2, 0, 1, 1, 2) == .1
+
+
+def global_gradient_clipping():
+    from unittest.mock import patch
+    data_loader = loader()
+    for clip in (10., None):
+        model = nn.Sequential(nn.Linear(2, 2)).double()
+        wrapper = SetBasedModelWrapper(model, (2,), .1, 1, device='cpu',
+                                       optimizer_func=torch.optim.SGD, gradient_clip=clip)
+        before = copy.deepcopy(model.state_dict())
+        # Known unequal gradient sizes distinguish global from per-tensor clipping.
+        gradients = {'0.weight': torch.full_like(model[0].weight, 1000),
+                     '0.bias': torch.ones_like(model[0].bias)}
+        norm = torch.cat([value.flatten() for value in gradients.values()]).norm()
+        scale = 1. if clip is None else min(1., clip / (norm.item() + 1e-6))
+        with patch('CTRAIN.train.certified.set_based.get_set_based_loss',
+                   side_effect=lambda *args, **kwargs: 1000 * model[0].weight.sum() + model[0].bias.sum()):
+            wrapper.train_model(data_loader)
+        for key, value in model.state_dict().items():
+            torch.testing.assert_close(value, before[key] - wrapper.lr * scale * gradients[key])
 
 
 
@@ -308,7 +332,7 @@ def lirpa_operator_regressions():
 
 def main():
     torch.set_num_threads(1); torch.manual_seed(42)
-    numerical(); attacks_and_modes(); training(); convolutional_bn_and_presets(); actual_evaluation(); lirpa_operator_regressions()
+    numerical(); attacks_and_modes(); training(); global_gradient_clipping(); convolutional_bn_and_presets(); actual_evaluation(); lirpa_operator_regressions()
     print('Set-based numerical and integration checks passed')
 
 
