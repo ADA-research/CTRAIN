@@ -128,8 +128,7 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 This project incorporates the α,β-CROWN verifier which is developed by a multi-institutional team led by Prof. Huan Zhang. The α,β-CROWN components are licensed under the BSD 3-Clause license.
 Furthermore, CTRAIN depends heavily on the `auto_LiRPA` library, which is developed by the same team and also licensed under the BSD 3-Clause License.
 
-## General properties and case studies
+## General properties
 
 The [general-property API](properties.md) trains affine and Boolean output constraints
-over declared input boxes. Follow the [case-study notebooks](examples/case_studies/index.md)
-for controller safety, ACAS Xu repair and MNIST addition consistency.
+over declared input boxes.

@@ -1,8 +1,5 @@
 """General ONNX/VNNLIB import: polarity, boundaries, dimensions and training."""
-import json
 from pathlib import Path
-import subprocess
-import sys
 import tempfile
 import torch
 from torch import nn
@@ -113,66 +110,7 @@ def main():
         assert wrapper.certify_properties(method='CROWN-IBP')['certified']
         path.write_text(specification(outputs=2))
         rejects(lambda: load_vnnlib_problem(model_path, path))
-        # CLI uses the selected pair and inferred input shape, preserving float64.
-        path.write_text(specification(outputs=3, predicate='(or (<= Y_0 -1) (<= Y_2 Y_1))'))
-        extra = root / 'extra_property.vnnlib'
-        extra.write_text(specification(outputs=3, predicate='(<= Y_0 0)').replace(
-            '(assert (and (<= 0 X_0) (<= (* 2 X_0) 2)))', '(assert (and (>= X_0 2) (<= X_0 3)))'))
-        third = root / 'third_property.vnnlib'
-        third.write_text(specification(outputs=3, predicate='(<= Y_1 0)').replace(
-            '(assert (and (<= 0 X_0) (<= (* 2 X_0) 2)))', '(assert (and (>= X_0 -3) (<= X_0 -2)))'))
-        output = root / 'run'
-        subprocess.run([sys.executable, '-m', 'case_studies.acasxu.run', '--model', str(model_path),
-                        '--specification', str(path), '--additional-specifications', str(extra), str(third),
-                        '--epochs', '1', '--output', str(output)],
-                       check=True, stdout=subprocess.DEVNULL)
-        results = json.loads((output / 'results.json').read_text())
-        config = json.loads((output / 'config.json').read_text())
-        assert results['after']['certified'] and config['case'] == 'user_selected'
-        assert config['artifacts']['sha256'] == provenance['sha256']
-        names = {path.stem, extra.stem, third.stem}
-        assert {prop['name'] for prop in config['training']['properties']} == names
-        assert {prop['name'] for prop in results['after']['properties'] if prop['certified']} == names
-        assert sum(value['train_samples'] for value in results['property_metrics'].values()) == 4096
-        assert sum(value['validation_samples'] for value in results['property_metrics'].values()) == 2048
-        assert all(value['train_samples'] > 0 and value['validation_samples'] > 0
-                   for value in results['property_metrics'].values())
-        assert len(config['additional_specification_sha256']) == 2
-        # The comparison must detect a deliberately introduced property regression.
-        benchmark = root / 'benchmark'
-        (benchmark / 'vnnlib').mkdir(parents=True)
-        (benchmark / 'vnnlib/prop_1.vnnlib').write_text(path.read_text())
-        (benchmark / 'instances.csv').write_text('onnx/my_network.onnx,vnnlib/prop_1.vnnlib,1\n')
-        weights = torch.load(output / 'model.pt', weights_only=True)
-        bias_name = next(key for key, value in model.named_parameters()
-                         if key.endswith('bias') and value.numel() == 3)
-        weights[bias_name][2] = 0
-        torch.save(weights, output / 'model.pt')
-        comparison = root / 'comparison'
-        subprocess.run([sys.executable, '-m', 'case_studies.acasxu.evaluate', '--run', str(output),
-                        '--benchmark', str(benchmark), '--samples', '16', '--max-cells', '2',
-                        '--output', str(comparison)], check=True, stdout=subprocess.DEVNULL)
-        result = json.loads((comparison / 'results.json').read_text())['properties'][0]
-        assert result['benchmark_applicable']
-        assert result['before']['outcome'] == 'certified' and result['after']['outcome'] == 'violated'
-        assert result['newly_violating_inputs'] == 16 and result['fixed_inputs'] == 0
-        alpha_output = root / 'alpha_comparison'
-        subprocess.run([sys.executable, '-m', 'case_studies.acasxu.evaluate', '--run', str(output),
-                        '--benchmark', str(benchmark), '--samples', '16', '--method', 'ALPHA-CROWN',
-                        '--alpha-iterations', '4', '--assigned-only', '--cover-from',
-                        str(comparison / 'results.json'), '--output', str(alpha_output)],
-                       check=True, stdout=subprocess.DEVNULL)
-        alpha_report = json.loads((alpha_output / 'results.json').read_text())
-        assert alpha_report['cover_sha256'] and alpha_report['alpha_iterations'] == 4
-        alpha_result = alpha_report['properties'][0]
-        assert alpha_result['before']['outcome'] == 'certified'
-        assert alpha_result['after']['outcome'] == 'violated'
-        assert alpha_result['before']['certificate']['method'] == 'ALPHA-CROWN'
-        extra.write_text(extra.read_text() + '\n; changed source\n')
-        rejected = subprocess.run([sys.executable, '-m', 'case_studies.acasxu.evaluate', '--run', str(output),
-            '--benchmark', str(benchmark), '--output', str(root / 'changed_source')], capture_output=True)
-        assert rejected.returncode != 0 and b'Training specification hash mismatch' in rejected.stderr
-    print('VNNLIB polarity, ties, affine logic, input bounds, arbitrary models and CLI checks passed')
+    print('VNNLIB polarity, ties, affine logic, input bounds, arbitrary models and training checks passed')
 
 
 if __name__ == '__main__':

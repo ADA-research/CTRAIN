@@ -1,1 +1,0 @@
-"""Runnable CTRAIN case studies."""

@@ -1,9 +1,8 @@
-"""Example geometry, ACAS source conventions, and ONNX/verifier regressions."""
+"""ACAS source conventions and library ONNX/verifier regressions."""
 import copy
 import hashlib
 import io
 import json
-import runpy
 import sys
 import tempfile
 from pathlib import Path
@@ -19,19 +18,8 @@ from CTRAIN.train.certified.losses.properties import advisory_cross_entropy
 from CTRAIN.data_loaders.acasxu import acasxu_property, load_acasxu, download_acasxu, _crosscheck, FILES, SOURCE
 
 
-ROOT = Path(__file__).resolve().parents[1]
-
-
 def main():
     torch.set_num_threads(1)
-    controller = runpy.run_path(str(ROOT / 'case_studies/controller/run.py'))
-    for teacher in ('waypoint', 'safety'):
-        data = controller['dataset'](48, 1, teacher)
-        # Explicit adversarial corner disturbances, not just random rollouts.
-        for disturbance in ((-.01, -.01), (-.01, .01), (.01, -.01), (.01, .01)):
-            successor = data.tensors[0] + data.tensors[1] + torch.tensor(disturbance)
-            assert (successor.abs() <= 1 + 1e-6).all()
-            assert (successor.abs().amax(1) >= .3 - 1e-6).all()
     y = torch.tensor([[0., 1., 2., 3., 4.], [3., 3., 3., 0., 1.], [0.] * 5])
     labels = y.argmin(dim=1)
     assert labels.dtype == torch.long and labels.tolist() == [0, 3, 0]
@@ -75,7 +63,7 @@ def main():
         import onnx, onnx2pytorch
         converted = onnx2pytorch.ConvertModel(onnx.load(onnx_path), experimental=True)
         torch.testing.assert_close(converted(probes), graph(probes))
-        # Verify the case-study's affine/ReLU adapter on a sequential fixture.
+        # Verify the library's affine/ReLU adapter on a sequential fixture.
         sequential = nn.Sequential(nn.Linear(5, 8), nn.ReLU(), nn.Linear(8, 5))
         path = Path(directory) / 'acas_fixture.onnx'
         export_onnx(sequential, str(path), 1, (5,))
@@ -169,7 +157,7 @@ def main():
             assert result['cells'][0]['graph'] == 'onnx-relu'
             assert result['cells'][0]['solver_status'] == 'unsat'
         print('Actual alpha-beta-CROWN overlapping-disjunction proof passed')
-    print('Controller geometry, ACAS conventions, ONNX adapters, and verifier outcome checks passed')
+    print('ACAS conventions, ONNX adapters, and verifier outcome checks passed')
 
 
 if __name__ == '__main__':

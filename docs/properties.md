@@ -45,11 +45,6 @@ declared size. Validation-based epoch selection starts once the ramp finishes.
 Checkpoint resumption continues the schedule from the restored epoch; old
 checkpoints without `warm_up_epochs` are interpreted as zero warm-up.
 
-All case-study training runners accept `--warm-up-epochs` and
-`--weight-ramp-epochs`. MNIST and ACAS HPO tune warm-up over 0–5 epochs (capped
-for short runs) and retain the property-weight ramp search, with ranges that
-fit the total epoch budget. Fixed baselines retain their configured schedules.
-
 ## Choosing a training strategy
 
 Large collections sharing one formula can supply a `property_dataset` to
@@ -59,7 +54,7 @@ The single `PropertySpec` supplies the formula and an initial domain for graph
 construction; the dataset supplies the full training and certification domain
 collection. Boxes are sampled uniformly with replacement, independently of task
 batches, and generated only when needed. No VNNLIB files or full endpoint pool
-are required. MNIST addition uses this mode for every training pair.
+are required.
 
 Epoch diagnostics and `wrapper.certify_properties()` evaluate every dataset box
 in batches and return aggregate results. Dataset mode does not support adaptive
@@ -69,10 +64,6 @@ and RNG state; the caller reconstructs the same dataset before loading, and
 configuration comparison rejects differing descriptors. The generic wrapper
 supports separate task and property batch sizes. `match_property_batch_size=True`
 instead samples one property box per task example, including partial batches.
-MNIST keeps these sizes independent: `--batch-size` controls task examples
-and `--property-batch-size` controls independently sampled property boxes per
-update, including partial task batches. HPO keeps both sizes fixed rather than
-tuning them.
 
 Robustness wrappers still accept `eps`; they do not require a property object.
 Wrapper implementations live in `CTRAIN.model_wrappers.certified` and
@@ -114,8 +105,7 @@ The old `bound_method` constructor argument has been removed. Use
 migrated on load when their training and selection settings match the new
 method-derived policy. A checkpoint with different historical selection bounds
 is rejected before loading weights; resume that trajectory with its original
-CTRAIN version. HPO studies retain their historical `bound_method`
-trial-parameter key for the training strategy so existing studies remain usable.
+CTRAIN version.
 
 | Strategy | Property training computation | Additional parameters and defaults |
 |---|---|---|
@@ -156,27 +146,6 @@ enclosure-size objective, and CC-Dist needs teacher-feature property semantics;
 those names fail explicitly before graph conversion. Classification-specific
 Shi initialization/regularization recipes remain on the existing robustness
 wrappers; `IBP` here denotes the property-bound objective.
-
-The controller, ACAS repair, and MNIST-addition runners accept, for example:
-
-```bash
-python -m case_studies.controller.run --smoke \
-  --method SABR --training-options '{"subselection_ratio": 0.2, "pgd_steps": 12}' \
-  --output /tmp/controller-sabr-new
-```
-
-MNIST config files may include a `training_options` JSON object. Its HPO runner
-keeps an explicitly configured strategy fixed while tuning the existing
-optimizer, weight, and sampling controls. Both MNIST and ACAS HPO additionally
-tune MTL-IBP `alpha` uniformly in `[0, 1]` or SABR `subselection_ratio`
-logarithmically in `[0.01, 1]`. The latter is the ratio defining
-`tau = subselection_ratio * (upper - lower) / 2`, not an absolute radius.
-These two trial options override their configured baseline values; other
-algorithm options stay fixed. Fixed MNIST baselines retain their configured values.
-Without new settings, the existing three-bound-method search is retained.
-ACAS HPO accepts `--training-method` and `--training-options` to configure a strategy;
-the suite runner forwards the same options to each repair. Training
-configuration and provenance record the effective strategy and parameters.
 
 ## Semantics and compiler
 
@@ -269,54 +238,7 @@ bitwise or real-arithmetic equivalence between PyTorch and ONNX; reports record
 which graph was certified. A small overlapping-disjunction example was actually
 proved by this path, in addition to mocked status-handling regressions.
 
-## Case studies and evidence
-
-See [the case-study notebooks](examples/case_studies/index.md) for commands.
-The experimental MNIST addition example learns independent classification heads
-for the two operand digits (10 classes each) and their sum (19 classes). Three
-cross-entropy losses supervise `[a,b,a+b]`, while VNNLIB specifies exact consistency
-between their argmax classes over clipped pixel boxes. Its loader normalizes
-images and covers every official training image in both operand positions.
-Certificates use auto_LiRPA affine logit-margin bounds with sound, conservative
-Boolean composition (`bound_opts={'property_bound': 'atomic'}`). Clean classification
-accuracy and certified consistency are separate metrics. The sum head remains
-independently learned. This is a new MNIST-based benchmark, not a reproduction
-of an established named benchmark; certificates do not establish correct digit
-recognition. Earlier MSE/regression runs concern a different property and setup.
-
-The controller checks an invariant ring under dynamics `x_next = x + u + w`,
-with `|u_i| <= .1` and `|w_i| <= .01`. Its four input boxes cover
-`[-1,1]^2` outside the open square `(-.3,.3)^2`; its next-state formula contains
-a disjunction identifying that same ring. Thus a whole-domain one-step
-certificate implies invariance at subsequent discrete steps under arbitrary
-allowed disturbances. This does not certify continuous trajectories between
-steps or convergence to a goal.
-
-The recorded CPU seed-1 safety-teacher run used 60 epochs, starting from zero
-actions that failed the disturbed invariant. Fresh final CROWN-IBP evaluation
-certified all nine obligations across 185 covering cells, with minimum lower
-margin approximately `9.68e-4`. Held-out action MSE was `2.22e-5`. All 32 sampled
-100-step rollouts were safe; this empirical result is separate from the
-certificate. The safety teacher is deliberately not a navigation objective.
-Full CROWN remained inconclusive within the selected refinement budget.
-The waypoint navigation variant has execution and teacher-feasibility checks,
-not an established navigation certificate or performance benchmark.
-
-ACAS Xu examples encode properties 7 and 8 over released score outputs with
-explicit tie handling. They require source hashes and check their formulas
-against the original unsafe VNNLIB predicates before real training. Original
-ONNX predictions label sampled inputs with the source model's lowest-score
-advisory. Repair minimizes cross-entropy on negated scores against those fixed
-labels; held-out CE and advisory agreement measure fidelity, while score MSE
-is diagnostic only. The library uses the installed `onnx2pytorch` converter and checks
-predictions against ONNX Runtime before training. Converted affine/ReLU fixtures
-are tested through all three bound methods and an optimizer update.
-Synthetic smoke runs for both cases are execution checks only. Official
-artifacts could not be fetched in this environment, so real ACAS Xu training,
-source-file cross-checks and certification have not been performed. No GPU or
-multi-seed campaign has been run.
-
-### User-selected networks and specifications
+## User-selected networks and specifications
 
 The user can choose any local ONNX/VNNLIB pair within the supported operator
 and specification subset, without a network registry or preset manifest:
@@ -352,7 +274,7 @@ Optional `expected_sha256` checks caller-supplied digests before parsing. Unlike
 the benchmark presets, local files do not need all four artifact files or a
 pinned upstream commit. This does not authenticate a claimed upstream source.
 
-### ACAS presets
+## ACAS presets
 
 ACAS artifact handling and source checks are also available as convenience calls:
 
