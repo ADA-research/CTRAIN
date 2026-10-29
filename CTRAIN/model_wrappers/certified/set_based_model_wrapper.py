@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from torch import nn
 from CTRAIN.model_wrappers.certified.model_wrapper import CTRAINWrapper
-from CTRAIN.bound.zonotope import sequential_layers
+from CTRAIN.bound.set_based_zono import sequential_layers
 from CTRAIN.train.certified.set_based import set_based_train_model
 from CTRAIN.train.certified.losses.set_based import validate_set_options
 from CTRAIN.util.util import preserve_model_state

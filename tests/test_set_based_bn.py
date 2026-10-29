@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, TensorDataset
-from CTRAIN.bound.zonotope import sequential_layers
+from CTRAIN.bound.set_based_zono import sequential_layers
 from CTRAIN.model_wrappers import SetBasedModelWrapper
 from CTRAIN.train.certified.set_based import clean_bn_statistics
 from CTRAIN.train.certified.losses.set_based import attack_zonotope, get_set_based_loss

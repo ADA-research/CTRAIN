@@ -4,7 +4,7 @@ import math
 import torch
 from auto_LiRPA import BoundedModule, BoundedTensor, PerturbationLpNorm
 from CTRAIN.util import construct_c
-from CTRAIN.bound.zonotope import box_zonotope, bound_zonotope, sequential_layers, zonotope_margins
+from CTRAIN.bound.set_based_zono import box_zonotope, bound_zonotope, sequential_layers, zonotope_margins
 from CTRAIN.util.util import preserve_model_state
 
 

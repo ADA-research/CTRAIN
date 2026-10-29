@@ -2,7 +2,7 @@
 import math
 import torch
 from torch.nn import functional as F
-from CTRAIN.bound.zonotope import Zonotope, box_zonotope, bound_zonotope
+from CTRAIN.bound.set_based_zono import Zonotope, box_zonotope, bound_zonotope
 from CTRAIN.util.util import preserve_model_state
 
 

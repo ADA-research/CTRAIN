@@ -5,7 +5,7 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from auto_LiRPA import BoundedModule
 from CTRAIN.eval.zonotope import eval_zonotope
-from CTRAIN.bound.zonotope import box_zonotope, bound_zonotope, zonotope_margins
+from CTRAIN.bound.set_based_zono import box_zonotope, bound_zonotope, zonotope_margins
 
 
 def check(model, data, eps):

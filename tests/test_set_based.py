@@ -6,7 +6,7 @@ from pathlib import Path
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
-from CTRAIN.bound.zonotope import Zonotope, box_zonotope, bound_zonotope, zonotope_margins, sequential_layers
+from CTRAIN.bound.set_based_zono import Zonotope, box_zonotope, bound_zonotope, zonotope_margins, sequential_layers
 from CTRAIN.train.certified.losses.set_based import attack_zonotope, get_set_based_loss
 from CTRAIN.train.certified.set_based import clean_bn_statistics, scheduled_epsilon
 from CTRAIN.eval.zonotope import eval_zonotope

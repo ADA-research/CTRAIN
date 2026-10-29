@@ -9,7 +9,7 @@ from auto_LiRPA.operators import BoundLinear
 from CTRAIN.model_wrappers.certified.cc_ibp_model_wrapper import CCIBPModelWrapper
 from CTRAIN.train.certified.cc_dist import cc_dist_train_model
 from CTRAIN.train.certified.losses.cc_dist import get_cc_dist_loss, validate_cc_dist_bn_options
-from CTRAIN.bound.zonotope import sequential_layers
+from CTRAIN.bound.set_based_zono import sequential_layers
 from CTRAIN.train.adversarial.pgd import validate_pgd_training_options
 
 

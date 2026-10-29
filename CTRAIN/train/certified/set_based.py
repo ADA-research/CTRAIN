@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 import torch
 from torch import nn
-from CTRAIN.bound.zonotope import sequential_layers
+from CTRAIN.bound.set_based_zono import sequential_layers
 from CTRAIN.eval.zonotope import eval_zonotope, loader_limits, loader_radius
 from CTRAIN.train.certified.losses.set_based import get_set_based_loss, validate_set_options
 from CTRAIN.train.certified.progress import progress_bar, update_progress
