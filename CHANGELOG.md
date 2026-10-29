@@ -1,6 +1,170 @@
 # CHANGELOG
 
 
+## v0.7.0 (2026-10-29)
+
+### Bug Fixes
+
+- Align fused CROWN-IBP optimizer and module state
+  ([`8061947`](https://github.com/ADA-research/CTRAIN/commit/8061947f9c919666e3f16ecd2ffc8dc1411b3cec))
+
+- Align set-based BatchNorm training with pinned CORA semantics
+  ([`3a2beac`](https://github.com/ADA-research/CTRAIN/commit/3a2beac36bace6a2a9259af65c53addcd2abd324))
+
+- Apply GLS regularization to native model parameters
+  ([`3ab3fa0`](https://github.com/ADA-research/CTRAIN/commit/3ab3fa0199ccafce8d3851475ccede90e6f8a21c))
+
+- Bind verification caches to model and input identity
+  ([`2646b41`](https://github.com/ADA-research/CTRAIN/commit/2646b41d4f3947ecf4abf6bb5bd51f643b1d6ac5))
+
+- Differentiate set-based nominal BatchNorm statistics
+  ([`2575ac2`](https://github.com/ADA-research/CTRAIN/commit/2575ac28cc76a7dc99884783897afc445bc413d5))
+
+- Honor model class counts and odd input dimensions
+  ([`9d232a5`](https://github.com/ADA-research/CTRAIN/commit/9d232a5c289f3c6388293a5f4e916e145f10d7ea))
+
+- Preserve PGD counterexamples across attack iterations
+  ([`bd64c89`](https://github.com/ADA-research/CTRAIN/commit/bd64c89946f06d26ea94f7ebe2ceb45ee0f5cde3))
+
+- Preserve PGD dtype and handle Shi regulariser graph variants
+  ([`42eca2c`](https://github.com/ADA-research/CTRAIN/commit/42eca2c36c897e3fe8ff612eef28cec973041a7d))
+
+- Preserve scheduler state in training checkpoints
+  ([`d120c6e`](https://github.com/ADA-research/CTRAIN/commit/d120c6e4d267882001a3f5954cbf3ee73c85c881))
+
+- Repair BoTorch integration and HPO options
+  ([`1d81e7a`](https://github.com/ADA-research/CTRAIN/commit/1d81e7a786e68a716fd2e0dc42cd704b24d0c772))
+
+- Repair epsilon schedule endpoints and resumption
+  ([`6783b45`](https://github.com/ADA-research/CTRAIN/commit/6783b45b261de185c6089ed082b0682b696705f7))
+
+- Repair hybrid training bounds and propagate shared options
+  ([`1eb3dfa`](https://github.com/ADA-research/CTRAIN/commit/1eb3dfafec7d38b2e38b9cafed4674bbb0b3f315))
+
+- Share one bound graph across TAPS and STAPS blocks
+  ([`4a49f17`](https://github.com/ADA-research/CTRAIN/commit/4a49f173e0d8b9b5c0d8a60a4ce5ddf326a69d5d))
+
+- Support short HPO budgets and scheduler-aware checkpoint loading
+  ([`af7e028`](https://github.com/ADA-research/CTRAIN/commit/af7e02846e48f9a39efd24d5c08a5f7264381317))
+
+- Support SMAC initial design API across versions
+  ([`2a86cbd`](https://github.com/ADA-research/CTRAIN/commit/2a86cbd741e9242b6c2b25dcfd1fdb562eb9b5b0))
+
+- Use evaluation transforms for validation holdouts
+  ([`7619629`](https://github.com/ADA-research/CTRAIN/commit/76196296db5bc5305d495ebed160e4bef54fb959))
+
+- Validate ONNX exports against a float64 fallback reference
+  ([`d2f232c`](https://github.com/ADA-research/CTRAIN/commit/d2f232c037df7866e779f2b3eca8c48ff67292c6))
+
+- **crown-ibp**: Correct fused warmup cross entropy
+  ([`891bd80`](https://github.com/ADA-research/CTRAIN/commit/891bd80552dffed8a3d1b7e2558452234b3d91f0))
+
+- **deps**: Update auto_LiRPA compatibility pin
+  ([`723cfe4`](https://github.com/ADA-research/CTRAIN/commit/723cfe4425fae6025e7687ad4531ea1e057b693b))
+
+- **eval**: Preserve state and validate robustness metrics
+  ([`ca368f8`](https://github.com/ADA-research/CTRAIN/commit/ca368f8f6aa63b4479f755abcebe641e84b232a1))
+
+- **training**: Respect loader normalization in epsilon schedules
+  ([`11634cd`](https://github.com/ADA-research/CTRAIN/commit/11634cddc5205c27c2c8ffc2194db465b634a5d3))
+
+### Build System
+
+- Vendor NeuralSAT with provenance and runtime dependencies
+  ([`2e5ccd2`](https://github.com/ADA-research/CTRAIN/commit/2e5ccd2cb94e70d64ad19ae0ed26f2a8e672b73d))
+
+### Chores
+
+- **release**: Bump version to 1.0.0
+  ([`4848bbb`](https://github.com/ADA-research/CTRAIN/commit/4848bbb1111f96c17e8f7e7f1565c5e42480201f))
+
+### Documentation
+
+- Align training and evaluation API examples
+  ([`1160b86`](https://github.com/ADA-research/CTRAIN/commit/1160b8616b7fd64aa5e6f8cec1ab9ab29ea6c217))
+
+- Refresh guides, API reference and tutorials
+  ([`b2d14ba`](https://github.com/ADA-research/CTRAIN/commit/b2d14ba0daef5dc3eb6033429e2483d7e8dddf3d))
+
+### Features
+
+- Add certified training for general output properties
+  ([`33739eb`](https://github.com/ADA-research/CTRAIN/commit/33739ebe5b8cece3c12a76515d0791951efbf6ca))
+
+- Add CNN7 final-downsampling architecture option
+  ([`bf6da65`](https://github.com/ADA-research/CTRAIN/commit/bf6da65fb5d63f9d6f417034f39ec8fe55ab171f))
+
+- Add expressive IBP training with CC-IBP and Exp-IBP
+  ([`8037ded`](https://github.com/ADA-research/CTRAIN/commit/8037dedb4bd2a66cce2898f6a470336aed34e146))
+
+- Add Gaussian loss smoothing training
+  ([`9c44a28`](https://github.com/ADA-research/CTRAIN/commit/9c44a28765e4fa2911c22cf37f6373c3935f9dc9))
+
+- Add IBP-R certified training
+  ([`670e699`](https://github.com/ADA-research/CTRAIN/commit/670e699f2622153b5505f597ac298881db7d9d49))
+
+- Add native PGD teachers and CC-Dist training
+  ([`3dfb5fb`](https://github.com/ADA-research/CTRAIN/commit/3dfb5fb847289696b011e0e7b4ec239162226cac))
+
+- Add portable case studies and documentation notebooks
+  ([`465c91e`](https://github.com/ADA-research/CTRAIN/commit/465c91edc9bbce4261f7640efe1315bdd3478cef))
+
+- Add set-based training and LiRPA forward certification
+  ([`6ce84be`](https://github.com/ADA-research/CTRAIN/commit/6ce84be0849f1f20f1de6cb8d4922cccae450099))
+
+- Expand MNIST property experiments and HPO
+  ([`5851229`](https://github.com/ADA-research/CTRAIN/commit/5851229bce05c0c40f86c1d58fdee0227f4f7e52))
+
+- Expose AutoAttack and alpha-CROWN evaluation options
+  ([`88f7065`](https://github.com/ADA-research/CTRAIN/commit/88f706578a815f6e07a5708a0c655526d96b2087))
+
+- Extend property training with lazy datasets and warm-up
+  ([`b625726`](https://github.com/ADA-research/CTRAIN/commit/b6257264ebe9239d5fa116d4e9a12c00d161d01c))
+
+- Integrate CC-Dist into multi-objective HPO
+  ([`89c0fa1`](https://github.com/ADA-research/CTRAIN/commit/89c0fa123684f2688ca2d196c6d8960d6c731ee7))
+
+- Integrate NeuralSAT and shared complete verification screening
+  ([`e2c3474`](https://github.com/ADA-research/CTRAIN/commit/e2c347429ff27a3feb31dd13fb4719471361082e))
+
+- **train**: Select PGD and CC-Dist validation weights
+  ([`60886a4`](https://github.com/ADA-research/CTRAIN/commit/60886a483929dd2ff4ac37217b603a92158b7694))
+
+### Refactoring
+
+- Remove case studies from library repository
+  ([`6b75643`](https://github.com/ADA-research/CTRAIN/commit/6b756438fd5fed02c57b2869bac56aa99631c68d))
+
+- Unify certified training lifecycle
+  ([`0714f2b`](https://github.com/ADA-research/CTRAIN/commit/0714f2bd2315458226143633e9e404a6551b3371))
+
+- **bound**: Rename zonotope module to set_based_zono
+  ([`822789c`](https://github.com/ADA-research/CTRAIN/commit/822789cca4f35ff2f3715a2c9ee56eff0bd1dd72))
+
+- **data**: Consolidate image loaders
+  ([`d9b08d9`](https://github.com/ADA-research/CTRAIN/commit/d9b08d9ee1bbf98fe59c6b8344ed4bc23ea016e0))
+
+- **eval**: Consolidate certification evaluation
+  ([`2f17d7c`](https://github.com/ADA-research/CTRAIN/commit/2f17d7c002becf07c85fe8d076816945fe8524a7))
+
+- **eval**: Simplify property report fields
+  ([`d51d908`](https://github.com/ADA-research/CTRAIN/commit/d51d9081ea03cbef09f6561317fbebd19b9dc153))
+
+- **train**: Remove obsolete split-network handling
+  ([`0e83e36`](https://github.com/ADA-research/CTRAIN/commit/0e83e360f0a028af02682a93b62214916244de42))
+
+- **wrappers**: Organize implementations by training type
+  ([`8aa1ca8`](https://github.com/ADA-research/CTRAIN/commit/8aa1ca860b38ae71b32c7960180c9c6f3311d9f3))
+
+### Testing
+
+- Add self-contained library suite and CPU CI
+  ([`08412dc`](https://github.com/ADA-research/CTRAIN/commit/08412dc1cfba6f961fca69cbfd6ca803efabcbc8))
+
+- Extend regressions and configure coverage
+  ([`6ae45d4`](https://github.com/ADA-research/CTRAIN/commit/6ae45d49007b96d78caad28c7d3d79b458514c77))
+
+
 ## v0.6.1 (2026-09-01)
 
 ### Bug Fixes
