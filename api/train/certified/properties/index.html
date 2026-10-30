@@ -1,0 +1,4556 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../cc_dist/">
+      
+      
+        <link rel="next" href="../set_based/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>General Properties - CTRAIN Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../assets/stylesheets/main.57a0d79d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#property-training" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../../.." title="CTRAIN Documentation" class="md-header__button md-logo" aria-label="CTRAIN Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CTRAIN Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              General Properties
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../../.." title="CTRAIN Documentation" class="md-nav__button md-logo" aria-label="CTRAIN Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CTRAIN Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../getting_started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../crown_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CROWN-IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../sabr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SABR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../taps_staps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TAPS and STAPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../set_based/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set-Based Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    General Properties
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../ibp_r/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBP-R
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../gls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gaussian Loss Smoothing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../expressive_losses/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Expressive Losses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../cc_dist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CC-Dist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../complete_verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Complete Verification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../guides/data_and_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../guides/training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../guides/checkpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpoints and Model Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../guides/hpo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hyperparameter Optimisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../guides/evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation and Verification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../guides/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_15" id="__nav_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/certified_training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Certified Training with CTRAIN
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/model_evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Evaluation with CTRAIN
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/hyperparameter_optimisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hyperparameter Optimisation with CTRAIN
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/general_properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training for General Output Properties
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/onnx_vnnlib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training an Imported ONNX Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/mnist_arithmetic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arithmetic Consistency on MNIST
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_16_1" id="__nav_16_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    attacks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_16_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    attacks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../attacks/pgd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pgd
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../bound/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bound Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Properties
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_16_4" id="__nav_16_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bound
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_16_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    bound
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../bound/ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ibp
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../bound/crown/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    crown
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../bound/sabr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sabr
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../bound/taps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    taps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../bound/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    General Properties
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../bound/set_based_zono/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set Propagation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_16_5" id="__nav_16_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    complete_verification
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_16_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    complete_verification
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../complete_verification/abCROWN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    abCROWN
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../complete_verification/neuralsat/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NeuralSAT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../data_loaders/data_loaders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_loaders
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_16_7" id="__nav_16_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    eval
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_16_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    eval
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../eval/eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Robustness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../eval/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    General Properties
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_definitions/model_definitions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    model_definitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_16_9" id="__nav_16_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    model_wrappers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_16_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    model_wrappers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/configs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration Spaces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/set_based_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set-Based Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/property_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    General Properties
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/cc_dist_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CC-Dist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/pgd_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PGD Teachers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/crown_ibp_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CROWN IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/expressive_ibp_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Expressive IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/mtl_ibp_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MTL IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/cc_ibp_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CC IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/exp_ibp_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exp IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/ibp_r_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBP-R
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/gls_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GLS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/sabr_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SABR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/shi_ibp_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SHI IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/taps_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TAPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/staps_model_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    STAPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../model_wrappers/ctrain_wrapper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CTRAIN
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_10" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_16_10" id="__nav_16_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    train
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_16_10_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_16_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    train
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_10_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_16_10_1" id="__nav_16_10_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    adversarial
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_16_10_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16_10_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    adversarial
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adversarial/pgd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PGD Teachers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adversarial/losses/pgd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PGD Loss
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_10_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_16_10_2" id="__nav_16_10_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    certified
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_16_10_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_16_10_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    certified
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cc_dist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CC-Dist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    General Properties
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    General Properties
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#CTRAIN.train.certified.properties.property_train_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        property_train_model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trajectory-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trajectory state
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#CTRAIN.train.certified.properties.PropertyTrainingState" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PropertyTrainingState
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../set_based/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set-Based Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ibp_r/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBP-R
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GLS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crown_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CROWN IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sabr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SABR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../taps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TAPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../staps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    STAPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../expressive_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Expressive IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mtl_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MTL-IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cc_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CC-IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../exp_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exp-IBP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../util/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    util
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eps_scheduler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    eps_scheduler
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_10_2_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_16_10_2_17" id="__nav_16_10_2_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    initialisation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_16_10_2_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16_10_2_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    initialisation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../initialisation/shi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    shi
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_10_2_18" >
+        
+          
+          <label class="md-nav__link" for="__nav_16_10_2_18" id="__nav_16_10_2_18_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    regularisers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_16_10_2_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16_10_2_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    regularisers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regularisers/shi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    shi
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regularisers/l1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    l1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16_10_2_19" >
+        
+          
+          <label class="md-nav__link" for="__nav_16_10_2_19" id="__nav_16_10_2_19_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    losses
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_16_10_2_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16_10_2_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    losses
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/cc_dist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CC-Dist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/convex_combinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    convex_combinations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/crown_ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    crown_ibp
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/ibp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ibp
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/ibp_r/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ibp_r
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/sabr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sabr
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/taps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    taps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    General Properties
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/set_based/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set-Based Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../losses/util/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    util
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../util/util/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    util
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#CTRAIN.train.certified.properties.property_train_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        property_train_model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trajectory-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trajectory state
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#CTRAIN.train.certified.properties.PropertyTrainingState" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PropertyTrainingState
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="property-training">Property training</h1>
+<p>This trainer is normally called through
+<a href="../../../model_wrappers/property_model_wrapper/"><code>PropertyModelWrapper</code></a>.
+The <a href="../losses/properties/">property/task losses</a> and
+<a href="../../../eval/properties/">certification functions</a> have separate references.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="CTRAIN.train.certified.properties.property_train_model" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">CTRAIN</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">certified</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">property_train_model</span><span class="p">(</span><span class="n">original_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">train_loader</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">val_loader</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start_epoch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">end_epoch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verification_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">properties</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">task_loss</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lr_scheduler</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_epochs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">training_method</span><span class="o">=</span><span class="s1">'CROWN-IBP'</span><span class="p">,</span> <span class="n">training_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">property_weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">warm_up_epochs</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weight_ramp_epochs</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">property_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">match_property_batch_size</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">refinement</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">split_count</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_cells</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">population_bn</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">property_dataset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">results_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">checkpoint_save_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">configuration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">epoch_metrics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">wrapper</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Optimise task and property losses, then freshly bound the whole cover.</p>
+<p>For each task batch, sample covering cells with replacement according to
+their stored weights. A lazy property dataset instead samples uniformly from
+all its boxes with replacement. Group cells by specification and compute
+lower margins using the selected training strategy. IBP/CROWN use full regions;
+MTL/CC/Exp combine adversarial and IBP components; SABR bounds contained
+subregions; PGD uses adversarial points; IBP-R adds unstable ReLU areas;
+GLS uses its existing Gaussian optimiser with a fixed sampled cover per
+update. Nested disjunctions retain their compiled graph.
+The update minimises::</p>
+<pre><code>mean(task_loss) + property_weight * ramp * mean(sampled_cell_penalties)
+</code></pre>
+<p>The default hinge penalty is <code>sum(max(0, margin - training_margin))</code>;
+cross-entropy uses the padded-margin loss. Training margins may be bounds
+or adversarial point margins, depending on the selected strategy.
+The first <code>warm_up_epochs</code> optimise only the task loss, without sampling or
+evaluating properties. The ramp starts afterward and reaches one after
+<code>weight_ramp_epochs</code>; zero ramp epochs apply the full weight after warm-up.
+Both phases are included in <code>num_epochs</code>. Cells describe whole input regions;
+the strategy chooses its training computation within them. Splitting preserves a parent's total
+sampling weight, so refinement does not overweight difficult regions.</p>
+<p>After each epoch: step the scheduler, optionally recalibrate BatchNorm,
+evaluate every covering cell with the training method's full-box bound
+(IBP for hybrids/adversarial training), optionally split uncertified cells and
+reevaluate, then record history and select/checkpoint weights. Certification
+requires every obligation on every cell to have a finite positive lower
+margin. A negative bound means unresolved, not a proven counterexample.</p>
+<p>All graphs run in evaluation mode with weight gradients enabled, keeping
+BatchNorm statistics fixed during optimiser updates and disabling dropout.
+Caller modes and parameter gradient flags are restored even on failure.</p>
+<p>Shared lifecycle arguments have the same meaning as in classifier trainers.
+<code>state</code> holds the partition, completed epoch, history, selection and loader
+RNG state; the trainer updates it in place. Models, bounds, losses and method
+options are explicit computational inputs. <code>configuration</code> is required for
+checkpointing so incompatible resumes can be rejected.</p>
+<p>The legacy <code>property_train_model(wrapper, loader, ...)</code> entry point remains
+supported, including the <code>wrapper=</code> keyword. New integrations should pass
+the task model and explicit inputs, as PropertyModelWrapper does.</p>
+<p>Returns the task model, restoring inference-selected weights only when a
+validation loader is supplied. Checkpoints precede that restoration.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>CTRAIN/train/certified/properties.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span>
+<span class="normal">352</span>
+<span class="normal">353</span>
+<span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span>
+<span class="normal">374</span>
+<span class="normal">375</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">property_train_model</span><span class="p">(</span><span class="n">original_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">train_loader</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">val_loader</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                         <span class="n">start_epoch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">end_epoch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                         <span class="n">verification_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">properties</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">task_loss</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                         <span class="n">optimizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lr_scheduler</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_epochs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                         <span class="n">training_method</span><span class="o">=</span><span class="s1">'CROWN-IBP'</span><span class="p">,</span> <span class="n">training_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                         <span class="n">property_weight</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">warm_up_epochs</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                         <span class="n">weight_ramp_epochs</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">property_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+                         <span class="n">match_property_batch_size</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">refinement</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                         <span class="n">split_count</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_cells</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+                         <span class="n">population_bn</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">property_dataset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                         <span class="n">results_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">checkpoint_save_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                         <span class="n">configuration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">epoch_metrics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">wrapper</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Optimise task and property losses, then freshly bound the whole cover.</span>
+
+<span class="sd">    For each task batch, sample covering cells with replacement according to</span>
+<span class="sd">    their stored weights. A lazy property dataset instead samples uniformly from</span>
+<span class="sd">    all its boxes with replacement. Group cells by specification and compute</span>
+<span class="sd">    lower margins using the selected training strategy. IBP/CROWN use full regions;</span>
+<span class="sd">    MTL/CC/Exp combine adversarial and IBP components; SABR bounds contained</span>
+<span class="sd">    subregions; PGD uses adversarial points; IBP-R adds unstable ReLU areas;</span>
+<span class="sd">    GLS uses its existing Gaussian optimiser with a fixed sampled cover per</span>
+<span class="sd">    update. Nested disjunctions retain their compiled graph.</span>
+<span class="sd">    The update minimises::</span>
+
+<span class="sd">        mean(task_loss) + property_weight * ramp * mean(sampled_cell_penalties)</span>
+
+<span class="sd">    The default hinge penalty is `sum(max(0, margin - training_margin))`;</span>
+<span class="sd">    cross-entropy uses the padded-margin loss. Training margins may be bounds</span>
+<span class="sd">    or adversarial point margins, depending on the selected strategy.</span>
+<span class="sd">    The first `warm_up_epochs` optimise only the task loss, without sampling or</span>
+<span class="sd">    evaluating properties. The ramp starts afterward and reaches one after</span>
+<span class="sd">    `weight_ramp_epochs`; zero ramp epochs apply the full weight after warm-up.</span>
+<span class="sd">    Both phases are included in `num_epochs`. Cells describe whole input regions;</span>
+<span class="sd">    the strategy chooses its training computation within them. Splitting preserves a parent's total</span>
+<span class="sd">    sampling weight, so refinement does not overweight difficult regions.</span>
+
+<span class="sd">    After each epoch: step the scheduler, optionally recalibrate BatchNorm,</span>
+<span class="sd">    evaluate every covering cell with the training method's full-box bound</span>
+<span class="sd">    (IBP for hybrids/adversarial training), optionally split uncertified cells and</span>
+<span class="sd">    reevaluate, then record history and select/checkpoint weights. Certification</span>
+<span class="sd">    requires every obligation on every cell to have a finite positive lower</span>
+<span class="sd">    margin. A negative bound means unresolved, not a proven counterexample.</span>
+
+<span class="sd">    All graphs run in evaluation mode with weight gradients enabled, keeping</span>
+<span class="sd">    BatchNorm statistics fixed during optimiser updates and disabling dropout.</span>
+<span class="sd">    Caller modes and parameter gradient flags are restored even on failure.</span>
+
+<span class="sd">    Shared lifecycle arguments have the same meaning as in classifier trainers.</span>
+<span class="sd">    ``state`` holds the partition, completed epoch, history, selection and loader</span>
+<span class="sd">    RNG state; the trainer updates it in place. Models, bounds, losses and method</span>
+<span class="sd">    options are explicit computational inputs. ``configuration`` is required for</span>
+<span class="sd">    checkpointing so incompatible resumes can be rejected.</span>
+
+<span class="sd">    The legacy ``property_train_model(wrapper, loader, ...)`` entry point remains</span>
+<span class="sd">    supported, including the ``wrapper=`` keyword. New integrations should pass</span>
+<span class="sd">    the task model and explicit inputs, as PropertyModelWrapper does.</span>
+
+<span class="sd">    Returns the task model, restoring inference-selected weights only when a</span>
+<span class="sd">    validation loader is supplied. Checkpoints precede that restoration.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">wrapper</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">original_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Pass original_model or legacy wrapper, not both'</span><span class="p">)</span>
+        <span class="n">original_model</span> <span class="o">=</span> <span class="n">wrapper</span>
+    <span class="k">if</span> <span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">original_model</span><span class="p">,</span> <span class="s1">'bounds'</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">original_model</span><span class="o">.</span><span class="n">train_model</span><span class="p">(</span><span class="n">train_loader</span><span class="p">,</span> <span class="n">val_loader</span><span class="p">,</span> <span class="n">start_epoch</span><span class="p">,</span> <span class="n">end_epoch</span><span class="p">,</span>
+                                          <span class="n">epoch_metrics</span><span class="o">=</span><span class="n">epoch_metrics</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">optimizer</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">task_loss</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">PropertyTrainingState</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'bounds, optimizer, task_loss and PropertyTrainingState are required'</span><span class="p">)</span>
+    <span class="n">verification_model</span> <span class="o">=</span> <span class="n">bounds</span><span class="o">.</span><span class="n">model</span> <span class="k">if</span> <span class="n">verification_model</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">verification_model</span>
+    <span class="n">properties</span> <span class="o">=</span> <span class="n">bounds</span><span class="o">.</span><span class="n">specs</span> <span class="k">if</span> <span class="n">properties</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">properties</span>
+    <span class="n">reference</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">original_model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">reference</span><span class="o">.</span><span class="n">is_floating_point</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Task model requires floating-point trainable parameters'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bounds</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">verification_model</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">m</span> <span class="ow">is</span> <span class="n">original_model</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">verification_model</span><span class="o">.</span><span class="n">modules</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Bounds and verification_model must share the supplied task model'</span><span class="p">)</span>
+    <span class="n">training_method</span><span class="p">,</span> <span class="n">training_options</span> <span class="o">=</span> <span class="n">resolve_training_options</span><span class="p">(</span><span class="n">training_method</span><span class="p">,</span> <span class="n">training_options</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">training_method</span> <span class="o">==</span> <span class="s1">'GLS'</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CTRAIN.train.certified.gls</span><span class="w"> </span><span class="kn">import</span> <span class="n">GLSOptimizer</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">GLSOptimizer</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'GLS property training requires GLSOptimizer'</span><span class="p">)</span>
+    <span class="n">selection_bound_method</span> <span class="o">=</span> <span class="p">(</span><span class="n">training_method</span> <span class="k">if</span> <span class="n">training_method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'IBP'</span><span class="p">,</span> <span class="s1">'CROWN'</span><span class="p">,</span> <span class="s1">'CROWN-IBP'</span><span class="p">)</span>
+                              <span class="k">else</span> <span class="n">training_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'bound_method'</span><span class="p">,</span> <span class="s1">'IBP'</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">results_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">configuration</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Checkpointing requires the property/training configuration'</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">dict</span><span class="p">(</span><span class="n">warm_up_epochs</span><span class="o">=</span><span class="n">warm_up_epochs</span><span class="p">,</span> <span class="n">weight_ramp_epochs</span><span class="o">=</span><span class="n">weight_ramp_epochs</span><span class="p">,</span>
+                            <span class="n">max_depth</span><span class="o">=</span><span class="n">max_depth</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">int</span> <span class="ow">or</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1"> must be a nonnegative integer'</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">dict</span><span class="p">(</span><span class="n">property_batch_size</span><span class="o">=</span><span class="n">property_batch_size</span><span class="p">,</span> <span class="n">split_count</span><span class="o">=</span><span class="n">split_count</span><span class="p">,</span>
+                            <span class="n">max_cells</span><span class="o">=</span><span class="n">max_cells</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">int</span> <span class="ow">or</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1"> must be a positive integer'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">property_weight</span><span class="p">)</span> <span class="ow">or</span> <span class="n">property_weight</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">margin</span><span class="p">)</span> <span class="ow">or</span> <span class="n">margin</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'property_weight must be nonnegative finite and margin positive finite'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">epoch_metrics</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">epoch_metrics</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'epoch_metrics must be callable'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">inference_selected</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Load an epoch checkpoint before resuming a validation-selected model'</span><span class="p">)</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">epoch</span> <span class="k">if</span> <span class="n">start_epoch</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">start_epoch</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">num_epochs</span> <span class="k">if</span> <span class="n">end_epoch</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">end_epoch</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">validate_training_run</span><span class="p">(</span><span class="n">train_loader</span><span class="p">,</span> <span class="n">num_epochs</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">checkpoint_save_interval</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">warm_up_epochs</span> <span class="o">+</span> <span class="n">weight_ramp_epochs</span> <span class="o">&gt;</span> <span class="n">num_epochs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Warm-up and weight ramp must fit num_epochs'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">val_loader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">val_loader</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Validation loader must not be empty'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">property_dataset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">validate_partition</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">partition</span><span class="p">,</span> <span class="n">properties</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">properties</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">refinement</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">property_dataset</span><span class="p">)</span> <span class="ow">or</span> <span class="n">state</span><span class="o">.</span><span class="n">partition</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'A lazy property dataset requires one formula, nonempty boxes and no refinement/partition'</span><span class="p">)</span>
+    <span class="n">output_path</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">results_path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Path</span><span class="p">(</span><span class="n">results_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">start</span> <span class="o">!=</span> <span class="n">state</span><span class="o">.</span><span class="n">epoch</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Resume with load_checkpoint rather than skipping optimizer/partition state'</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">loader_rng</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">train_loader</span><span class="o">.</span><span class="n">generator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Resumed checkpoint requires a loader with its own generator'</span><span class="p">)</span>
+        <span class="n">train_loader</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">loader_rng</span><span class="p">)</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">loader_rng</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">models</span> <span class="o">=</span> <span class="p">(</span><span class="n">original_model</span><span class="p">,</span> <span class="n">verification_model</span><span class="p">,</span> <span class="o">*</span><span class="n">bounds</span><span class="o">.</span><span class="n">modules</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">preserve_model_state</span><span class="p">(</span><span class="o">*</span><span class="n">models</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">models</span><span class="p">:</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>  <span class="c1"># fixed-statistics, deterministic property training</span>
+        <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+            <span class="n">metrics</span> <span class="o">=</span> <span class="n">EpochMetrics</span><span class="p">()</span>
+            <span class="k">with</span> <span class="n">progress_bar</span><span class="p">(</span><span class="n">train_loader</span><span class="p">,</span> <span class="n">epoch</span><span class="p">,</span> <span class="n">num_epochs</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span>
+                              <span class="n">method</span><span class="o">=</span><span class="sa">f</span><span class="s1">'Properties </span><span class="si">{</span><span class="n">training_method</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span> <span class="k">as</span> <span class="n">progress</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">batch_index</span><span class="p">,</span> <span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">progress</span><span class="p">):</span>
+                    <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">(</span><span class="n">set_to_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="n">fraction</span> <span class="o">=</span> <span class="n">linear_schedule_fraction</span><span class="p">(</span><span class="n">epoch</span><span class="p">,</span> <span class="n">batch_index</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_loader</span><span class="p">),</span>
+                                                        <span class="n">warm_up_epochs</span><span class="p">,</span> <span class="n">weight_ramp_epochs</span><span class="p">,</span>
+                                                        <span class="n">at_batch_end</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="n">property_active</span> <span class="o">=</span> <span class="n">property_weight</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">fraction</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                    <span class="n">sample_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">if</span> <span class="n">match_property_batch_size</span> <span class="k">else</span> <span class="n">property_batch_size</span>
+                    <span class="n">batch_boxes</span><span class="p">,</span> <span class="n">sampled</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="p">[]</span>
+                    <span class="k">if</span> <span class="n">property_active</span> <span class="ow">and</span> <span class="n">property_dataset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">weights</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">c</span><span class="p">[</span><span class="s1">'probability'</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">partition</span><span class="p">])</span>
+                        <span class="n">sampled</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">multinomial</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">sample_count</span><span class="p">,</span> <span class="n">replacement</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                        <span class="n">batch_boxes</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">elif</span> <span class="n">property_active</span><span class="p">:</span>
+                        <span class="c1"># Uniform sampling with replacement from the entire lazy</span>
+                        <span class="c1"># box pool, independently of the current task batch.</span>
+                        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">property_dataset</span><span class="p">),</span>
+                                                <span class="p">(</span><span class="n">sample_count</span><span class="p">,))</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                        <span class="n">batch_boxes</span> <span class="o">=</span> <span class="p">[</span><span class="n">property_dataset</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">]</span>
+                    <span class="k">def</span><span class="w"> </span><span class="nf">closure</span><span class="p">():</span>
+                        <span class="n">output</span> <span class="o">=</span> <span class="n">original_model</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">reference</span><span class="p">))</span>
+                        <span class="n">labels</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">reference</span><span class="p">)</span> <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">is_floating_point</span><span class="p">()</span> <span class="k">else</span> <span class="n">target</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">reference</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+                        <span class="n">task</span> <span class="o">=</span> <span class="n">task_loss</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+                        <span class="n">property_term</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">new_zeros</span><span class="p">(())</span>
+                        <span class="k">if</span> <span class="n">batch_boxes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">property_term</span> <span class="o">=</span> <span class="n">compute_property_training_loss</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">batch_boxes</span><span class="p">,</span>
+                                <span class="n">verification_model</span><span class="o">=</span><span class="n">verification_model</span><span class="p">,</span> <span class="n">training_method</span><span class="o">=</span><span class="n">training_method</span><span class="p">,</span>
+                                <span class="n">training_options</span><span class="o">=</span><span class="n">training_options</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">properties</span><span class="p">))</span> <span class="k">if</span> <span class="n">property_active</span> <span class="ow">and</span> <span class="n">batch_boxes</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">()):</span>
+                            <span class="n">cells</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="o">.</span><span class="n">partition</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sampled</span> <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">partition</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">'property'</span><span class="p">]</span> <span class="o">==</span> <span class="n">p</span><span class="p">]</span>
+                            <span class="k">if</span> <span class="n">cells</span><span class="p">:</span>
+                                <span class="n">term</span> <span class="o">=</span> <span class="n">compute_property_training_loss</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s1">'box'</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">],</span>
+                                    <span class="n">verification_model</span><span class="o">=</span><span class="n">verification_model</span><span class="p">,</span> <span class="n">training_method</span><span class="o">=</span><span class="n">training_method</span><span class="p">,</span>
+                                    <span class="n">training_options</span><span class="o">=</span><span class="n">training_options</span><span class="p">,</span> <span class="n">margin</span><span class="o">=</span><span class="n">margin</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">)</span>
+                                <span class="n">property_term</span> <span class="o">=</span> <span class="n">property_term</span> <span class="o">+</span> <span class="n">term</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">sampled</span><span class="p">)</span>
+                        <span class="n">loss</span> <span class="o">=</span> <span class="n">task</span> <span class="o">+</span> <span class="n">property_weight</span> <span class="o">*</span> <span class="n">fraction</span> <span class="o">*</span> <span class="n">property_term</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">loss</span><span class="p">):</span>
+                            <span class="k">raise</span> <span class="ne">FloatingPointError</span><span class="p">(</span><span class="s1">'Non-finite task/property training loss'</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">property_term</span>
+                    <span class="k">if</span> <span class="n">training_method</span> <span class="o">==</span> <span class="s1">'GLS'</span><span class="p">:</span>
+                        <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">closure</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+                        <span class="c1"># Record centre-model components after the Gaussian update.</span>
+                        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                            <span class="n">loss</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">property_term</span> <span class="o">=</span> <span class="n">closure</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">loss</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">property_term</span> <span class="o">=</span> <span class="n">closure</span><span class="p">()</span>
+                        <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">grad</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">grad</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+                               <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">original_model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()):</span>
+                            <span class="k">raise</span> <span class="ne">FloatingPointError</span><span class="p">(</span><span class="s1">'Non-finite property-training gradients'</span><span class="p">)</span>
+                        <span class="n">clip</span> <span class="o">=</span> <span class="n">training_options</span><span class="p">[</span><span class="s1">'gradient_clip'</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">clip</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">nn</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">clip_grad_norm_</span><span class="p">(</span><span class="n">original_model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">clip</span><span class="p">)</span>
+                        <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+                    <span class="n">metrics</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="n">loss</span><span class="o">=</span><span class="n">loss</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="n">task_loss</span><span class="o">=</span><span class="n">task</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span>
+                                   <span class="n">property_loss</span><span class="o">=</span><span class="n">property_term</span><span class="o">.</span><span class="n">detach</span><span class="p">())</span>
+                    <span class="n">progress</span><span class="o">.</span><span class="n">set_postfix</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">metrics</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="s2">"task_loss"</span><span class="p">)</span><span class="si">:</span><span class="s1">.4g</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span>
+                                         <span class="nb">property</span><span class="o">=</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">metrics</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="s2">"property_loss"</span><span class="p">)</span><span class="si">:</span><span class="s1">.4g</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span> <span class="n">refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">_recalibrate</span><span class="p">(</span><span class="n">original_model</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">reference</span><span class="p">,</span> <span class="n">population_bn</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">lr_scheduler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">lr_scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="n">options</span> <span class="o">=</span> <span class="n">training_options</span>
+            <span class="k">if</span> <span class="n">training_method</span> <span class="o">==</span> <span class="s1">'GLS'</span> <span class="ow">and</span> <span class="n">epoch</span> <span class="o">+</span> <span class="mi">1</span> <span class="ow">in</span> <span class="n">options</span><span class="p">[</span><span class="s1">'sigma_decay_milestones'</span><span class="p">]:</span>
+                <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                    <span class="k">for</span> <span class="n">scale</span> <span class="ow">in</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">scales</span><span class="p">:</span>
+                        <span class="n">scale</span><span class="o">.</span><span class="n">mul_</span><span class="p">(</span><span class="n">options</span><span class="p">[</span><span class="s1">'sigma_decay_factor'</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">epoch</span> <span class="o">&lt;</span> <span class="n">warm_up_epochs</span><span class="p">:</span>
+                <span class="c1"># Warm-up is task-only, including diagnostics and refinement.</span>
+                <span class="n">minimum</span><span class="p">,</span> <span class="n">certified</span> <span class="o">=</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="s1">'inf'</span><span class="p">),</span> <span class="kc">None</span>
+                <span class="n">certified_count</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">cell_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">property_dataset</span><span class="p">)</span> <span class="k">if</span> <span class="n">property_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">partition</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">property_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">coverage</span> <span class="o">=</span> <span class="n">evaluate_property_dataset</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="n">property_dataset</span><span class="p">,</span> <span class="n">selection_bound_method</span><span class="p">,</span> <span class="n">property_batch_size</span><span class="p">)</span>
+                <span class="n">minimum</span> <span class="o">=</span> <span class="n">coverage</span><span class="p">[</span><span class="s1">'minimum_lower_bound'</span><span class="p">]</span>
+                <span class="n">minimum</span> <span class="o">=</span> <span class="n">minimum</span> <span class="k">if</span> <span class="n">minimum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="s1">'inf'</span><span class="p">)</span>
+                <span class="n">certified</span><span class="p">,</span> <span class="n">cell_count</span> <span class="o">=</span> <span class="n">coverage</span><span class="p">[</span><span class="s1">'certified'</span><span class="p">],</span> <span class="n">coverage</span><span class="p">[</span><span class="s1">'total_boxes'</span><span class="p">]</span>
+                <span class="n">certified_count</span> <span class="o">=</span> <span class="n">coverage</span><span class="p">[</span><span class="s1">'certified_count'</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">rows</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">evaluate_cells</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">partition</span><span class="p">,</span> <span class="n">selection_bound_method</span><span class="p">,</span>
+                                         <span class="n">property_batch_size</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">refinement</span><span class="p">:</span>
+                    <span class="n">state</span><span class="o">.</span><span class="n">partition</span> <span class="o">=</span> <span class="n">refine_partition</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">partition</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span>
+                        <span class="n">split_count</span><span class="p">,</span> <span class="n">max_cells</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">)</span>
+                    <span class="n">rows</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">evaluate_cells</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">partition</span><span class="p">,</span> <span class="n">selection_bound_method</span><span class="p">,</span>
+                                             <span class="n">property_batch_size</span><span class="p">)</span>
+                <span class="n">minimum</span> <span class="o">=</span> <span class="nb">min</span><span class="p">((</span><span class="n">r</span><span class="p">[</span><span class="s1">'minimum_lower_bound'</span><span class="p">]</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="s1">'minimum_lower_bound'</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                               <span class="k">else</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="s1">'inf'</span><span class="p">))</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">)</span>
+                <span class="n">certified</span><span class="p">,</span> <span class="n">cell_count</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s1">'outcome'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'certified'</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+                <span class="n">certified_count</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s1">'outcome'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'certified'</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">)</span>
+            <span class="n">valid</span> <span class="o">=</span> <span class="n">_task_value</span><span class="p">(</span><span class="n">original_model</span><span class="p">,</span> <span class="n">task_loss</span><span class="p">,</span> <span class="n">val_loader</span><span class="p">,</span> <span class="n">reference</span><span class="p">)</span> <span class="k">if</span> <span class="n">val_loader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">val_loader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">epoch</span> <span class="o">&gt;=</span> <span class="n">warm_up_epochs</span>
+                    <span class="ow">and</span> <span class="n">epoch</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;=</span> <span class="n">warm_up_epochs</span> <span class="o">+</span> <span class="n">weight_ramp_epochs</span><span class="p">):</span>
+                <span class="c1"># Prefer a complete certificate over any partial-cover score.</span>
+                <span class="n">score</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">certified</span><span class="p">),</span> <span class="o">-</span><span class="n">valid</span> <span class="k">if</span> <span class="n">certified</span> <span class="k">else</span> <span class="n">minimum</span><span class="p">,</span> <span class="o">-</span><span class="n">valid</span><span class="p">)</span>
+                <span class="n">update_model_selection</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">selection_state</span><span class="p">,</span> <span class="n">original_model</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span> <span class="n">epoch</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                                       <span class="n">allow_negative_infinity</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">epoch</span> <span class="o">=</span> <span class="n">epoch</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">epoch</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">epoch</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="n">metrics</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="s2">"loss"</span><span class="p">),</span>
+                         <span class="n">task_loss</span><span class="o">=</span><span class="n">metrics</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="s2">"task_loss"</span><span class="p">),</span> <span class="n">property_loss</span><span class="o">=</span><span class="n">metrics</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="s2">"property_loss"</span><span class="p">),</span>
+                         <span class="n">validation_loss</span><span class="o">=</span><span class="n">valid</span><span class="p">,</span>
+                         <span class="n">phase</span><span class="o">=</span><span class="p">(</span><span class="s1">'warm_up'</span> <span class="k">if</span> <span class="n">epoch</span> <span class="o">&lt;</span> <span class="n">warm_up_epochs</span> <span class="k">else</span>
+                                <span class="s1">'weight_ramp'</span> <span class="k">if</span> <span class="n">epoch</span> <span class="o">&lt;</span> <span class="n">warm_up_epochs</span> <span class="o">+</span> <span class="n">weight_ramp_epochs</span>
+                                <span class="k">else</span> <span class="s1">'full_weight'</span><span class="p">),</span>
+                         <span class="n">effective_property_weight</span><span class="o">=</span><span class="n">property_weight</span> <span class="o">*</span> <span class="n">fraction</span><span class="p">,</span>
+                         <span class="n">property_evaluated</span><span class="o">=</span><span class="n">epoch</span> <span class="o">&gt;=</span> <span class="n">warm_up_epochs</span><span class="p">,</span>
+                         <span class="n">certified</span><span class="o">=</span><span class="n">certified</span><span class="p">,</span> <span class="n">cells</span><span class="o">=</span><span class="n">cell_count</span><span class="p">,</span>
+                         <span class="n">certified_count</span><span class="o">=</span><span class="n">certified_count</span><span class="p">,</span>
+                         <span class="n">certified_fraction</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">certified_count</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">certified_count</span> <span class="o">/</span> <span class="n">cell_count</span><span class="p">,</span>
+                         <span class="n">minimum_lower_bound</span><span class="o">=</span><span class="n">minimum</span> <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">minimum</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">epoch_metrics</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">(),</span> <span class="n">preserve_model_state</span><span class="p">(</span><span class="n">original_model</span><span class="p">):</span>
+                    <span class="n">original_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+                    <span class="n">entry</span><span class="p">[</span><span class="s1">'metrics'</span><span class="p">]</span> <span class="o">=</span> <span class="n">epoch_metrics</span><span class="p">(</span><span class="n">original_model</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s1">'metrics'</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'epoch_metrics must return a metrics dict'</span><span class="p">)</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s1">'metrics'</span><span class="p">],</span> <span class="n">allow_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+            <span class="n">certificate</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'not evaluated (warm-up)'</span> <span class="k">if</span> <span class="n">certified_count</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span>
+                           <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">certified_count</span><span class="si">}</span><span class="s1">/</span><span class="si">{</span><span class="n">cell_count</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s2">"certified_fraction"</span><span class="p">]</span><span class="si">:</span><span class="s1">.1%</span><span class="si">}</span><span class="s1">)'</span><span class="p">)</span>
+            <span class="n">diagnostics</span> <span class="o">=</span> <span class="s1">' '</span> <span class="o">+</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s1">'metrics'</span><span class="p">],</span> <span class="n">allow_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">if</span> <span class="s1">'metrics'</span> <span class="ow">in</span> <span class="n">entry</span> <span class="k">else</span> <span class="s1">''</span>
+            <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Property epoch </span><span class="si">{</span><span class="n">state</span><span class="o">.</span><span class="n">epoch</span><span class="si">}</span><span class="s1">/</span><span class="si">{</span><span class="n">num_epochs</span><span class="si">}</span><span class="s1">: task=</span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s2">"task_loss"</span><span class="p">]</span><span class="si">:</span><span class="s1">.6g</span><span class="si">}</span><span class="s1"> '</span>
+                       <span class="sa">f</span><span class="s1">'property=</span><span class="si">{</span><span class="n">entry</span><span class="p">[</span><span class="s2">"property_loss"</span><span class="p">]</span><span class="si">:</span><span class="s1">.6g</span><span class="si">}</span><span class="s1"> certified=</span><span class="si">{</span><span class="n">certificate</span><span class="si">}{</span><span class="n">diagnostics</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">output_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">output_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">history_path</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="s1">'history.json'</span>
+                <span class="n">temporary</span> <span class="o">=</span> <span class="n">history_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s1">'.json.tmp'</span><span class="p">)</span>
+                <span class="n">temporary</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">history</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">allow_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+                <span class="n">temporary</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">history_path</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">output_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+                    <span class="n">checkpoint_due</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">epoch</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">checkpoint_save_interval</span><span class="p">)):</span>
+                <span class="n">save_property_checkpoint</span><span class="p">(</span><span class="n">output_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">state</span><span class="o">.</span><span class="n">epoch</span><span class="si">}</span><span class="s1">_checkpoint.pt'</span><span class="p">,</span> <span class="n">original_model</span><span class="p">,</span>
+                    <span class="n">optimizer</span><span class="p">,</span> <span class="n">lr_scheduler</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">configuration</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">val_loader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">restore_model_selection</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">selection_state</span><span class="p">,</span> <span class="n">original_model</span><span class="p">):</span>
+            <span class="n">bounds</span><span class="o">.</span><span class="n">sync_buffers</span><span class="p">()</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">inference_selected</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="n">original_model</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div><h2 id="trajectory-state">Trajectory state</h2>
+<p>Direct trainer callers supply this state alongside explicit models, bounds,
+losses and optimizer. <code>PropertyModelWrapper</code> maintains the same state internally.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<a id="CTRAIN.train.certified.properties.PropertyTrainingState"></a>
+    <div class="doc doc-contents first">
+
+
+
+        <p>Retain the state required to continue a property-training trajectory.</p>
+<p>The trainer updates the covering partition, completed epoch count, history
+and validation selection in place. A wrapper can expose these fields without
+owning the numerical training procedure.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="CTRAIN.train.certified.properties.PropertyTrainingState.partition">partition</span></code></td>
+            <td>
+                  <code><span title="list">list</span>[<span title="dict">dict</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Covering cells, split lineages and sampling probabilities.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="CTRAIN.train.certified.properties.PropertyTrainingState.epoch">epoch</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of completed epochs.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="CTRAIN.train.certified.properties.PropertyTrainingState.history">history</span></code></td>
+            <td>
+                  <code><span title="list">list</span>[<span title="dict">dict</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-epoch task losses, property losses and cover diagnostics.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="CTRAIN.train.certified.properties.PropertyTrainingState.selection_state">selection_state</span></code></td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Best validation score, inference weights and selected epoch.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="CTRAIN.train.certified.properties.PropertyTrainingState.inference_selected">inference_selected</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether selected inference weights have replaced trajectory weights.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="CTRAIN.train.certified.properties.PropertyTrainingState.loader_rng">loader_rng</span></code></td>
+            <td>
+                  <code><span title="object">object</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pending loader-generator state for checkpoint resumption.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+              <details class="mkdocstrings-source">
+                <summary>Source code in <code>CTRAIN/train/certified/properties.py</code></summary>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PropertyTrainingState</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Retain the state required to continue a property-training trajectory.</span>
+
+<span class="sd">    The trainer updates the covering partition, completed epoch count, history</span>
+<span class="sd">    and validation selection in place. A wrapper can expose these fields without</span>
+<span class="sd">    owning the numerical training procedure.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        partition (list[dict]): Covering cells, split lineages and sampling probabilities.</span>
+<span class="sd">        epoch (int): Number of completed epochs.</span>
+<span class="sd">        history (list[dict]): Per-epoch task losses, property losses and cover diagnostics.</span>
+<span class="sd">        selection_state (dict): Best validation score, inference weights and selected epoch.</span>
+<span class="sd">        inference_selected (bool): Whether selected inference weights have replaced trajectory weights.</span>
+<span class="sd">        loader_rng (object): Pending loader-generator state for checkpoint resumption.</span>
+<span class="sd">    """</span>
+    <span class="n">partition</span><span class="p">:</span> <span class="nb">list</span>
+    <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">history</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">selection_state</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">inference_selected</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">loader_rng</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span>
+</code></pre></div></td></tr></table></div>
+              </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": [], "search": "../../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  <script data-mkdocs-jupyter-mathjax="{&quot;url&quot;: &quot;https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.js&quot;, &quot;version&quot;: 4}">
+/* Shared by full pages and Material's instant navigation. */
+(() => {
+  const config = JSON.parse(document.currentScript.dataset.mkdocsJupyterMathjax);
+  if (window.mkdocsJupyterMathJax) return;
+
+  let loading;
+  let queue = Promise.resolve();
+  let previous = [];
+
+  const ready = async () => {
+    if (!loading) {
+      loading = (async () => {
+        let math = window.MathJax;
+        if (!math?.typesetPromise) {
+          const url = new URL(config.url, document.baseURI).href;
+          const existing = Array.from(document.scripts).find(script =>
+            script.src && (script.src === url || script.id === 'MathJax-script' ||
+              (/mathjax/i.test(script.src) &&
+               /\/(?:MathJax|latest|(?:tex|mml)(?:-mml)?-(?:chtml|svg))\.js(?:[?#]|$)/i.test(script.src))));
+          if (existing) {
+            if (!math?.startup?.promise) {
+              await new Promise((resolve, reject) => {
+                existing.addEventListener('load', resolve, { once: true });
+                existing.addEventListener('error', reject, { once: true });
+              });
+            }
+          } else {
+            // Keep site macros, delimiters and startup hooks when supplied.
+            const options = math || {};
+            window.MathJax = {
+              ...options,
+              loader: {
+                ...options.loader,
+                load: Array.from(new Set(['ui/safe', ...(options.loader?.load || [])]))
+              },
+              startup: { typeset: false, ...options.startup },
+              tex: {
+                tags: 'ams',
+                useLabelIds: true,
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true,
+                ...options.tex
+              }
+            };
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = config.url;
+              script.id = 'MathJax-script';
+              script.async = true;
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+          }
+        }
+        math = window.MathJax;
+        await math.startup.promise;
+        return math;
+      })();
+    }
+    const math = await loading;
+    // A site owner can extend the v3 queue again on each navigation.
+    await math.startup.promise;
+    return math;
+  };
+
+  const unrendered = node => {
+    if (node.matches('mjx-container')) return [];
+    if (!node.querySelector('mjx-container')) return [node];
+    // In v3, scanning generated assistive MathML again produces nested output.
+    return Array.from(node.children).flatMap(unrendered);
+  };
+
+  const refresh = () => {
+    // A separate chain also serializes v3, without changing v4's startup promise.
+    queue = queue.then(async () => {
+      const notebooks = Array.from(document.querySelectorAll('.jupyter-wrapper'));
+      if (!notebooks.length && !previous.length) return;
+      if (notebooks.length === previous.length &&
+          notebooks.every((node, index) => node === previous[index])) return;
+      const math = await ready();
+      if (previous.length) {
+        math.typesetClear(previous);
+        math.texReset();
+      }
+      previous = notebooks.filter(node => node.isConnected);
+      const pending = previous.flatMap(unrendered);
+      if (pending.length) await math.typesetPromise(pending);
+    }).catch(error => console.error('mkdocs-jupyter: MathJax rendering failed', error));
+    return queue;
+  };
+
+  window.mkdocsJupyterMathJax = { refresh };
+  const start = () => {
+    if (typeof document$ !== 'undefined') document$.subscribe(refresh);
+    else refresh();
+  };
+  // Theme bundles and user-provided MathJax scripts can follow notebook content.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else start();
+})();
+
+</script>
+</body>
+</html>
